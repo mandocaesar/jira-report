@@ -1,0 +1,50 @@
+import { NextResponse } from 'next/server';
+import { createJiraClient } from '@/lib/jira-client';
+import { calculateSprintUtilization } from '@/lib/utilization-calculator';
+
+export async function GET(
+    request: Request,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    try {
+        const { id } = await params;
+        const sprintId = parseInt(id, 10);
+
+        if (isNaN(sprintId)) {
+            return NextResponse.json(
+                { success: false, error: 'Invalid sprint ID' },
+                { status: 400 }
+            );
+        }
+
+        // Get optional boardId for team filtering
+        const { searchParams } = new URL(request.url);
+        const boardId = searchParams.get('boardId');
+
+        const jiraClient = createJiraClient();
+
+        // Fetch sprint details and issues in parallel
+        const [sprint, issues] = await Promise.all([
+            jiraClient.getSprint(sprintId),
+            jiraClient.getSprintIssues(sprintId, boardId ? parseInt(boardId, 10) : undefined),
+        ]);
+
+        // Calculate utilization
+        const utilization = await calculateSprintUtilization(sprint, issues);
+
+        return NextResponse.json({
+            success: true,
+            data: utilization,
+        });
+    } catch (error) {
+        console.error('Error fetching sprint details:', error);
+
+        return NextResponse.json(
+            {
+                success: false,
+                error: error instanceof Error ? error.message : 'Failed to fetch sprint details',
+            },
+            { status: 500 }
+        );
+    }
+}

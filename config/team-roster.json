@@ -1,0 +1,166 @@
+{
+    "teams": {
+        "7efef071-f9fd-459a-a25c-b5fae4dbdeb9": {
+            "name": "Fund Transfer",
+            "boardId": 3816,
+            "members": [
+                {
+                    "accountId": "712020:117de042-09d8-4b10-9f22-c291006a0b49",
+                    "name": "Calvin Hartanto Honggare",
+                    "email": "calvin.h.honggare@banksinarmas.com",
+                    "role": "engineer",
+                    "title": "Sec Head"
+                },
+                {
+                    "accountId": "712020:effc8382-48dc-4b11-8d40-fc1cbf4d8c8a",
+                    "name": "Christopher Moses Nathanael",
+                    "email": "christopher.m.nathanael@banksinarmas.com",
+                    "role": "engineer",
+                    "title": "Associate"
+                },
+                {
+                    "accountId": "712020:6a22c7ec-7d1c-4f6d-bbc0-304380ab21d9",
+                    "name": "Faustine Ben Axel Ompusunggu",
+                    "email": "faustine.b.axel@banksinarmas.com",
+                    "role": "qa",
+                    "title": "Sec Head"
+                },
+                {
+                    "accountId": "712020:f8f54cca-7232-4a2d-98d2-08ffec660d64",
+                    "name": "Greecelia Wongsi",
+                    "email": "greecelia.wongsi@banksinarmas.com",
+                    "role": "engineer",
+                    "title": "Associate"
+                },
+                {
+                    "accountId": "712020:d55ddfb6-e183-4c7a-8e21-0efcfa66d391",
+                    "name": "Ivan Valentino",
+                    "email": "ivan.valentino@banksinarmas.com",
+                    "role": "engineer",
+                    "title": "Associate"
+                },
+                {
+                    "accountId": "712020:b6bc73ce-c0c7-41ad-b922-5f3d91839f8e",
+                    "name": "Joshua Martua",
+                    "email": "joshua.martua@banksinarmas.com",
+                    "role": "engineer",
+                    "title": "Sec Head"
+                },
+                {
+                    "accountId": "712020:258414be-3f0b-4410-a08e-bd44b1e75593",
+                    "name": "Josia Sebastian Johannis",
+                    "email": "josia.s.johannis@banksinarmas.com",
+                    "role": "engineer",
+                    "title": "Sec Head"
+                }
+            ]
+        },
+        "2942421b-1db9-4a4c-95fa-83ae49171c1d": {
+            "name": "Payment Collection",
+            "boardId": 3817,
+            "members": [
+                {
+                    "accountId": "712020:9c004f8d-863b-4df6-8221-005bfc444aca",
+                    "name": "Aldis Furqoni",
+                    "email": "aldis.furqoni@banksinarmas.com",
+                    "role": "engineer",
+                    "title": "Tech Lead"
+                },
+                {
+                    "accountId": "712020:40f856be-70a0-48e1-a51a-101f846d6660",
+                    "name": "Ardian Kusuma",
+                    "email": "ardian.kusuma@banksinarmas.com",
+                    "role": "engineer",
+                    "title": "Associate"
+                },
+                {
+                    "accountId": "712020:794d0697-0e00-4fbf-b503-de485a5512f7",
+                    "name": "Armanda Caesario Cornelis",
+                    "email": "armanda.c.cornelis@banksinarmas.com",
+                    "role": "engineer",
+                    "title": "EM"
+                },
+                {
+                    "accountId": "712020:985bfb6e-de23-4962-80bd-da09ec15432f",
+                    "name": "Edward Chen",
+                    "email": "edward.chen@banksinarmas.com",
+                    "role": "engineer",
+                    "title": "Associate"
+                },
+                {
+                    "accountId": "712020:7fb42ad6-6ccd-46f2-a3bb-0d0e780c2d92",
+                    "name": "Fadillah Rizky",
+                    "email": "fadillah.r.ramadhan@banksinarmas.com",
+                    "role": "qa",
+                    "title": "QA"
+                },
+                {
+                    "accountId": "712020:2351ddca-e95a-4dcf-a6e8-e72536674096",
+                    "name": "Fahmi Alim",
+                    "email": "v.fahmi.alim@banksinarmas.com",
+                    "role": "qa",
+                    "title": "Associate"
+                },
+                {
+                    "accountId": "712020:55731d31-5f52-438d-ab86-5c5903be60fd",
+                    "name": "Galang Krisnanto",
+                    "email": "galang.krisnanto@banksinarmas.com",
+                    "role": "engineer",
+                    "title": "Sec Head"
+                },
+                {
+                    "accountId": "712020:41cad6af-9288-4642-882b-dbdf95444275",
+                    "name": "Gloria Shanti Wulandaru",
+                    "email": "gloria.s.wulandaru@banksinarmas.com",
+                    "role": "engineer",
+                    "title": "Associate"
+                },
+                {
+                    "accountId": "712020:431a4b93-abd1-4015-9a7a-568800ccd5f3",
+                    "name": "Kent Nathanael Wijaya",
+                    "email": "i.kent.wijaya@banksinarmas.com",
+                    "role": "engineer",
+                    "title": "Associate"
+                },
+                {
+                    "accountId": "712020:53149d87-0b70-4112-a0b4-eec55fed2e0c",
+                    "name": "Muhammad Fulki Aslam",
+                    "email": "v.muhammad.f.aslam@banksinarmas.com",
+                    "role": "engineer",
+                    "title": "Associate"
+                },
+                {
+                    "accountId": "712020:78c3564c-9774-4ddb-b8f7-1f593f7be902",
+                    "name": "Muhammad Richi Varian Kashira Sjarifun",
+                    "email": "richi.varian@banksinarmas.com",
+                    "role": "engineer",
+                    "title": "Associate"
+                },
+                {
+                    "accountId": "712020:50a15140-5927-493c-b98d-d21451964a80",
+                    "name": "Ruben Santoso",
+                    "email": "ruben.santoso@banksinarmas.com",
+                    "role": "engineer",
+                    "title": "Associate"
+                },
+                {
+                    "accountId": "712020:71813a54-4239-4d7a-97b4-e1bcef196b8a",
+                    "name": "Sofie Kimberly",
+                    "email": "sofie.kimberly@banksinarmas.com",
+                    "role": "engineer",
+                    "title": "Sec Head"
+                }
+            ]
+        }
+    },
+    "sprintLeave": {
+        "15101": {
+            "712020:258414be-3f0b-4410-a08e-bd44b1e75593": 0,
+            "712020:117de042-09d8-4b10-9f22-c291006a0b49": 0
+        },
+        "15530": {
+            "712020:9c004f8d-863b-4df6-8221-005bfc444aca": 0,
+            "712020:794d0697-0e00-4fbf-b503-de485a5512f7": 0
+        }
+    }
+}
