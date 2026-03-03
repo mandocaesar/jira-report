@@ -8,6 +8,7 @@ import SprintSummaryComponent from '@/components/SprintSummary';
 import { SprintSummary } from '@/types';
 import { EpicBreakdownComponent } from '@/components/EpicBreakdown';
 import SprintReport from '@/components/SprintReport';
+import WorklogReport from '@/components/WorklogReport';
 import { SprintReportData } from '@/types';
 
 export default function Home() {
@@ -225,6 +226,14 @@ export default function Home() {
             {/* Epic Breakdown */}
             {selectedBoardId && selectedSprintId && (
               <EpicBreakdownComponent
+                boardId={selectedBoardId}
+                sprintId={selectedSprintId}
+              />
+            )}
+
+            {/* Daily Worklog Tracking */}
+            {selectedBoardId && selectedSprintId && (
+              <WorklogReport
                 boardId={selectedBoardId}
                 sprintId={selectedSprintId}
               />
