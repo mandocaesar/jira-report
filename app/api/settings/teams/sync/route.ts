@@ -71,16 +71,32 @@ export async function POST(request: Request) {
         }
 
         // Get current team roster from DB
-        const team = await prisma.team.findUnique({
+        let team = await prisma.team.findUnique({
             where: { boardId: parseInt(boardId) },
             include: { members: true },
         });
 
+        // Auto-create team if it doesn't exist
         if (!team) {
-            return NextResponse.json(
-                { success: false, error: `No team found for board ID ${boardId}. Create the team first.` },
-                { status: 404 }
-            );
+            // Try to get the board name from Jira for a meaningful team name
+            let teamName = `Board ${boardId}`;
+            try {
+                const boards = await jiraClient.getBoards();
+                const board = boards.values?.find((b: any) => b.id === parseInt(boardId));
+                if (board?.name) {
+                    teamName = board.name;
+                }
+            } catch (err) {
+                console.warn('Could not fetch board name from Jira, using default:', err);
+            }
+
+            team = await prisma.team.create({
+                data: {
+                    name: teamName,
+                    boardId: parseInt(boardId),
+                },
+                include: { members: true },
+            });
         }
 
         // Build roster lookup
