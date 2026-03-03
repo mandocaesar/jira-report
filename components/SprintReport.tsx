@@ -54,7 +54,7 @@ function getCompletionBarColor(percent: number): string {
 }
 
 export default function SprintReport({ report, jiraDomain }: SprintReportProps) {
-    const { totalPoints, completedPoints, carryOverPoints, completionPercent, statusGroups, memberBreakdowns, carryOverIssues } = report;
+    const { totalPoints, completedPoints, completionPercent, statusGroups, memberBreakdowns } = report;
 
     return (
         <div className="space-y-6">
@@ -72,7 +72,7 @@ export default function SprintReport({ report, jiraDomain }: SprintReportProps) 
             </div>
 
             {/* Summary Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Total Points */}
                 <div className="text-center p-5 bg-gradient-to-br from-indigo-500/10 to-violet-500/10 rounded-xl border border-indigo-500/20">
                     <div className="text-3xl font-bold bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent mb-1">
@@ -89,15 +89,6 @@ export default function SprintReport({ report, jiraDomain }: SprintReportProps) 
                     </div>
                     <div className="text-xs text-gray-400">Completed</div>
                     <div className="text-[10px] text-green-400/70 mt-1">Done</div>
-                </div>
-
-                {/* Carry-Over */}
-                <div className="text-center p-5 bg-gradient-to-br from-orange-500/10 to-amber-500/10 rounded-xl border border-orange-500/20">
-                    <div className="text-3xl font-bold bg-gradient-to-r from-orange-400 to-amber-400 bg-clip-text text-transparent mb-1">
-                        {carryOverPoints}
-                    </div>
-                    <div className="text-xs text-gray-400">Carry Over</div>
-                    <div className="text-[10px] text-orange-400/70 mt-1">Not Done</div>
                 </div>
 
                 {/* Completion % */}
@@ -165,7 +156,6 @@ export default function SprintReport({ report, jiraDomain }: SprintReportProps) 
                                     <th className="px-6 py-3 text-left">Member</th>
                                     <th className="px-4 py-3 text-center">Total</th>
                                     <th className="px-4 py-3 text-center">Done</th>
-                                    <th className="px-4 py-3 text-center">Carry Over</th>
                                     <th className="px-4 py-3 text-center">Completion</th>
                                     <th className="px-4 py-3 text-left">Status Breakdown</th>
                                 </tr>
@@ -207,11 +197,6 @@ export default function SprintReport({ report, jiraDomain }: SprintReportProps) 
                                             <span className="text-sm font-bold text-green-400">{member.completedPoints}</span>
                                         </td>
                                         <td className="px-4 py-4 text-center">
-                                            <span className={`text-sm font-bold ${member.carryOverPoints > 0 ? 'text-orange-400' : 'text-gray-500'}`}>
-                                                {member.carryOverPoints}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-4 text-center">
                                             <div className="flex flex-col items-center gap-1">
                                                 <span className={`text-sm font-bold ${getCompletionColor(member.completionPercent)}`}>
                                                     {member.completionPercent.toFixed(0)}%
@@ -241,71 +226,6 @@ export default function SprintReport({ report, jiraDomain }: SprintReportProps) 
                                         </td>
                                     </tr>
                                 ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            )}
-
-            {/* Carry-Over Issues List */}
-            {carryOverIssues && carryOverIssues.length > 0 && (
-                <div className="bg-gray-800/30 rounded-xl border border-orange-500/20 overflow-hidden">
-                    <div className="px-6 py-4 border-b border-orange-500/20 bg-gradient-to-r from-orange-500/5 to-amber-500/5">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <svg className="w-4 h-4 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                <h3 className="text-sm font-semibold text-orange-400">Carry-Over Issues</h3>
-                            </div>
-                            <span className="text-xs px-2 py-1 rounded-full bg-orange-500/20 text-orange-300 border border-orange-500/30">
-                                {carryOverIssues.length} issues · {carryOverPoints} pts
-                            </span>
-                        </div>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead>
-                                <tr className="border-b border-gray-700/30 text-xs text-gray-500 uppercase tracking-wider">
-                                    <th className="px-6 py-3 text-left">Key</th>
-                                    <th className="px-4 py-3 text-left">Summary</th>
-                                    <th className="px-4 py-3 text-center">Status</th>
-                                    <th className="px-4 py-3 text-center">Points</th>
-                                    <th className="px-4 py-3 text-left">Assignee</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {carryOverIssues.map((issue) => {
-                                    const colors = getStatusColors(issue.statusCategory);
-                                    return (
-                                        <tr key={issue.key} className="border-b border-gray-700/20 hover:bg-gray-700/10 transition-colors">
-                                            <td className="px-6 py-3">
-                                                <a
-                                                    href={jiraDomain ? `https://${jiraDomain}/browse/${issue.key}` : `#`}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="text-sm font-mono font-medium text-purple-400 hover:text-purple-300 hover:underline transition-colors"
-                                                >
-                                                    {issue.key}
-                                                </a>
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <span className="text-sm text-gray-300 line-clamp-1">{issue.summary}</span>
-                                            </td>
-                                            <td className="px-4 py-3 text-center">
-                                                <span className={`text-[10px] px-2 py-1 rounded-full bg-gradient-to-r ${colors.bg} ${colors.text} border ${colors.border} whitespace-nowrap`}>
-                                                    {issue.status}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-3 text-center">
-                                                <span className="text-sm font-bold text-white">{issue.points}</span>
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <span className="text-sm text-gray-400">{issue.assignee || 'Unassigned'}</span>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
                             </tbody>
                         </table>
                     </div>
