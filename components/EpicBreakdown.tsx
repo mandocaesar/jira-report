@@ -8,33 +8,85 @@ interface EpicIssue {
     issueType: string;
     storyPoints: number;
     assignee: string | null;
+    status: string;
+    statusCategory: string;
+}
+
+interface StoryGroup {
+    key: string;
+    summary: string;
+    issues: EpicIssue[];
+    totalPoints: number;
+    completedPoints: number;
 }
 
 interface EpicBreakdown {
     epicKey: string;
     epicName: string;
-    issues: {
-        Product: EpicIssue[];
-        'Technical Initiatives': EpicIssue[];
-        Incident: EpicIssue[];
-    };
-    totalPoints: {
-        Product: number;
-        'Technical Initiatives': number;
-        Incident: number;
-    };
+    stories: StoryGroup[];
+    totalPoints: number;
+    completedPoints: number;
+    completionPercent: number;
 }
 
 interface EpicBreakdownProps {
     boardId: number;
     sprintId: number;
+    jiraDomain?: string;
 }
 
-export function EpicBreakdownComponent({ boardId, sprintId }: EpicBreakdownProps) {
+const statusColors: Record<string, { bg: string; border: string; text: string; bar: string }> = {
+    'Done': {
+        bg: 'from-green-500/10 to-emerald-500/10',
+        border: 'border-green-500/20',
+        text: 'text-green-400',
+        bar: 'from-green-500 to-emerald-500',
+    },
+    'In Progress': {
+        bg: 'from-blue-500/10 to-cyan-500/10',
+        border: 'border-blue-500/20',
+        text: 'text-blue-400',
+        bar: 'from-blue-500 to-cyan-500',
+    },
+    'To Do': {
+        bg: 'from-gray-500/10 to-slate-500/10',
+        border: 'border-gray-500/20',
+        text: 'text-gray-400',
+        bar: 'from-gray-500 to-slate-500',
+    },
+};
+
+const defaultColors = {
+    bg: 'from-purple-500/10 to-pink-500/10',
+    border: 'border-purple-500/20',
+    text: 'text-purple-400',
+    bar: 'from-purple-500 to-pink-500',
+};
+
+function getStatusColors(category: string) {
+    return statusColors[category] || defaultColors;
+}
+
+function getCompletionBarColor(percent: number): string {
+    if (percent >= 90) return 'from-green-500 to-emerald-500';
+    if (percent >= 70) return 'from-blue-500 to-cyan-500';
+    if (percent >= 50) return 'from-yellow-500 to-amber-500';
+    return 'from-red-500 to-orange-500';
+}
+
+function getCompletionTextColor(percent: number): string {
+    if (percent >= 90) return 'text-green-400';
+    if (percent >= 70) return 'text-blue-400';
+    if (percent >= 50) return 'text-yellow-400';
+    return 'text-red-400';
+}
+
+export function EpicBreakdownComponent({ boardId, sprintId, jiraDomain = 'bank-sinarmas.atlassian.net' }: EpicBreakdownProps) {
     const [epicBreakdowns, setEpicBreakdowns] = useState<EpicBreakdown[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [expandedEpics, setExpandedEpics] = useState<Set<string>>(new Set());
+    const [expandedStories, setExpandedStories] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         async function fetchData() {
@@ -71,117 +123,200 @@ export function EpicBreakdownComponent({ boardId, sprintId }: EpicBreakdownProps
         });
     };
 
+    const toggleStory = (storyKey: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setExpandedStories(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(storyKey)) {
+                newSet.delete(storyKey);
+            } else {
+                newSet.add(storyKey);
+            }
+            return newSet;
+        });
+    };
+
     if (loading) {
         return (
-            <div className="epic-breakdown loading">
-                <div className="loading-spinner"></div>
-                <p>Loading epic breakdown...</p>
+            <div className="flex flex-col items-center justify-center p-12 mt-8 space-y-4 text-gray-400 bg-gray-800/20 rounded-xl border border-gray-700/20 animate-pulse">
+                <div className="w-12 h-12 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin"></div>
+                <p>Analyzing epics and calculating metrics...</p>
             </div>
         );
     }
 
     if (error) {
         return (
-            <div className="epic-breakdown error">
-                <p>Error: {error}</p>
+            <div className="p-6 mt-8 bg-red-500/10 border border-red-500/30 rounded-xl">
+                <p className="text-red-400 font-medium">⚠️ Error: {error}</p>
             </div>
         );
     }
 
-    const getCategoryColor = (category: string) => {
-        switch (category) {
-            case 'Product': return 'var(--color-story)';
-            case 'Technical Initiatives': return 'var(--color-tech)';
-            case 'Incident': return 'var(--color-incident)';
-            default: return 'var(--color-other)';
-        }
-    };
-
-    const getCategoryIcon = (category: string) => {
-        switch (category) {
-            case 'Product': return '📦';
-            case 'Technical Initiatives': return '⚙️';
-            case 'Incident': return '🐛';
-            default: return '📋';
-        }
-    };
+    if (epicBreakdowns.length === 0) {
+        return null;
+    }
 
     return (
-        <div className="epic-breakdown">
-            <h2 className="section-title">📦 Epic Breakdown by Product</h2>
+        <div className="mt-8 space-y-6">
+            <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/20">
+                    <span className="text-xl">📦</span>
+                </div>
+                <div>
+                    <h2 className="text-xl font-bold text-white tracking-tight">Epic Breakdown</h2>
+                    <p className="text-sm text-gray-400 font-medium">Grouped by Epic and Parent Story</p>
+                </div>
+            </div>
 
-            <div className="epic-list">
+            <div className="space-y-4">
                 {epicBreakdowns.map((epic) => {
                     const isExpanded = expandedEpics.has(epic.epicKey);
-                    const totalPoints = Object.values(epic.totalPoints).reduce((a, b) => a + b, 0);
-                    const categories: Array<'Product' | 'Technical Initiatives' | 'Incident'> =
-                        ['Product', 'Technical Initiatives', 'Incident'];
+                    // Filter out epics with zero points to minimize noise
+                    if (epic.totalPoints === 0) return null;
 
                     return (
-                        <div key={epic.epicKey} className="epic-card">
+                        <div key={epic.epicKey} className="bg-gray-800/30 border border-gray-700/50 rounded-xl overflow-hidden shadow-sm hover:border-gray-600/50 transition-all duration-200">
+                            {/* Epic Header */}
                             <div
-                                className="epic-header"
+                                className="px-5 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer hover:bg-gray-700/20 transition-colors"
                                 onClick={() => toggleEpic(epic.epicKey)}
                             >
-                                <div className="epic-info">
-                                    <span className="epic-key">{epic.epicKey}</span>
-                                    <span className="epic-name">{epic.epicName}</span>
+                                <div className="flex items-center gap-3 min-w-0 flex-1">
+                                    <div className="bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2 py-1 rounded text-xs font-mono font-medium shrink-0">
+                                        {epic.epicKey}
+                                    </div>
+                                    <span className="font-semibold text-gray-200 truncate" title={epic.epicName}>
+                                        {epic.epicName}
+                                    </span>
                                 </div>
-                                <div className="epic-stats">
-                                    {categories.map(cat => (
-                                        epic.totalPoints[cat] > 0 && (
-                                            <span
-                                                key={cat}
-                                                className="category-badge"
-                                                style={{ backgroundColor: getCategoryColor(cat) }}
-                                            >
-                                                {getCategoryIcon(cat)} {epic.totalPoints[cat]} pts
+
+                                <div className="flex items-center justify-between md:justify-end gap-6 shrink-0">
+                                    {/* Completion Meta */}
+                                    <div className="flex flex-col items-end gap-1">
+                                        <div className="flex items-center gap-2 text-sm font-medium">
+                                            <span className="text-gray-400">{epic.completedPoints} / {epic.totalPoints} pts</span>
+                                            <span className={getCompletionTextColor(epic.completionPercent)}>
+                                                {epic.completionPercent.toFixed(0)}%
                                             </span>
-                                        )
-                                    ))}
-                                    <span className="total-points">
-                                        Total: {totalPoints} pts
-                                    </span>
-                                    <span className={`expand-icon ${isExpanded ? 'expanded' : ''}`}>
+                                        </div>
+                                        <div className="w-32 h-1.5 bg-gray-700/50 rounded-full overflow-hidden">
+                                            <div
+                                                className={`h-full bg-gradient-to-r ${getCompletionBarColor(epic.completionPercent)} transition-all duration-1000`}
+                                                style={{ width: `${Math.min(epic.completionPercent, 100)}%` }}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className={`text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
                                         ▼
-                                    </span>
+                                    </div>
                                 </div>
                             </div>
 
+                            {/* Epic Details (Stories) */}
                             {isExpanded && (
-                                <div className="epic-details">
-                                    {categories.map(category => {
-                                        const issues = epic.issues[category];
-                                        if (issues.length === 0) return null;
+                                <div className="bg-gray-900/50 border-t border-gray-700/50">
+                                    {epic.stories.map((story, storyIndex) => {
+                                        const isStoryExpanded = expandedStories.has(story.key);
+                                        const storyPercent = story.totalPoints > 0 ? (story.completedPoints / story.totalPoints) * 100 : 0;
+                                        const isStandalone = story.key === 'Standalone';
 
                                         return (
-                                            <div key={category} className="category-section">
-                                                <h4
-                                                    className="category-title"
-                                                    style={{ borderLeftColor: getCategoryColor(category) }}
+                                            <div key={story.key} className={`${storyIndex > 0 ? 'border-t border-gray-800' : ''}`}>
+                                                {/* Story Header */}
+                                                <div
+                                                    className="px-6 py-3 flex items-center justify-between gap-4 cursor-pointer hover:bg-gray-800/40 transition-colors group"
+                                                    onClick={(e) => toggleStory(story.key, e)}
                                                 >
-                                                    {getCategoryIcon(category)} {category} ({epic.totalPoints[category]} pts)
-                                                </h4>
-                                                <div className="issue-list">
-                                                    {issues.map(issue => (
-                                                        <div key={issue.key} className="issue-row">
+                                                    <div className="flex items-center gap-3 min-w-0 flex-1 pl-2">
+                                                        <div className={`w-1.5 h-1.5 rounded-full ${isStandalone ? 'bg-gray-500' : 'bg-purple-500'}`}></div>
+                                                        {!isStandalone && (
                                                             <a
-                                                                href={`https://bank-sinarmas.atlassian.net/browse/${issue.key}`}
+                                                                href={`https://${jiraDomain}/browse/${story.key}`}
                                                                 target="_blank"
                                                                 rel="noopener noreferrer"
-                                                                className="issue-key"
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                className="text-xs font-mono text-blue-400 hover:underline shrink-0"
                                                             >
-                                                                {issue.key}
+                                                                {story.key}
                                                             </a>
-                                                            <span className="issue-summary">{issue.summary}</span>
-                                                            <span className="issue-type-badge">{issue.issueType}</span>
-                                                            <span className="issue-points">{issue.storyPoints || '-'}</span>
-                                                            <span className="issue-assignee">
-                                                                {issue.assignee || 'Unassigned'}
-                                                            </span>
-                                                        </div>
-                                                    ))}
+                                                        )}
+                                                        <span className="text-sm font-medium text-gray-300 truncate" title={story.summary}>
+                                                            {story.summary}
+                                                        </span>
+                                                        <span className="text-xs text-gray-500 bg-gray-800 px-1.5 py-0.5 rounded">
+                                                            {story.issues.length} {story.issues.length === 1 ? 'task' : 'tasks'}
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-4 shrink-0">
+                                                        <span className="text-xs font-medium text-gray-400">
+                                                            <span className={story.completedPoints === story.totalPoints ? 'text-green-400' : ''}>{story.completedPoints}</span>
+                                                            {' '}/ {story.totalPoints} pts
+                                                        </span>
+                                                        <svg
+                                                            className={`w-4 h-4 text-gray-600 transition-transform duration-200 ${isStoryExpanded ? 'rotate-180' : ''} group-hover:text-gray-400`}
+                                                            fill="none"
+                                                            viewBox="0 0 24 24"
+                                                            stroke="currentColor"
+                                                        >
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                        </svg>
+                                                    </div>
                                                 </div>
+
+                                                {/* Sub-tasks */}
+                                                {isStoryExpanded && (
+                                                    <div className="px-8 py-2 bg-gray-900/80 border-t border-gray-800/50 shadow-inner">
+                                                        <div className="overflow-x-auto">
+                                                            <table className="w-full text-sm">
+                                                                <tbody>
+                                                                    {story.issues.map(issue => {
+                                                                        const colors = getStatusColors(issue.statusCategory);
+                                                                        return (
+                                                                            <tr key={issue.key} className="border-b border-gray-800/50 last:border-0 hover:bg-gray-800/30">
+                                                                                <td className="py-2.5 pr-4 pl-6 w-24">
+                                                                                    <a
+                                                                                        href={`https://${jiraDomain}/browse/${issue.key}`}
+                                                                                        target="_blank"
+                                                                                        rel="noopener noreferrer"
+                                                                                        className="text-xs font-mono text-gray-400 hover:text-purple-400 hover:underline transition-colors"
+                                                                                    >
+                                                                                        {issue.key}
+                                                                                    </a>
+                                                                                </td>
+                                                                                <td className="py-2.5 pr-4 flex-1">
+                                                                                    <div className="flex items-center gap-2">
+                                                                                        <span className="text-xs text-gray-500 bg-gray-800 border border-gray-700 rounded px-1.5 whitespace-nowrap">
+                                                                                            {issue.issueType}
+                                                                                        </span>
+                                                                                        <span className="text-gray-300 truncate max-w-md">
+                                                                                            {issue.summary}
+                                                                                        </span>
+                                                                                    </div>
+                                                                                </td>
+                                                                                <td className="py-2.5 pr-4 w-32 text-center">
+                                                                                    <span className={`text-[10px] px-2 py-0.5 rounded-full border bg-gradient-to-r ${colors.bg} ${colors.text} ${colors.border} whitespace-nowrap`}>
+                                                                                        {issue.status}
+                                                                                    </span>
+                                                                                </td>
+                                                                                <td className="py-2.5 pr-4 w-16 text-right font-medium text-gray-300">
+                                                                                    {issue.storyPoints || '-'}
+                                                                                </td>
+                                                                                <td className="py-2.5 px-2 w-32 text-right">
+                                                                                    <span className="text-xs text-gray-500 truncate inline-block max-w-[120px]">
+                                                                                        {issue.assignee || 'Unassigned'}
+                                                                                    </span>
+                                                                                </td>
+                                                                            </tr>
+                                                                        );
+                                                                    })}
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         );
                                     })}
@@ -191,193 +326,6 @@ export function EpicBreakdownComponent({ boardId, sprintId }: EpicBreakdownProps
                     );
                 })}
             </div>
-
-            <style jsx>{`
-                .epic-breakdown {
-                    margin-top: 2rem;
-                }
-                
-                .section-title {
-                    font-size: 1.5rem;
-                    margin-bottom: 1rem;
-                    color: var(--text-primary);
-                }
-                
-                .epic-list {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 0.75rem;
-                }
-                
-                .epic-card {
-                    background: var(--card-bg);
-                    border-radius: 12px;
-                    overflow: hidden;
-                    border: 1px solid var(--border-color);
-                }
-                
-                .epic-header {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    padding: 1rem 1.25rem;
-                    cursor: pointer;
-                    transition: background 0.2s;
-                }
-                
-                .epic-header:hover {
-                    background: var(--hover-bg);
-                }
-                
-                .epic-info {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.75rem;
-                    flex: 1;
-                    min-width: 0;
-                }
-                
-                .epic-key {
-                    font-family: monospace;
-                    font-size: 0.85rem;
-                    color: var(--accent-color);
-                    background: rgba(99, 102, 241, 0.1);
-                    padding: 0.25rem 0.5rem;
-                    border-radius: 4px;
-                    flex-shrink: 0;
-                }
-                
-                .epic-name {
-                    font-weight: 500;
-                    color: var(--text-primary);
-                    white-space: nowrap;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                }
-                
-                .epic-stats {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.5rem;
-                    flex-shrink: 0;
-                }
-                
-                .category-badge {
-                    font-size: 0.75rem;
-                    padding: 0.25rem 0.5rem;
-                    border-radius: 12px;
-                    color: white;
-                    font-weight: 500;
-                }
-                
-                .total-points {
-                    font-weight: 600;
-                    color: var(--text-secondary);
-                    margin-left: 0.5rem;
-                }
-                
-                .expand-icon {
-                    transition: transform 0.2s;
-                    color: var(--text-secondary);
-                }
-                
-                .expand-icon.expanded {
-                    transform: rotate(180deg);
-                }
-                
-                .epic-details {
-                    padding: 0 1.25rem 1rem;
-                    border-top: 1px solid var(--border-color);
-                }
-                
-                .category-section {
-                    margin-top: 1rem;
-                }
-                
-                .category-title {
-                    font-size: 0.9rem;
-                    color: var(--text-secondary);
-                    border-left: 3px solid;
-                    padding-left: 0.5rem;
-                    margin-bottom: 0.5rem;
-                }
-                
-                .issue-list {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 0.35rem;
-                }
-                
-                .issue-row {
-                    display: grid;
-                    grid-template-columns: 100px 1fr auto 50px 120px;
-                    gap: 0.75rem;
-                    align-items: center;
-                    padding: 0.5rem;
-                    background: var(--row-bg);
-                    border-radius: 6px;
-                    font-size: 0.85rem;
-                }
-                
-                .issue-key {
-                    font-family: monospace;
-                    color: var(--link-color);
-                    text-decoration: none;
-                }
-                
-                .issue-key:hover {
-                    text-decoration: underline;
-                }
-                
-                .issue-summary {
-                    white-space: nowrap;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                    color: var(--text-primary);
-                }
-                
-                .issue-type-badge {
-                    font-size: 0.7rem;
-                    padding: 0.15rem 0.4rem;
-                    background: var(--badge-bg);
-                    border-radius: 4px;
-                    color: var(--text-secondary);
-                }
-                
-                .issue-points {
-                    text-align: right;
-                    font-weight: 500;
-                    color: var(--accent-color);
-                }
-                
-                .issue-assignee {
-                    font-size: 0.8rem;
-                    color: var(--text-secondary);
-                    white-space: nowrap;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                }
-                
-                .loading, .error {
-                    text-align: center;
-                    padding: 2rem;
-                    color: var(--text-secondary);
-                }
-                
-                .loading-spinner {
-                    width: 40px;
-                    height: 40px;
-                    border: 3px solid var(--border-color);
-                    border-top-color: var(--accent-color);
-                    border-radius: 50%;
-                    animation: spin 1s linear infinite;
-                    margin: 0 auto 1rem;
-                }
-                
-                @keyframes spin {
-                    to { transform: rotate(360deg); }
-                }
-            `}</style>
         </div>
     );
 }

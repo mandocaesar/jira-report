@@ -9,25 +9,26 @@ interface EpicIssue {
     issueType: string;
     storyPoints: number;
     assignee: string | null;
+    status: string;
+    statusCategory: string;
+}
+
+interface StoryGroup {
+    key: string;
+    summary: string;
+    issues: EpicIssue[];
+    totalPoints: number;
+    completedPoints: number;
 }
 
 interface EpicBreakdown {
     epicKey: string;
     epicName: string;
-    issues: {
-        Product: EpicIssue[];
-        'Technical Initiatives': EpicIssue[];
-        Incident: EpicIssue[];
-    };
-    totalPoints: {
-        Product: number;
-        'Technical Initiatives': number;
-        Incident: number;
-    };
+    stories: StoryGroup[];
+    totalPoints: number;
+    completedPoints: number;
+    completionPercent: number;
 }
-
-// Type definition for known issue categories
-type IssueCategory = 'Product' | 'Technical Initiatives' | 'Incident';
 
 // Story points fields to check
 const storyPointsFields = ['customfield_10036', 'customfield_10052'];
@@ -42,27 +43,12 @@ function getStoryPoints(issue: JiraIssue): number {
     return 0;
 }
 
-/**
- * Categorize issue type:
- * - Technical Initiatives: Technical Initiative, Chore
- * - Incident: Incident, Bug, Defect
- * - Product: Everything else (Story, Task, Sub-task, etc.)
- */
-function categorizeIssueType(typeName: string): IssueCategory {
-    const lowerType = typeName.toLowerCase();
+function getStatusCategory(issue: JiraIssue): string {
+    return issue.fields.status?.statusCategory?.name || 'To Do';
+}
 
-    // Technical Initiatives
-    if (lowerType.includes('technical') || lowerType === 'chore') {
-        return 'Technical Initiatives';
-    }
-
-    // Incident
-    if (lowerType === 'incident' || lowerType === 'bug' || lowerType === 'defect') {
-        return 'Incident';
-    }
-
-    // Product (default - Story, Task, Sub-task, etc.)
-    return 'Product';
+function getStatusName(issue: JiraIssue): string {
+    return issue.fields.status?.name || 'Unknown';
 }
 
 export async function GET(request: NextRequest) {
@@ -95,11 +81,14 @@ export async function GET(request: NextRequest) {
             });
         }
 
-        // Group issues by epic
         const epicBreakdowns = new Map<string, EpicBreakdown>();
         const noEpicKey = 'NO_EPIC';
 
         for (const issue of issues) {
+            // Only process sub-tasks for points like Sprint Report, OR process everything?
+            // The prompt says "keep the breakdown in story level", so parent = story, issue = sub-tasks.
+            // Let's process all issues and group by parent.
+
             const epicKey = issue.fields['customfield_10014'] || noEpicKey;
             const epicInfo = epicMap.get(epicKey) || { key: epicKey, name: epicKey === noEpicKey ? 'No Epic' : epicKey };
 
@@ -107,42 +96,68 @@ export async function GET(request: NextRequest) {
                 epicBreakdowns.set(epicKey, {
                     epicKey: epicInfo.key,
                     epicName: epicInfo.name,
-                    issues: {
-                        Product: [],
-                        'Technical Initiatives': [],
-                        Incident: []
-                    },
-                    totalPoints: {
-                        Product: 0,
-                        'Technical Initiatives': 0,
-                        Incident: 0
-                    }
+                    stories: [],
+                    totalPoints: 0,
+                    completedPoints: 0,
+                    completionPercent: 0
                 });
             }
 
             const breakdown = epicBreakdowns.get(epicKey)!;
-            const typeName = issue.fields.issuetype.name;
-            const category = categorizeIssueType(typeName);
             const points = getStoryPoints(issue);
+            const statusCat = getStatusCategory(issue);
+            const isCompleted = statusCat === 'Done';
+
+            // Only sub-tasks usually have story points in this workflow, but we add up whatever has points
+            breakdown.totalPoints += points;
+            if (isCompleted) {
+                breakdown.completedPoints += points;
+            }
+
+            // Determine parent story
+            const parentKey = issue.fields.parent?.key || 'Standalone';
+            const parentSummary = issue.fields.parent?.fields.summary || 'Standalone Issues';
+
+            let storyGroup = breakdown.stories.find(s => s.key === parentKey);
+            if (!storyGroup) {
+                storyGroup = {
+                    key: parentKey,
+                    summary: parentSummary,
+                    issues: [],
+                    totalPoints: 0,
+                    completedPoints: 0
+                };
+                breakdown.stories.push(storyGroup);
+            }
 
             const epicIssue: EpicIssue = {
                 key: issue.key,
                 summary: issue.fields.summary,
-                issueType: typeName,
+                issueType: issue.fields.issuetype.name,
                 storyPoints: points,
-                assignee: issue.fields.assignee?.displayName || null
+                assignee: issue.fields.assignee?.displayName || null,
+                status: getStatusName(issue),
+                statusCategory: statusCat
             };
 
-            breakdown.issues[category].push(epicIssue);
-            breakdown.totalPoints[category] += points;
+            storyGroup.issues.push(epicIssue);
+            storyGroup.totalPoints += points;
+            if (isCompleted) {
+                storyGroup.completedPoints += points;
+            }
         }
 
-        // Convert to array and sort by total points (highest first)
-        const result = Array.from(epicBreakdowns.values()).sort((a, b) => {
-            const totalA = Object.values(a.totalPoints).reduce((sum, p) => sum + p, 0);
-            const totalB = Object.values(b.totalPoints).reduce((sum, p) => sum + p, 0);
-            return totalB - totalA;
-        });
+        // Calculate percentages and sort
+        const result = Array.from(epicBreakdowns.values()).map(breakdown => {
+            breakdown.completionPercent = breakdown.totalPoints > 0
+                ? (breakdown.completedPoints / breakdown.totalPoints) * 100
+                : 0;
+
+            // Sort stories by total points
+            breakdown.stories.sort((a, b) => b.totalPoints - a.totalPoints);
+
+            return breakdown;
+        }).sort((a, b) => b.totalPoints - a.totalPoints);
 
         return NextResponse.json({ epicBreakdowns: result });
     } catch (error) {

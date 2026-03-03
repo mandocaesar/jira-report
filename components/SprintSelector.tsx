@@ -1,7 +1,7 @@
 'use client';
 
 import { Sprint } from '@/types';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface SprintSelectorProps {
     onSprintChange: (sprintId: number | null) => void;
@@ -9,10 +9,21 @@ interface SprintSelectorProps {
     boardId: number | null;
 }
 
+interface SprintGroup {
+    label: string;
+    icon: string;
+    color: string;
+    bgColor: string;
+    borderColor: string;
+    sprints: Sprint[];
+}
+
 export default function SprintSelector({ onSprintChange, selectedSprintId, boardId }: SprintSelectorProps) {
     const [sprints, setSprints] = useState<Sprint[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [isOpen, setIsOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         if (boardId) {
@@ -22,6 +33,17 @@ export default function SprintSelector({ onSprintChange, selectedSprintId, board
             setLoading(false);
         }
     }, [boardId]);
+
+    // Close dropdown on outside click
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     const fetchSprints = async () => {
         if (!boardId) return;
@@ -55,7 +77,56 @@ export default function SprintSelector({ onSprintChange, selectedSprintId, board
             day: 'numeric',
             year: 'numeric',
         });
-        return `${start} - ${end}`;
+        return `${start} – ${end}`;
+    };
+
+    const selectedSprint = sprints.find(s => s.id === selectedSprintId);
+
+    // Group sprints by state
+    const groups: SprintGroup[] = [];
+
+    const activeSprints = sprints.filter(s => s.state === 'active');
+    const futureSprints = sprints
+        .filter(s => s.state === 'future')
+        .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+    const pastSprints = sprints
+        .filter(s => s.state === 'closed')
+        .sort((a, b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime());
+
+    if (activeSprints.length > 0) {
+        groups.push({
+            label: 'Active Sprint',
+            icon: '🟢',
+            color: 'text-green-400',
+            bgColor: 'bg-green-500/10',
+            borderColor: 'border-green-500/30',
+            sprints: activeSprints,
+        });
+    }
+    if (futureSprints.length > 0) {
+        groups.push({
+            label: 'Future Sprints',
+            icon: '📅',
+            color: 'text-blue-400',
+            bgColor: 'bg-blue-500/10',
+            borderColor: 'border-blue-500/30',
+            sprints: futureSprints,
+        });
+    }
+    if (pastSprints.length > 0) {
+        groups.push({
+            label: 'Past Sprints',
+            icon: '📁',
+            color: 'text-gray-400',
+            bgColor: 'bg-gray-500/10',
+            borderColor: 'border-gray-500/30',
+            sprints: pastSprints,
+        });
+    }
+
+    const handleSelect = (sprintId: number) => {
+        onSprintChange(sprintId);
+        setIsOpen(false);
     };
 
     if (loading) {
@@ -75,31 +146,91 @@ export default function SprintSelector({ onSprintChange, selectedSprintId, board
     }
 
     return (
-        <div className="relative">
-            <select
-                value={selectedSprintId || ''}
-                onChange={(e) => onSprintChange(e.target.value ? parseInt(e.target.value) : null)}
+        <div className="relative" ref={dropdownRef}>
+            {/* Trigger Button */}
+            <button
+                type="button"
+                onClick={() => setIsOpen(!isOpen)}
                 className="w-full px-5 py-3 bg-gradient-to-br from-gray-800/50 to-gray-900/50 
-                   border border-purple-500/30 rounded-xl text-white
+                   border border-purple-500/30 rounded-xl text-white text-left
                    hover:border-purple-500/50 transition-all duration-300
                    focus:outline-none focus:ring-2 focus:ring-purple-500/50
-                   backdrop-blur-sm cursor-pointer
-                   appearance-none font-medium"
+                   backdrop-blur-sm cursor-pointer font-medium
+                   flex items-center justify-between"
             >
-                <option value="" className="bg-gray-900">
-                    Select a sprint...
-                </option>
-                {sprints.map((sprint) => (
-                    <option key={sprint.id} value={sprint.id} className="bg-gray-900">
-                        {sprint.name} {sprint.state === 'active' && '🟢'} - {formatDateRange(sprint)}
-                    </option>
-                ))}
-            </select>
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <span className={selectedSprint ? 'text-white' : 'text-gray-400'}>
+                    {selectedSprint
+                        ? `${selectedSprint.name} — ${formatDateRange(selectedSprint)}`
+                        : 'Select a sprint...'}
+                </span>
+                <svg
+                    className={`w-5 h-5 text-purple-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                >
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
-            </div>
+            </button>
+
+            {/* Dropdown Panel */}
+            {isOpen && (
+                <div className="absolute z-50 w-full mt-2 bg-gray-900/95 border border-purple-500/30 
+                    rounded-xl backdrop-blur-xl shadow-2xl shadow-purple-500/10 
+                    max-h-80 overflow-y-auto
+                    animate-in fade-in slide-in-from-top-2 duration-200">
+                    {groups.length === 0 ? (
+                        <div className="px-5 py-4 text-gray-500 text-sm text-center">
+                            No sprints available
+                        </div>
+                    ) : (
+                        groups.map((group, groupIndex) => (
+                            <div key={group.label}>
+                                {/* Group separator */}
+                                {groupIndex > 0 && (
+                                    <div className="mx-3 border-t border-gray-700/50"></div>
+                                )}
+
+                                {/* Group Header */}
+                                <div className="px-4 pt-3 pb-1.5 flex items-center gap-2 sticky top-0 bg-gray-900/95 backdrop-blur-xl">
+                                    <span className="text-sm">{group.icon}</span>
+                                    <span className={`text-[11px] font-bold uppercase tracking-wider ${group.color}`}>
+                                        {group.label}
+                                    </span>
+                                    <span className="text-[10px] text-gray-600 ml-auto">
+                                        {group.sprints.length}
+                                    </span>
+                                </div>
+
+                                {/* Sprint Items */}
+                                {group.sprints.map((sprint) => {
+                                    const isSelected = sprint.id === selectedSprintId;
+                                    return (
+                                        <button
+                                            key={sprint.id}
+                                            type="button"
+                                            onClick={() => handleSelect(sprint.id)}
+                                            className={`w-full px-4 py-2.5 flex items-center justify-between text-left
+                                                transition-all duration-150 cursor-pointer
+                                                ${isSelected
+                                                    ? 'bg-purple-500/15 border-l-2 border-purple-500'
+                                                    : 'border-l-2 border-transparent hover:bg-gray-800/60'
+                                                }`}
+                                        >
+                                            <span className={`text-sm font-medium ${isSelected ? 'text-purple-300' : 'text-white'}`}>
+                                                {sprint.name}
+                                            </span>
+                                            <span className="text-xs text-gray-500 ml-4 whitespace-nowrap">
+                                                {formatDateRange(sprint)}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        ))
+                    )}
+                </div>
+            )}
         </div>
     );
 }

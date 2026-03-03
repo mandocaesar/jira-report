@@ -57,6 +57,16 @@ export interface JiraIssue {
         name: string;
       };
     };
+    worklog?: {
+      worklogs: Array<{
+        author: {
+          accountId: string;
+          displayName: string;
+        };
+        timeSpentSeconds: number;
+        started: string;
+      }>;
+    };
     [key: string]: any; // For custom fields like story points
   };
 }
@@ -203,4 +213,26 @@ export interface MetricsData {
     doneCount: number;
     completionRate: number;
   };
+}
+
+// Worklog Report types
+export interface DailyWorklog {
+  date: string; // YYYY-MM-DD
+  hours: number;
+}
+
+export interface MemberWorklog {
+  accountId: string;
+  displayName: string;
+  avatarUrl: string;
+  role: 'qa' | 'engineer';
+  title: string;
+  dailyLogs: DailyWorklog[];
+  totalHours: number;
+}
+
+export interface WorklogReportData {
+  sprintId: number;
+  dates: string[];
+  memberWorklogs: MemberWorklog[];
 }

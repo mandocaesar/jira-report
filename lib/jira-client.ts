@@ -114,7 +114,7 @@ class JiraClient {
         // Use Agile API and filter client-side to avoid deprecated JQL endpoints
         // Include customfield_10014 (Epic Link) for epic grouping
         const endpoint = `/sprint/${sprintId}/issue?` +
-            `fields=summary,assignee,issuetype,status,parent,subtasks,customfield_10001,customfield_10014,${this.storyPointsFields.join(',')}&` +
+            `fields=summary,assignee,issuetype,status,parent,subtasks,worklog,customfield_10001,customfield_10014,${this.storyPointsFields.join(',')}&` +
             `maxResults=1000`;
 
         console.log(`[getSprintIssues] Fetching sprint ${sprintId} for board ${boardId}, team filter: ${teamId || 'none'}`);
