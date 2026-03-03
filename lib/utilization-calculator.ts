@@ -229,7 +229,7 @@ export async function calculateSprintUtilization(
             };
 
             const leaveDays = getLeaveDays(member.accountId);
-            const titleBaseDays = getAvailableDaysFromMap(member.title, titleDaysMap);
+            const titleBaseDays = Math.min(getAvailableDaysFromMap(member.title, titleDaysMap), totalWorkingDays);
             const availableDays = Math.max(0, titleBaseDays - leaveDays);
 
             const utilizationPercent = availableDays > 0
@@ -239,7 +239,7 @@ export async function calculateSprintUtilization(
             userUtilizations.push({
                 user,
                 storyPoints,
-                workingDays: getAvailableDaysFromMap(member.title, titleDaysMap),
+                workingDays: titleBaseDays,
                 leaveDays,
                 availableDays,
                 utilizationPercent,
@@ -288,7 +288,7 @@ export async function calculateSprintUtilization(
         const title = memberInfo?.member.title || 'Associate';
 
         const leaveDays = getLeaveDays(user.accountId);
-        const titleBaseDays = getAvailableDaysFromMap(title, titleDaysMap);
+        const titleBaseDays = Math.min(getAvailableDaysFromMap(title, titleDaysMap), totalWorkingDays);
         const availableDays = Math.max(0, titleBaseDays - leaveDays);
 
         const utilizationPercent = availableDays > 0
@@ -298,7 +298,7 @@ export async function calculateSprintUtilization(
         userUtilizations.push({
             user,
             storyPoints,
-            workingDays: getAvailableDaysFromMap(title, titleDaysMap),
+            workingDays: titleBaseDays,
             leaveDays,
             availableDays,
             utilizationPercent,
