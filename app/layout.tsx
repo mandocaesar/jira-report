@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
+import Sidebar from "@/components/Sidebar";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -21,8 +22,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} antialiased`}>
-        {children}
+      <body className={`${inter.variable} antialiased bg-gradient-to-br from-gray-900 via-purple-900/20 to-gray-900 min-h-screen`}>
+        <Sidebar>
+          {children}
+        </Sidebar>
         <Analytics />
       </body>
     </html>

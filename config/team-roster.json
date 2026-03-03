@@ -5,6 +5,13 @@
             "boardId": 3816,
             "members": [
                 {
+                    "accountId": "712020:6bbe7ffc-7731-4739-9654-e27dec8beae4",
+                    "name": "Anselmus Suryo Nugroho",
+                    "email": "anselmus.s.nugroho@banksinarmas.com",
+                    "role": "engineer",
+                    "title": "Tech Lead"
+                },
+                {
                     "accountId": "712020:117de042-09d8-4b10-9f22-c291006a0b49",
                     "name": "Calvin Hartanto Honggare",
                     "email": "calvin.h.honggare@banksinarmas.com",
@@ -162,5 +169,13 @@
             "712020:9c004f8d-863b-4df6-8221-005bfc444aca": 0,
             "712020:794d0697-0e00-4fbf-b503-de485a5512f7": 0
         }
+    },
+    "titleAvailableDays": {
+        "Tech Lead": 5,
+        "EM": 0,
+        "Sec Head": 10,
+        "Associate": 10,
+        "QA": 10,
+        "_default": 10
     }
 }

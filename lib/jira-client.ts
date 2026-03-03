@@ -114,7 +114,7 @@ class JiraClient {
         // Use Agile API and filter client-side to avoid deprecated JQL endpoints
         // Include customfield_10014 (Epic Link) for epic grouping
         const endpoint = `/sprint/${sprintId}/issue?` +
-            `fields=summary,assignee,issuetype,parent,customfield_10001,customfield_10014,${this.storyPointsFields.join(',')}&` +
+            `fields=summary,assignee,issuetype,status,parent,subtasks,customfield_10001,customfield_10014,${this.storyPointsFields.join(',')}&` +
             `maxResults=1000`;
 
         console.log(`[getSprintIssues] Fetching sprint ${sprintId} for board ${boardId}, team filter: ${teamId || 'none'}`);
@@ -150,6 +150,36 @@ class JiraClient {
             console.error(`[getEpics] Error fetching epics:`, error);
             return [];
         }
+    }
+
+    /**
+     * Get issues for a sprint WITH changelog history for metrics calculations.
+     * Includes created date and full status transition history.
+     */
+    async getSprintIssuesWithChangelog(sprintId: number, boardId?: number): Promise<JiraIssue[]> {
+        const teamId = boardId ? this.getTeamIdForBoard(boardId) : null;
+
+        const endpoint = `/sprint/${sprintId}/issue?` +
+            `fields=summary,assignee,issuetype,status,created,parent,subtasks,customfield_10001,customfield_10014,${this.storyPointsFields.join(',')}&` +
+            `expand=changelog&` +
+            `maxResults=1000`;
+
+        console.log(`[getSprintIssuesWithChangelog] Fetching sprint ${sprintId} with changelog`);
+
+        const response = await this.fetch<{ issues: JiraIssue[] }>(endpoint);
+        let issues = response.issues;
+
+        // Client-side team filtering
+        if (teamId) {
+            const originalCount = issues.length;
+            issues = issues.filter(issue => {
+                const team = issue.fields['customfield_10001'];
+                return team && team.id === teamId;
+            });
+            console.log(`[getSprintIssuesWithChangelog] Filtered from ${originalCount} to ${issues.length} issues for team ${teamId}`);
+        }
+
+        return issues;
     }
 
     /**

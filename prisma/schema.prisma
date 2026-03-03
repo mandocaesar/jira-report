@@ -1,0 +1,119 @@
+// Prisma schema for sprint leave tracking and metrics
+datasource db {
+  provider  = "postgresql"
+  url       = env("POSTGRES_PRISMA_URL")
+  directUrl = env("POSTGRES_URL_NON_POOLING")
+}
+
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Sprint leave per engineer
+model SprintLeave {
+  id         String   @id @default(cuid())
+  sprintId   Int
+  accountId  String   // Jira account ID
+  leaveDays  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([sprintId, accountId])
+  @@index([sprintId])
+  @@index([accountId])
+}
+
+// Engineer capacity adjustments (training, part-time, onboarding, etc.)
+model EngineerCapacity {
+  id          String   @id @default(cuid())
+  accountId   String   // Jira account ID
+  startDate   DateTime
+  endDate     DateTime
+  capacity    Int      @default(100) // Percentage: 0-100
+  reason      String   @default("other") // "training", "part-time", "onboarding", "special-project", "other"
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([accountId])
+  @@index([startDate, endDate])
+}
+
+// Historical sprint metrics snapshot
+model SprintMetrics {
+  id                  String   @id @default(cuid())
+  teamId              String   // From team-roster
+  boardId             Int
+  sprintId            Int
+  sprintName          String
+  startDate           DateTime
+  endDate             DateTime
+  
+  // Capacity metrics
+  workingDays         Int
+  totalLeave          Int
+  engineerCount       Int
+  qaCount             Int
+  engineerMandays     Int
+  qaMandays           Int
+  
+  // Delivery metrics
+  totalStoryPoints    Int
+  completedPoints     Int
+  averageUtilization  Float
+  
+  // Work type breakdown
+  productPoints       Int      @default(0)
+  techInitPoints      Int      @default(0)
+  incidentPoints      Int      @default(0)
+  
+  // Forecasting fields
+  forecastedCapacity  Int?     // Predicted capacity at planning time
+  forecastedPoints    Int?     // Predicted story points
+  actualCapacity      Int?     // Actual capacity used
+  
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@unique([teamId, sprintId])
+  @@index([teamId])
+  @@index([boardId])
+  @@index([sprintId])
+}
+
+// Team definition (replaces static team-roster.json)
+model Team {
+  id       String       @id @default(cuid())
+  name     String
+  boardId  Int          @unique
+  members  TeamMember[]
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+}
+
+// Team member belonging to a team
+model TeamMember {
+  id        String   @id @default(cuid())
+  accountId String
+  name      String
+  email     String
+  role      String   @default("engineer") // "engineer" or "qa"
+  title     String   @default("Associate")
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([teamId, accountId])
+  @@index([accountId])
+}
+
+// Available days per sprint for each title/level
+model TitleAvailableDays {
+  id            String   @id @default(cuid())
+  title         String   @unique
+  availableDays Int
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}

@@ -51,8 +51,53 @@ export interface JiraIssue {
         summary: string;
       };
     }>;
+    status?: {
+      name: string;
+      statusCategory: {
+        name: string;
+      };
+    };
     [key: string]: any; // For custom fields like story points
   };
+}
+
+// Sprint Report types
+export interface ReportIssue {
+  key: string;
+  summary: string;
+  status: string;
+  statusCategory: string;
+  points: number;
+  assignee: string | null;
+}
+
+export interface StatusGroup {
+  statusCategory: string;
+  points: number;
+  count: number;
+  issues: ReportIssue[];
+}
+
+export interface MemberBreakdown {
+  user: User;
+  role: 'qa' | 'engineer';
+  title: string;
+  totalPoints: number;
+  completedPoints: number;
+  carryOverPoints: number;
+  completionPercent: number;
+  statusGroups: StatusGroup[];
+}
+
+export interface SprintReportData {
+  sprint: Sprint;
+  totalPoints: number;
+  completedPoints: number;
+  carryOverPoints: number;
+  completionPercent: number;
+  statusGroups: StatusGroup[];
+  memberBreakdowns: MemberBreakdown[];
+  carryOverIssues: ReportIssue[];
 }
 
 // User information
@@ -81,6 +126,7 @@ export interface UserUtilization {
   role: 'qa' | 'engineer';
   title: string;
   workTypeStats: WorkTypeStats;
+  isUnrecognized?: boolean;
 }
 
 // Sprint summary
@@ -119,4 +165,42 @@ export interface Holiday {
 // API response from libur.deno.dev
 export interface HolidayApiResponse {
   data: Holiday[];
+}
+
+// Metrics Dashboard types
+export interface WeeklyMetrics {
+  weekLabel: string; // e.g. "Week 1", "Week 2"
+  weekStart: string; // ISO date
+  weekEnd: string;   // ISO date
+  storyCount: number;
+  taskCount: number;
+  testCount: number;
+  totalCount: number;
+  doneCount: number;
+  completionRate: number; // percentage
+}
+
+export interface TimeMetrics {
+  meanTimeToDeliver: number | null;  // hours
+  meanTimeToTest: number | null;     // hours
+  meanTimeToDone: number | null;     // hours
+  sampleSize: {
+    deliver: number;
+    test: number;
+    done: number;
+  };
+}
+
+export interface MetricsData {
+  sprint: Sprint;
+  weeklyMetrics: WeeklyMetrics[];
+  timeMetrics: TimeMetrics;
+  totals: {
+    storyCount: number;
+    taskCount: number;
+    testCount: number;
+    totalCount: number;
+    doneCount: number;
+    completionRate: number;
+  };
 }
