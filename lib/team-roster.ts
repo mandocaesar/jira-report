@@ -17,6 +17,7 @@ export interface TeamConfig {
 export interface TeamRosterConfig {
     teams: Record<string, TeamConfig>;
     sprintLeave: Record<string, Record<string, number>>;
+    titleAvailableDays: Record<string, number>;
 }
 
 const teamRoster = teamRosterData as TeamRosterConfig;
@@ -60,6 +61,18 @@ export function getSprintLeave(sprintId: number, accountId: string): number {
     const sprintLeave = teamRoster.sprintLeave[sprintId.toString()];
     if (!sprintLeave) return 0;
     return sprintLeave[accountId] || 0;
+}
+
+/**
+ * Get available days per sprint for a given title level
+ * Tech Lead = 5, EM = 0, Sec Head/Associate/QA = 10
+ */
+export function getAvailableDaysByTitle(title: string): number {
+    const config = teamRoster.titleAvailableDays;
+    if (config && title in config) {
+        return config[title];
+    }
+    return config?._default ?? 10;
 }
 
 /**
@@ -140,3 +153,83 @@ export function calculateTeamCapacity(
 }
 
 export { teamRoster };
+
+import { prisma, isDatabaseAvailable } from './db';
+
+/**
+ * Get team by board ID from the database, falling back to static JSON
+ */
+export async function getTeamByBoardIdFromDb(
+    boardId: number
+): Promise<{ teamId: string; config: TeamConfig } | null> {
+    if (isDatabaseAvailable() && prisma) {
+        try {
+            const team = await prisma.team.findUnique({
+                where: { boardId },
+                include: { members: true },
+            });
+            if (team) {
+                return {
+                    teamId: team.id,
+                    config: {
+                        name: team.name,
+                        boardId: team.boardId,
+                        members: team.members.map((m) => ({
+                            accountId: m.accountId,
+                            name: m.name,
+                            email: m.email,
+                            role: m.role as 'qa' | 'engineer',
+                            title: m.title,
+                        })),
+                    },
+                };
+            }
+        } catch (error) {
+            console.warn('Failed to fetch team from DB, falling back to JSON:', error);
+        }
+    }
+    return getTeamByBoardId(boardId);
+}
+
+/**
+ * Get title available days map from the database, falling back to static JSON
+ */
+export async function getTitleDaysMapFromDb(): Promise<Record<string, number>> {
+    if (isDatabaseAvailable() && prisma) {
+        try {
+            const entries = await prisma.titleAvailableDays.findMany();
+            if (entries.length > 0) {
+                const map: Record<string, number> = {};
+                for (const entry of entries) {
+                    map[entry.title] = entry.availableDays;
+                }
+                return map;
+            }
+        } catch (error) {
+            console.warn('Failed to fetch title days from DB, falling back to JSON:', error);
+        }
+    }
+    // Fallback to static JSON config
+    const config = teamRoster.titleAvailableDays;
+    const map: Record<string, number> = {};
+    for (const [title, days] of Object.entries(config)) {
+        if (title !== '_default') {
+            map[title] = days;
+        }
+    }
+    return map;
+}
+
+/**
+ * Get available days for a title from a preloaded map, with fallback
+ */
+export function getAvailableDaysFromMap(
+    title: string,
+    titleDaysMap: Record<string, number>
+): number {
+    if (title in titleDaysMap) {
+        return titleDaysMap[title];
+    }
+    // Fallback to static JSON config
+    return getAvailableDaysByTitle(title);
+}

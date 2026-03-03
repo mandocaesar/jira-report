@@ -1,6 +1,7 @@
 import { JiraIssue, User, UserUtilization, Sprint, SprintSummary } from '@/types';
 import { calculateWorkingDays } from './holiday-service';
-import { getMemberByAccountId, getSprintLeave, getTeamByBoardId } from './team-roster';
+import { getMemberByAccountId, getSprintLeave, getTeamByBoardIdFromDb, getAvailableDaysFromMap, getTitleDaysMapFromDb } from './team-roster';
+import { prisma, isDatabaseAvailable } from './db';
 
 /**
  * Extract story points from a Jira issue
@@ -118,6 +119,30 @@ function getUtilizationStatus(percent: number): 'under' | 'optimal' | 'over' {
 }
 
 /**
+ * Fetch leave data for a sprint from the database, falling back to static JSON
+ */
+async function fetchSprintLeaveMap(sprintId: number): Promise<Record<string, number>> {
+    const leaveMap: Record<string, number> = {};
+
+    if (isDatabaseAvailable() && prisma) {
+        try {
+            const leaveEntries = await prisma.sprintLeave.findMany({
+                where: { sprintId },
+            });
+            for (const entry of leaveEntries) {
+                leaveMap[entry.accountId] = entry.leaveDays;
+            }
+            return leaveMap;
+        } catch (error) {
+            console.warn('Failed to fetch leave from database, falling back to static config:', error);
+        }
+    }
+
+    // Fallback: return empty map (static JSON getSprintLeave will be used per-user)
+    return leaveMap;
+}
+
+/**
  * Calculate utilization for all users in a sprint
  */
 export async function calculateSprintUtilization(
@@ -130,8 +155,23 @@ export async function calculateSprintUtilization(
     const endDate = new Date(sprint.endDate);
     const totalWorkingDays = await calculateWorkingDays(startDate, endDate);
 
-    // Get team info if board ID is provided
-    const teamInfo = boardId ? getTeamByBoardId(boardId) : null;
+    // Get team info from DB if board ID is provided (falls back to JSON)
+    const teamInfo = boardId ? await getTeamByBoardIdFromDb(boardId) : null;
+
+    // Get title available days map from DB (falls back to JSON)
+    const titleDaysMap = await getTitleDaysMapFromDb();
+
+    // Fetch leave data from database (or fallback to static)
+    const dbLeaveMap = await fetchSprintLeaveMap(sprint.id);
+    const hasDbLeave = Object.keys(dbLeaveMap).length > 0;
+
+    // Helper to get leave days: prefer DB data, fallback to static JSON
+    const getLeaveDays = (accountId: string): number => {
+        if (hasDbLeave) {
+            return dbLeaveMap[accountId] || 0;
+        }
+        return getSprintLeave(sprint.id, accountId);
+    };
 
     // Group issues by user
     const userDataMap = groupByUser(issues);
@@ -156,15 +196,100 @@ export async function calculateSprintUtilization(
     // Overall work type stats
     const totalWorkTypeStats: Record<string, number> = {};
 
+    // Track which roster members have been processed
+    const processedAccountIds = new Set<string>();
+
+    // Build a member lookup map from team info (DB preferred, static JSON fallback)
+    const teamMemberMap = new Map<string, { role: 'qa' | 'engineer'; title: string; name: string; email: string }>();
+    if (teamInfo) {
+        for (const member of teamInfo.config.members) {
+            teamMemberMap.set(member.accountId, { role: member.role, title: member.title, name: member.name, email: member.email });
+        }
+    }
+
+    // === ROSTER-DRIVEN APPROACH ===
+    // Process roster members FIRST to ensure member counts and mandays always match the roster.
+    // Then handle non-roster assignees separately (their points count but don't affect capacity).
+
+    if (teamInfo) {
+        for (const member of teamInfo.config.members) {
+            processedAccountIds.add(member.accountId);
+
+            // Check if this roster member has any sprint issues
+            const issueData = userDataMap.get(member.accountId);
+            const storyPoints = issueData?.storyPoints || 0;
+            const workTypeStats = issueData?.workTypeStats || { 'Product': 0, 'Technical Initiatives': 0, 'Incident': 0 };
+
+            // Use Jira user info if available (has avatar), else use roster data
+            const user: User = issueData?.user || {
+                accountId: member.accountId,
+                displayName: member.name,
+                emailAddress: member.email,
+                avatarUrl: '',
+            };
+
+            const leaveDays = getLeaveDays(member.accountId);
+            const titleBaseDays = getAvailableDaysFromMap(member.title, titleDaysMap);
+            const availableDays = Math.max(0, titleBaseDays - leaveDays);
+
+            const utilizationPercent = availableDays > 0
+                ? (storyPoints / availableDays) * 100
+                : 0;
+
+            userUtilizations.push({
+                user,
+                storyPoints,
+                workingDays: getAvailableDaysFromMap(member.title, titleDaysMap),
+                leaveDays,
+                availableDays,
+                utilizationPercent,
+                status: getUtilizationStatus(utilizationPercent),
+                role: member.role,
+                title: member.title,
+                workTypeStats,
+                isUnrecognized: false,
+            });
+
+            // Aggregate overall work type stats
+            for (const [type, points] of Object.entries(workTypeStats)) {
+                totalWorkTypeStats[type] = (totalWorkTypeStats[type] || 0) + points;
+            }
+
+            // Aggregate stats by role (only roster members count toward capacity)
+            if (member.role === 'qa') {
+                qaCount++;
+                qaMandays += availableDays;
+                qaStoryPoints += storyPoints;
+                qaLeaveDays += leaveDays;
+                for (const [type, points] of Object.entries(workTypeStats)) {
+                    qaWorkTypeStats[type] = (qaWorkTypeStats[type] || 0) + points;
+                }
+            } else {
+                engineerCount++;
+                engineerMandays += availableDays;
+                engineerStoryPoints += storyPoints;
+                engineerLeaveDays += leaveDays;
+                for (const [type, points] of Object.entries(workTypeStats)) {
+                    engineerWorkTypeStats[type] = (engineerWorkTypeStats[type] || 0) + points;
+                }
+            }
+        }
+    }
+
+    // === NON-ROSTER ASSIGNEES ===
+    // People who have sprint issues but aren't in the team roster.
+    // Their story points are tracked but they DON'T count toward team capacity (member counts, mandays).
     for (const { user, storyPoints, workTypeStats } of userDataMap.values()) {
-        // Get member info from roster
+        if (processedAccountIds.has(user.accountId)) continue;
+
+        // If no teamInfo at all, fall back to static JSON lookup for role/title
         const memberInfo = getMemberByAccountId(user.accountId);
         const role = memberInfo?.member.role || 'engineer';
         const title = memberInfo?.member.title || 'Associate';
 
-        // Get leave for this sprint
-        const leaveDays = getSprintLeave(sprint.id, user.accountId);
-        const availableDays = Math.max(0, totalWorkingDays - leaveDays);
+        const leaveDays = getLeaveDays(user.accountId);
+        const titleBaseDays = getAvailableDaysFromMap(title, titleDaysMap);
+        const availableDays = Math.max(0, titleBaseDays - leaveDays);
 
         const utilizationPercent = availableDays > 0
             ? (storyPoints / availableDays) * 100
@@ -173,39 +298,40 @@ export async function calculateSprintUtilization(
         userUtilizations.push({
             user,
             storyPoints,
-            workingDays: totalWorkingDays,
+            workingDays: getAvailableDaysFromMap(title, titleDaysMap),
             leaveDays,
             availableDays,
             utilizationPercent,
             status: getUtilizationStatus(utilizationPercent),
             role,
             title,
-            workTypeStats
+            workTypeStats,
+            isUnrecognized: true,
         });
 
-        // Aggregate overall stats
+        // Non-roster points still count in overall work type stats
         for (const [type, points] of Object.entries(workTypeStats)) {
             totalWorkTypeStats[type] = (totalWorkTypeStats[type] || 0) + points;
         }
 
-        // Aggregate stats by role
-        if (role === 'qa') {
-            qaCount++;
-            qaMandays += availableDays;
-            qaStoryPoints += storyPoints;
-            qaLeaveDays += leaveDays;
-            // Aggregate workTypeStats for QA
-            for (const [type, points] of Object.entries(workTypeStats)) {
-                qaWorkTypeStats[type] = (qaWorkTypeStats[type] || 0) + points;
-            }
-        } else {
-            engineerCount++;
-            engineerMandays += availableDays;
-            engineerStoryPoints += storyPoints;
-            engineerLeaveDays += leaveDays;
-            // Aggregate workTypeStats for Engineers
-            for (const [type, points] of Object.entries(workTypeStats)) {
-                engineerWorkTypeStats[type] = (engineerWorkTypeStats[type] || 0) + points;
+        // If there's no team info at all (no DB, no JSON match), count them normally
+        if (!teamInfo) {
+            if (role === 'qa') {
+                qaCount++;
+                qaMandays += availableDays;
+                qaStoryPoints += storyPoints;
+                qaLeaveDays += leaveDays;
+                for (const [type, points] of Object.entries(workTypeStats)) {
+                    qaWorkTypeStats[type] = (qaWorkTypeStats[type] || 0) + points;
+                }
+            } else {
+                engineerCount++;
+                engineerMandays += availableDays;
+                engineerStoryPoints += storyPoints;
+                engineerLeaveDays += leaveDays;
+                for (const [type, points] of Object.entries(workTypeStats)) {
+                    engineerWorkTypeStats[type] = (engineerWorkTypeStats[type] || 0) + points;
+                }
             }
         }
     }

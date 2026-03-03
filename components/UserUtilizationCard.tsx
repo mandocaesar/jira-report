@@ -8,7 +8,7 @@ interface UserUtilizationCardProps {
 }
 
 export default function UserUtilizationCard({ utilization }: UserUtilizationCardProps) {
-    const { user, storyPoints, workingDays, leaveDays, availableDays, utilizationPercent, status, role, title, workTypeStats } = utilization;
+    const { user, storyPoints, workingDays, leaveDays, availableDays, utilizationPercent, status, role, title, workTypeStats, isUnrecognized } = utilization;
 
     const statusColors = {
         under: {
@@ -51,19 +51,32 @@ export default function UserUtilizationCard({ utilization }: UserUtilizationCard
                 <div className="flex items-center gap-4 mb-4">
                     <div className="relative">
                         <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-white/20">
-                            <Image
-                                src={user.avatarUrl}
-                                alt={user.displayName}
-                                width={56}
-                                height={56}
-                                className="object-cover"
-                            />
+                            {user.avatarUrl ? (
+                                <Image
+                                    src={user.avatarUrl}
+                                    alt={user.displayName}
+                                    width={56}
+                                    height={56}
+                                    className="object-cover"
+                                />
+                            ) : (
+                                <div className="w-full h-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-bold text-lg">
+                                    {user.displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                                </div>
+                            )}
                         </div>
                         {/* Status indicator */}
                         <div className={`absolute -bottom-1 -right-1 w-4 h-4 ${colors.bar} rounded-full border-2 border-gray-900`}></div>
                     </div>
                     <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-white truncate">{user.displayName}</h3>
+                        <h3 className="font-semibold text-white truncate flex items-center gap-1.5">
+                            {user.displayName}
+                            {isUnrecognized && (
+                                <span className="flex-shrink-0 inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-400 text-[10px] cursor-help" title="Not in team roster — sync team data to fix">
+                                    !
+                                </span>
+                            )}
+                        </h3>
                         <div className="flex items-center gap-2 mt-1">
                             <span className={`text-[10px] px-2 py-0.5 rounded-full border ${roleColor} uppercase font-bold tracking-wider`}>
                                 {role}

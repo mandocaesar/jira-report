@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createJiraClient } from '@/lib/jira-client';
 import { calculateSprintUtilization } from '@/lib/utilization-calculator';
+import { calculateSprintReport } from '@/lib/sprint-report-calculator';
 
 export async function GET(
     request: Request,
@@ -29,12 +30,17 @@ export async function GET(
             jiraClient.getSprintIssues(sprintId, boardId ? parseInt(boardId, 10) : undefined),
         ]);
 
-        // Calculate utilization
-        const utilization = await calculateSprintUtilization(sprint, issues);
+        // Calculate utilization and sprint report in parallel
+        const [utilization, sprintReport] = await Promise.all([
+            calculateSprintUtilization(sprint, issues, boardId ? parseInt(boardId, 10) : undefined),
+            calculateSprintReport(sprint, issues, boardId ? parseInt(boardId, 10) : undefined),
+        ]);
 
         return NextResponse.json({
             success: true,
             data: utilization,
+            report: sprintReport,
+            jiraDomain: process.env.JIRA_DOMAIN || '',
         });
     } catch (error) {
         console.error('Error fetching sprint details:', error);
@@ -48,3 +54,4 @@ export async function GET(
         );
     }
 }
+

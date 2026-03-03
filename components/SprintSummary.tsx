@@ -9,7 +9,8 @@ interface SprintSummaryProps {
 export default function SprintSummaryComponent({ summary }: SprintSummaryProps) {
     const { sprint, totalStoryPoints, totalWorkingDays, averageUtilization, userUtilizations, workTypeStats } = summary;
 
-    const totalMandays = totalWorkingDays * userUtilizations.length;
+    const totalMandays = (summary.engineerStats?.mandays || 0) + (summary.qaStats?.mandays || 0);
+    const totalLeaveDays = (summary.engineerStats?.leaveDays || 0) + (summary.qaStats?.leaveDays || 0);
 
     const formatDate = (dateStr: string) => {
         return new Date(dateStr).toLocaleDateString('en-US', {
@@ -72,6 +73,11 @@ export default function SprintSummaryComponent({ summary }: SprintSummaryProps) 
                     <div className="text-xs text-gray-500 mt-1">
                         ({userUtilizations.length} team members)
                     </div>
+                    {totalLeaveDays > 0 && (
+                        <div className="text-xs text-red-400 mt-0.5">
+                            -{totalLeaveDays} leave days
+                        </div>
+                    )}
                 </div>
 
                 <div className="text-center p-6 bg-gradient-to-br from-orange-500/10 to-amber-500/10 rounded-xl border border-orange-500/20">
