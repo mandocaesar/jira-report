@@ -163,6 +163,8 @@ export interface SprintSummary {
   };
   // Overall sprint work distribution
   workTypeStats: WorkTypeStats;
+  // Detected Indonesian Holidays
+  holidays: Holiday[];
 }
 
 // Indonesian holiday

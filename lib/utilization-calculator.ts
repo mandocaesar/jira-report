@@ -1,5 +1,5 @@
 import { JiraIssue, User, UserUtilization, Sprint, SprintSummary } from '@/types';
-import { calculateWorkingDays } from './holiday-service';
+import { calculateWorkingDays, getHolidaysInRange } from './holiday-service';
 import { getMemberByAccountId, getSprintLeave, getTeamByBoardIdFromDb, getAvailableDaysFromMap, getTitleDaysMapFromDb } from './team-roster';
 import { prisma, isDatabaseAvailable } from './db';
 
@@ -150,10 +150,13 @@ export async function calculateSprintUtilization(
     issues: JiraIssue[],
     boardId?: number
 ): Promise<SprintSummary> {
-    // Calculate working days in the sprint
+    // Calculate working days and fetch holidays
     const startDate = new Date(sprint.startDate);
     const endDate = new Date(sprint.endDate);
-    const totalWorkingDays = await calculateWorkingDays(startDate, endDate);
+    const [totalWorkingDays, holidays] = await Promise.all([
+        calculateWorkingDays(startDate, endDate),
+        getHolidaysInRange(startDate, endDate)
+    ]);
 
     // Get team info from DB if board ID is provided (falls back to JSON)
     const teamInfo = boardId ? await getTeamByBoardIdFromDb(boardId) : null;
@@ -381,6 +384,7 @@ export async function calculateSprintUtilization(
             workTypeStats: engineerWorkTypeStats,
         },
         workTypeStats: totalWorkTypeStats,
+        holidays,
     };
 }
 

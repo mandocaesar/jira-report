@@ -63,6 +63,21 @@ export default function SprintSummaryComponent({ summary }: SprintSummaryProps) 
                         {totalWorkingDays}
                     </div>
                     <div className="text-sm text-gray-400">Working Days</div>
+                    {summary.holidays && summary.holidays.length > 0 && (
+                        <div className="mt-2 text-left bg-black/20 rounded-lg p-2 border border-purple-500/20">
+                            <div className="text-xs text-purple-300 font-medium mb-1 border-b border-purple-500/20 pb-1">
+                                🏖️ Excluded Holidays:
+                            </div>
+                            <div className="space-y-1 max-h-20 overflow-y-auto pr-1 custom-scrollbar">
+                                {summary.holidays.map((h, i) => (
+                                    <div key={i} className="text-[10px] text-gray-400 flex justify-between gap-2">
+                                        <span className="truncate" title={h.holiday_name}>{h.holiday_name}</span>
+                                        <span className="shrink-0 text-gray-500">{formatDate(h.holiday_date).split(',')[0]}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 <div className="text-center p-6 bg-gradient-to-br from-green-500/10 to-emerald-500/10 rounded-xl border border-green-500/20">
@@ -75,7 +90,7 @@ export default function SprintSummaryComponent({ summary }: SprintSummaryProps) 
                     </div>
                     {totalLeaveDays > 0 && (
                         <div className="text-xs text-red-400 mt-0.5">
-                            -{totalLeaveDays} leave days
+                            -{totalLeaveDays} manual leave
                         </div>
                     )}
                 </div>
