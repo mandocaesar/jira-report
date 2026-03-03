@@ -3,7 +3,14 @@
 import { useState, useEffect } from 'react';
 import BoardSelector from '@/components/BoardSelector';
 import SprintSelector from '@/components/SprintSelector';
-import { TeamMember, getTeamByBoardId } from '@/lib/team-roster';
+
+interface TeamMember {
+    accountId: string;
+    name: string;
+    email: string;
+    role: 'qa' | 'engineer';
+    title: string;
+}
 
 interface LeaveData {
     [accountId: string]: number;
@@ -18,10 +25,48 @@ export default function LeaveManagementPage() {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [saveSuccess, setSaveSuccess] = useState(false);
+    const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+    const [loadingMembers, setLoadingMembers] = useState(false);
 
-    // Get team members for selected board
-    const teamInfo = selectedBoardId ? getTeamByBoardId(selectedBoardId) : null;
-    const teamMembers = teamInfo?.config.members || [];
+    // Fetch team members from API (DB-first, consistent with utilization calculator)
+    useEffect(() => {
+        if (selectedBoardId) {
+            fetchTeamMembers(selectedBoardId);
+        } else {
+            setTeamMembers([]);
+        }
+    }, [selectedBoardId]);
+
+    const fetchTeamMembers = async (boardId: number) => {
+        try {
+            setLoadingMembers(true);
+            const response = await fetch(`/api/team-members?boardId=${boardId}`);
+            const result = await response.json();
+            if (result.success && result.data?.teams?.length > 0) {
+                // Flatten all members from all teams for this board
+                const members: TeamMember[] = [];
+                for (const team of result.data.teams) {
+                    for (const member of team.members) {
+                        members.push({
+                            accountId: member.accountId,
+                            name: member.name,
+                            email: member.email,
+                            role: member.role as 'qa' | 'engineer',
+                            title: member.title,
+                        });
+                    }
+                }
+                setTeamMembers(members);
+            } else {
+                setTeamMembers([]);
+            }
+        } catch (err) {
+            console.error('Failed to fetch team members:', err);
+            setTeamMembers([]);
+        } finally {
+            setLoadingMembers(false);
+        }
+    };
 
     // Fetch leave data when sprint is selected
     useEffect(() => {
@@ -55,6 +100,7 @@ export default function LeaveManagementPage() {
             setLoading(false);
         }
     };
+
 
     const handleBoardChange = (boardId: number | null) => {
         setSelectedBoardId(boardId);
@@ -175,14 +221,14 @@ export default function LeaveManagementPage() {
                 </div>
 
                 {/* Loading State */}
-                {loading && (
+                {(loading || loadingMembers) && (
                     <div className="flex items-center justify-center py-20">
                         <div className="w-16 h-16 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin"></div>
                     </div>
                 )}
 
                 {/* Error State */}
-                {error && !loading && (
+                {error && !loading && !loadingMembers && (
                     <div className="p-6 bg-red-500/10 border border-red-500/30 rounded-2xl mb-8">
                         <p className="text-red-400">{error}</p>
                     </div>
@@ -196,7 +242,7 @@ export default function LeaveManagementPage() {
                 )}
 
                 {/* Leave Management */}
-                {selectedSprintId && !loading && teamMembers.length > 0 && (
+                {selectedSprintId && !loading && !loadingMembers && teamMembers.length > 0 && (
                     <div className="space-y-8">
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             {/* Engineers */}
