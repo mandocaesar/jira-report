@@ -57,35 +57,35 @@ export default function SprintReport({ report, jiraDomain }: SprintReportProps) 
     const { totalPoints, completedPoints, completionPercent, statusGroups, memberBreakdowns } = report;
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-3">
             {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                 {/* Total Points */}
-                <div className="text-center p-4 bg-gradient-to-br from-indigo-500/10 to-violet-500/10 rounded-xl border border-indigo-500/20">
-                    <div className="text-lg font-bold bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent mb-1">
+                <div className="text-center py-2.5 px-3 bg-gradient-to-br from-indigo-500/10 to-violet-500/10 rounded-lg border border-indigo-500/20">
+                    <div className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent leading-tight">
                         {totalPoints}
                     </div>
-                    <div className="text-xs text-gray-400">Total Points</div>
-                    <div className="text-[10px] text-gray-500 mt-0.5">(sub-tasks)</div>
+                    <div className="text-[10px] text-gray-400 mt-0.5">Total Points</div>
+                    <div className="text-[9px] text-gray-500">(sub-tasks)</div>
                 </div>
 
                 {/* Completed */}
-                <div className="text-center p-4 bg-gradient-to-br from-green-500/10 to-emerald-500/10 rounded-xl border border-green-500/20">
-                    <div className="text-lg font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent mb-1">
+                <div className="text-center py-2.5 px-3 bg-gradient-to-br from-green-500/10 to-emerald-500/10 rounded-lg border border-green-500/20">
+                    <div className="text-2xl font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent leading-tight">
                         {completedPoints}
                     </div>
-                    <div className="text-xs text-gray-400">Completed</div>
-                    <div className="text-[10px] text-green-400/70 mt-0.5">Done</div>
+                    <div className="text-[10px] text-gray-400 mt-0.5">Completed</div>
+                    <div className="text-[9px] text-green-400/70">Done</div>
                 </div>
 
                 {/* Completion % */}
-                <div className="text-center p-4 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-xl border border-purple-500/20">
-                    <div className={`text-lg font-bold mb-1 ${getCompletionColor(completionPercent)}`}>
+                <div className="text-center py-2.5 px-3 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-lg border border-purple-500/20">
+                    <div className={`text-2xl font-bold leading-tight ${getCompletionColor(completionPercent)}`}>
                         {completionPercent.toFixed(1)}%
                     </div>
-                    <div className="text-xs text-gray-400">Completion</div>
+                    <div className="text-[10px] text-gray-400 mt-0.5">Completion</div>
                     {/* Mini progress bar */}
-                    <div className="mt-2 h-1.5 w-full bg-gray-700/50 rounded-full overflow-hidden">
+                    <div className="mt-1.5 h-1 w-full bg-gray-700/50 rounded-full overflow-hidden">
                         <div
                             className={`h-full bg-gradient-to-r ${getCompletionBarColor(completionPercent)} transition-all duration-500`}
                             style={{ width: `${Math.min(completionPercent, 100)}%` }}
