@@ -241,3 +241,13 @@ export interface WorklogReportData {
   dates: string[];
   memberWorklogs: MemberWorklog[];
 }
+
+export interface BoardMetricsData {
+  boardId: number;
+  year: number;
+  sprintMetrics: Array<{
+    sprint: Sprint;
+    meanTimeToDeliver: number | null;
+    meanTimeToDone: number | null;
+  }>;
+}

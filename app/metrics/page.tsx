@@ -35,13 +35,30 @@ export default function MetricsPage() {
     const [selectedBoardId, setSelectedBoardId] = useState<number | null>(null);
     const [selectedSprintId, setSelectedSprintId] = useState<number | null>(null);
     const [metricsData, setMetricsData] = useState<MetricsData | null>(null);
+    const [boardMetricsData, setBoardMetricsData] = useState<any>(null); // Quick any for now
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const handleBoardChange = (boardId: number | null) => {
+    const handleBoardChange = async (boardId: number | null) => {
         setSelectedBoardId(boardId);
         setSelectedSprintId(null);
         setMetricsData(null);
+        setBoardMetricsData(null);
+
+        if (!boardId) return;
+
+        setLoading(true);
+        setError(null);
+        try {
+            const res = await fetch(`/api/metrics/board?boardId=${boardId}&year=2026`);
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || 'Failed to load board metrics');
+            setBoardMetricsData(data.data);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to load board metrics');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleSprintChange = async (sprintId: number | null) => {
@@ -63,7 +80,7 @@ export default function MetricsPage() {
             const data = await res.json();
 
             if (!data.success) {
-                throw new Error(data.error || 'Failed to load metrics');
+                throw new Error(data.error || 'Failed to load sprint metrics');
             }
 
             setMetricsData(data.data);
@@ -116,7 +133,7 @@ export default function MetricsPage() {
                 </div>
             )}
 
-            {/* Metrics Content */}
+            {/* Single Sprint Metrics Content */}
             {metricsData && !loading && (
                 <div className="space-y-8 animate-fadeIn">
                     {/* Time Metrics Summary Cards */}
@@ -133,16 +150,100 @@ export default function MetricsPage() {
                 </div>
             )}
 
+            {/* Board YoY Metrics Content */}
+            {boardMetricsData && !selectedSprintId && !loading && (
+                <div className="space-y-8 animate-fadeIn">
+                    <BoardYearlyTrendChart data={boardMetricsData} />
+                </div>
+            )}
+
             {/* Empty State */}
-            {!metricsData && !loading && !error && selectedBoardId && (
+            {!metricsData && !boardMetricsData && !loading && !error && !selectedBoardId && (
                 <div className="text-center py-20">
                     <div className="w-16 h-16 bg-gray-700/30 rounded-full flex items-center justify-center mx-auto mb-4">
                         <span className="text-3xl">📈</span>
                     </div>
-                    <p className="text-gray-400">Select a sprint to view metrics</p>
+                    <p className="text-gray-400">Select a board to view 2026 metrics</p>
                 </div>
             )}
         </main>
+    );
+}
+
+/**
+ * Board YoY Trend Chart
+ */
+function BoardYearlyTrendChart({ data }: { data: any }) {
+    // Format data for Recharts
+    const chartData = data.sprintMetrics.map((sm: any) => ({
+        name: sm.sprint.name,
+        mttd: sm.meanTimeToDeliver ? Number(sm.meanTimeToDeliver.toFixed(1)) : null,
+        mttc: sm.meanTimeToDone ? Number(sm.meanTimeToDone.toFixed(1)) : null,
+    }));
+
+    return (
+        <div className="p-6 bg-gray-800/30 border border-gray-700/50 rounded-xl">
+            <div className="mb-6">
+                <h3 className="text-lg font-bold text-white">2026 Delivery Timeline</h3>
+                <p className="text-sm text-gray-400">Mean Time to Deliver & Done across all sprints</p>
+            </div>
+
+            <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
+                        <XAxis
+                            dataKey="name"
+                            stroke="#9CA3AF"
+                            fontSize={12}
+                            tickMargin={10}
+                            angle={-45}
+                            textAnchor="end"
+                            height={60}
+                        />
+                        <YAxis
+                            stroke="#9CA3AF"
+                            fontSize={12}
+                            tickFormatter={(value) => `${value}h`}
+                        />
+                        <Tooltip
+                            contentStyle={{
+                                backgroundColor: '#1F2937',
+                                border: '1px solid #374151',
+                                borderRadius: '8px',
+                                color: '#F3F4F6',
+                            }}
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            formatter={(value: any, name: any) => [
+                                `${value}h`,
+                                name === 'mttd' ? 'Mean Time to Deliver' : 'Mean Time to Done'
+                            ]}
+                        />
+                        <Legend wrapperStyle={{ color: '#9CA3AF', fontSize: 12, marginTop: '20px' }} />
+                        <Line
+                            type="monotone"
+                            dataKey="mttd"
+                            name="mttd"
+                            stroke="#3B82F6"
+                            strokeWidth={3}
+                            dot={{ fill: '#3B82F6', r: 4 }}
+                            activeDot={{ r: 6, strokeWidth: 0 }}
+                            connectNulls
+                        />
+                        <Line
+                            type="monotone"
+                            dataKey="mttc"
+                            name="mttc"
+                            stroke="#10B981"
+                            strokeWidth={3}
+                            dot={{ fill: '#10B981', r: 4 }}
+                            activeDot={{ r: 6, strokeWidth: 0 }}
+                            connectNulls
+                        />
+                    </LineChart>
+                </ResponsiveContainer>
+            </div>
+        </div>
     );
 }
 
