@@ -224,7 +224,7 @@ export function calculateMetrics(sprint: Sprint, issues: JiraIssue[]): MetricsDa
         completionRate: 0,
     }));
 
-    // Time metrics accumulators
+    // Time metrics accumulators (These will be calculated via isolated loops below)
     const deliverTimes: number[] = [];
     const testTimes: number[] = [];
     const doneTimes: number[] = [];
@@ -262,11 +262,19 @@ export function calculateMetrics(sprint: Sprint, issues: JiraIssue[]): MetricsDa
                 totalDone++;
             }
         }
+    }
 
-        // Time metrics
+    // Isolate MTTD and MTTT entirely to Story-type issues
+    const storyIssues = issues.filter(issue =>
+        !issue.fields.issuetype.subtask &&
+        issue.fields.issuetype.name.toLowerCase().includes('story')
+    );
+
+    for (const issue of storyIssues) {
         const firstInProgress = findFirstInProgressTime(issue);
         const firstTest = findFirstTestTime(issue);
 
+        const createdDate = new Date(issue.fields.created);
         const sprintStartDate = new Date(sprint.startDate);
         const baselineDate = sprintStartDate > createdDate ? sprintStartDate : createdDate;
 
@@ -281,9 +289,25 @@ export function calculateMetrics(sprint: Sprint, issues: JiraIssue[]): MetricsDa
             const hours = hoursBetween(firstInProgress, firstTest);
             if (hours >= 0) testTimes.push(hours);
         }
+    }
 
-        // MTTD: baseline → Done
-        if (doneTime) {
+    // Isolate MTTC exclusively to Sub-tasks and Sub-chores
+    const subtaskAndChoreIssues = issues.filter(issue => {
+        const isSubtask = issue.fields.issuetype.subtask;
+        const typeName = issue.fields.issuetype.name.toLowerCase();
+        return isSubtask || typeName.includes('sub-chore');
+    });
+
+    for (const issue of subtaskAndChoreIssues) {
+        const doneTime = findDoneTime(issue);
+        const isDone = issue.fields.status?.statusCategory?.name === 'Done';
+
+        if (isDone && doneTime) {
+            const createdDate = new Date(issue.fields.created);
+            const sprintStartDate = new Date(sprint.startDate);
+            const baselineDate = sprintStartDate > createdDate ? sprintStartDate : createdDate;
+
+            // MTTD: baseline → Done
             const hours = hoursBetween(baselineDate, doneTime);
             if (hours >= 0) doneTimes.push(hours);
         }

@@ -63,8 +63,12 @@ export async function calculateSprintReport(
     issues: JiraIssue[],
     boardId?: number
 ): Promise<SprintReportData> {
-    // Filter to sub-tasks only
-    const subtasks = issues.filter(issue => issue.fields.issuetype.subtask === true);
+    // Step 2: Separate Sub-tasks (which hold the actual completions)
+    // Note: 'Sub-Chore' might not always have the boolean flag, so we check name explicitly
+    const subtasks = issues.filter(issue =>
+        issue.fields.issuetype.subtask === true ||
+        issue.fields.issuetype.name.toLowerCase() === 'sub-chore'
+    );
 
     console.log(`[SprintReport] Total issues: ${issues.length}, Sub-tasks: ${subtasks.length}`);
 
