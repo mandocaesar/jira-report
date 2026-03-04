@@ -16,9 +16,15 @@ interface LeaveData {
     [accountId: string]: number;
 }
 
+interface Holiday {
+    holiday_date: string;
+    holiday_name: string;
+}
+
 export default function LeaveManagementPage() {
     const [selectedBoardId, setSelectedBoardId] = useState<number | null>(null);
     const [selectedSprintId, setSelectedSprintId] = useState<number | null>(null);
+    const [sprintHolidays, setSprintHolidays] = useState<Holiday[]>([]);
     const [leaveData, setLeaveData] = useState<LeaveData>({});
     const [originalLeaveData, setOriginalLeaveData] = useState<LeaveData>({});
     const [loading, setLoading] = useState(false);
@@ -92,10 +98,32 @@ export default function LeaveManagementPage() {
 
             setLeaveData(result.data || {});
             setOriginalLeaveData(result.data || {});
+
+            // Also fetch holidays for this sprint's date range
+            // We need to get the sprint object from the selectors, but for now we can rely
+            // on the fact that if selectedSprintId is changing, we should try to figure out
+            // the dates. Wait, LeaveManagementPage doesn't have the sprint dates natively.
+            // Let's rely on fetching it directly from `api/sprints`? Or just wait for the component mount.
+            // Wait, I can alter how SprintSelector works or fetch the single Sprint details.
+            const sprintRes = await fetch(`/api/sprint/${sprintId}`);
+            const sprintResult = await sprintRes.json();
+
+            if (sprintResult.success && sprintResult.data?.startDate && sprintResult.data?.endDate) {
+                const holidayRes = await fetch(`/api/holidays?startDate=${sprintResult.data.startDate}&endDate=${sprintResult.data.endDate}`);
+                const holidayResult = await holidayRes.json();
+                if (holidayResult.success) {
+                    setSprintHolidays(holidayResult.data);
+                } else {
+                    setSprintHolidays([]);
+                }
+            } else {
+                setSprintHolidays([]);
+            }
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to load leave data');
             setLeaveData({});
             setOriginalLeaveData({});
+            setSprintHolidays([]);
         } finally {
             setLoading(false);
         }
@@ -287,6 +315,24 @@ export default function LeaveManagementPage() {
                                 </div>
                             </div>
                         </div>
+
+                        {/* Holidays */}
+                        {sprintHolidays.length > 0 && (
+                            <div className="bg-purple-900/10 border border-purple-500/30 rounded-2xl p-6">
+                                <h2 className="text-lg font-semibold text-purple-300 mb-4 flex items-center gap-2">
+                                    <span>🏖️</span>
+                                    Excluded Holidays during this Sprint
+                                </h2>
+                                <div className="space-y-2">
+                                    {sprintHolidays.map((holiday, idx) => (
+                                        <div key={idx} className="flex justify-between text-sm items-center p-2 rounded-lg bg-gray-800/30 text-gray-300">
+                                            <span className="font-medium">{holiday.holiday_name}</span>
+                                            <span className="text-gray-500">{new Date(holiday.holiday_date).toLocaleDateString()}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Summary */}
                         <div className="bg-gradient-to-br from-purple-900/30 to-pink-900/30 border border-purple-500/30 rounded-2xl p-6">

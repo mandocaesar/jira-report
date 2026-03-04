@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import teamRoster from '@/config/team-roster.json';
+import { calculateWorkingDays } from '@/lib/holiday-service';
 
 interface SprintForecast {
     sprintId: number;
@@ -19,22 +20,6 @@ interface SprintForecast {
         capacity: number;
         reason?: string;
     }>;
-}
-
-// Calculate working days between two dates (excluding weekends)
-function calculateWorkingDays(startDate: Date, endDate: Date): number {
-    let count = 0;
-    const current = new Date(startDate);
-
-    while (current <= endDate) {
-        const day = current.getDay();
-        if (day !== 0 && day !== 6) { // Not Sunday or Saturday
-            count++;
-        }
-        current.setDate(current.getDate() + 1);
-    }
-
-    return count;
 }
 
 // GET /api/planning/forecast?boardId=xxx&months=6
@@ -140,7 +125,7 @@ export async function GET(request: NextRequest) {
                 }
             }
 
-            const workingDays = calculateWorkingDays(startDate, endDate);
+            const workingDays = await calculateWorkingDays(startDate, endDate);
             let totalManDays = 0;
             const engineerDetails: any[] = [];
 

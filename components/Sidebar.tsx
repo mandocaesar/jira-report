@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 interface NavItem {
     name: string;
@@ -81,6 +81,7 @@ interface SidebarProps {
 
 export default function Sidebar({ children }: SidebarProps) {
     const pathname = usePathname();
+    const router = useRouter();
     const [collapsed, setCollapsed] = useState(false);
     const [mounted, setMounted] = useState(false);
 
@@ -190,8 +191,18 @@ export default function Sidebar({ children }: SidebarProps) {
                     ))}
                 </nav>
 
-                {/* Footer - Logout */}
-                <div className="border-t border-gray-800 p-4">
+                {/* Footer - Actions */}
+                <div className="border-t border-gray-800 p-4 space-y-2">
+                    <button
+                        onClick={() => router.refresh()}
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
+                        title={collapsed ? 'Refresh Data' : ''}
+                    >
+                        <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        {!collapsed && <span className="text-sm font-medium">Refresh Data</span>}
+                    </button>
                     <Link
                         href="/api/auth/logout"
                         className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
