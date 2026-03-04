@@ -84,12 +84,31 @@ export async function GET(request: NextRequest) {
         const epicBreakdowns = new Map<string, EpicBreakdown>();
         const noEpicKey = 'NO_EPIC';
 
+        // PASS 1: Build a map of all explicit Epic associations (mostly Stories)
+        const issueEpicMap = new Map<string, string>();
         for (const issue of issues) {
-            // Only process sub-tasks for points like Sprint Report, OR process everything?
-            // The prompt says "keep the breakdown in story level", so parent = story, issue = sub-tasks.
-            // Let's process all issues and group by parent.
+            let epicKey = issue.fields['customfield_10014']; // Classic Jira Epic Link
 
-            const epicKey = issue.fields['customfield_10014'] || noEpicKey;
+            // If Next-Gen/Team-Managed Jira, Epic is often the parent
+            if (!epicKey && issue.fields.parent && issue.fields.parent.fields.issuetype?.name === 'Epic') {
+                epicKey = issue.fields.parent.key;
+            }
+
+            if (epicKey) {
+                issueEpicMap.set(issue.key, epicKey);
+            }
+        }
+
+        // PASS 2: Assign all issues to their proper Epic Block (inheriting if needed)
+        for (const issue of issues) {
+            // Check if this issue has an Epic, or if its parent has an Epic
+            let epicKey = issueEpicMap.get(issue.key);
+
+            if (!epicKey && issue.fields.parent) {
+                epicKey = issueEpicMap.get(issue.fields.parent.key);
+            }
+
+            epicKey = epicKey || noEpicKey;
             const epicInfo = epicMap.get(epicKey) || { key: epicKey, name: epicKey === noEpicKey ? 'No Epic' : epicKey };
 
             if (!epicBreakdowns.has(epicKey)) {

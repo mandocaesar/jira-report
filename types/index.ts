@@ -42,6 +42,9 @@ export interface JiraIssue {
       key: string;
       fields: {
         summary: string;
+        issuetype?: {
+          name: string;
+        };
       };
     };
     subtasks?: Array<{
