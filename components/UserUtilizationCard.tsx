@@ -46,21 +46,21 @@ export default function UserUtilizationCard({ utilization }: UserUtilizationCard
             {/* Background gradient effect */}
             <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
 
-            <div className="relative p-6">
+            <div className="relative p-4">
                 {/* User Info */}
-                <div className="flex items-center gap-4 mb-4">
+                <div className="flex items-center gap-3 mb-3">
                     <div className="relative">
-                        <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-white/20">
+                        <div className="w-10 h-10 rounded-full overflow-hidden border border-white/20">
                             {user.avatarUrl ? (
                                 <Image
                                     src={user.avatarUrl}
                                     alt={user.displayName}
-                                    width={56}
-                                    height={56}
+                                    width={40}
+                                    height={40}
                                     className="object-cover"
                                 />
                             ) : (
-                                <div className="w-full h-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-bold text-lg">
+                                <div className="w-full h-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm">
                                     {user.displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                                 </div>
                             )}
@@ -69,52 +69,52 @@ export default function UserUtilizationCard({ utilization }: UserUtilizationCard
                         <div className={`absolute -bottom-1 -right-1 w-4 h-4 ${colors.bar} rounded-full border-2 border-gray-900`}></div>
                     </div>
                     <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-white truncate flex items-center gap-1.5">
+                        <h3 className="font-semibold text-white text-sm truncate flex items-center gap-1.5">
                             {user.displayName}
                             {isUnrecognized && (
-                                <span className="flex-shrink-0 inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-400 text-[10px] cursor-help" title="Not in team roster — sync team data to fix">
+                                <span className="flex-shrink-0 inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-400 text-[9px] cursor-help" title="Not in team roster — sync team data to fix">
                                     !
                                 </span>
                             )}
                         </h3>
-                        <div className="flex items-center gap-2 mt-1">
-                            <span className={`text-[10px] px-2 py-0.5 rounded-full border ${roleColor} uppercase font-bold tracking-wider`}>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded-full border ${roleColor} uppercase font-bold tracking-wider`}>
                                 {role}
                             </span>
-                            <span className="text-xs text-gray-400 truncate">{title}</span>
+                            <span className="text-[10px] text-gray-400 truncate">{title}</span>
                         </div>
                     </div>
                 </div>
 
                 {/* Metrics Grid */}
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div>
-                        <p className="text-xs text-gray-400 mb-1">Story Points</p>
-                        <p className="text-2xl font-bold text-white">{storyPoints}</p>
+                <div className="flex justify-between items-center mb-3 bg-black/20 rounded-lg p-2">
+                    <div className="text-center flex-1 border-r border-white/5">
+                        <p className="text-[10px] text-gray-400 mb-0.5">Story Points</p>
+                        <p className="text-lg font-bold text-white leading-none">{storyPoints}</p>
                     </div>
-                    <div>
-                        <p className="text-xs text-gray-400 mb-1">Available Days</p>
-                        <div className="flex items-baseline gap-1">
-                            <p className="text-2xl font-bold text-white">{availableDays}</p>
+                    <div className="text-center flex-1">
+                        <p className="text-[10px] text-gray-400 mb-0.5">Available Days</p>
+                        <div className="flex items-baseline justify-center gap-1 leading-none">
+                            <p className="text-lg font-bold text-white">{availableDays}</p>
                             {leaveDays > 0 && (
-                                <span className="text-xs text-red-400">(-{leaveDays} leave)</span>
+                                <span className="text-[10px] text-red-400">(-{leaveDays})</span>
                             )}
                             {leaveDays === 0 && (
-                                <span className="text-xs text-gray-500">/ {workingDays}</span>
+                                <span className="text-[10px] text-gray-500">/ {workingDays}</span>
                             )}
                         </div>
                     </div>
                 </div>
 
                 {/* Utilization Bar */}
-                <div className="space-y-2 mb-4">
+                <div className="space-y-1.5 mb-3">
                     <div className="flex justify-between items-center">
-                        <span className="text-xs text-gray-400">Utilization</span>
-                        <span className={`text-sm font-bold ${colors.text}`}>
+                        <span className="text-[10px] text-gray-400">Utilization</span>
+                        <span className={`text-xs font-bold ${colors.text}`}>
                             {utilizationPercent.toFixed(1)}%
                         </span>
                     </div>
-                    <div className="h-3 bg-gray-800/50 rounded-full overflow-hidden">
+                    <div className="h-2 bg-gray-800/50 rounded-full overflow-hidden">
                         <div
                             className={`h-full ${colors.bar} rounded-full transition-all duration-500 ease-out`}
                             style={{ width: `${Math.min(displayPercent, 100)}%` }}
@@ -127,11 +127,10 @@ export default function UserUtilizationCard({ utilization }: UserUtilizationCard
 
                 {/* Work Type Breakdown */}
                 {workTypeStats && Object.keys(workTypeStats).length > 0 && (
-                    <div className="pt-3 border-t border-white/10">
-                        <p className="text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-2">Work Breakdown</p>
-                        <div className="flex flex-wrap gap-2">
+                    <div className="pt-2 border-t border-white/10">
+                        <div className="flex flex-wrap gap-1.5">
                             {workTypeStats['Product'] > 0 && (
-                                <div className="flex items-center gap-1.5 bg-green-500/10 px-2 py-1 rounded text-xs border border-green-500/30">
+                                <div className="flex items-center gap-1 bg-green-500/10 px-1.5 py-0.5 rounded text-[9px] border border-green-500/30">
                                     <span className="text-green-300">📦 Product</span>
                                     <span className="font-bold text-green-200 bg-green-500/20 px-1.5 rounded text-[10px]">{workTypeStats['Product']}</span>
                                 </div>
@@ -139,13 +138,13 @@ export default function UserUtilizationCard({ utilization }: UserUtilizationCard
                             {workTypeStats['Technical Initiatives'] > 0 && (
                                 <div className="flex items-center gap-1.5 bg-blue-500/10 px-2 py-1 rounded text-xs border border-blue-500/30">
                                     <span className="text-blue-300">⚙️ Tech</span>
-                                    <span className="font-bold text-blue-200 bg-blue-500/20 px-1.5 rounded text-[10px]">{workTypeStats['Technical Initiatives']}</span>
+                                    <span className="font-bold text-blue-200 bg-blue-500/20 px-1 rounded text-[9px]">{workTypeStats['Technical Initiatives']}</span>
                                 </div>
                             )}
                             {workTypeStats['Incident'] > 0 && (
-                                <div className="flex items-center gap-1.5 bg-red-500/10 px-2 py-1 rounded text-xs border border-red-500/30">
+                                <div className="flex items-center gap-1 bg-red-500/10 px-1.5 py-0.5 rounded text-[9px] border border-red-500/30">
                                     <span className="text-red-300">🐛 Incident</span>
-                                    <span className="font-bold text-red-200 bg-red-500/20 px-1.5 rounded text-[10px]">{workTypeStats['Incident']}</span>
+                                    <span className="font-bold text-red-200 bg-red-500/20 px-1 rounded text-[9px]">{workTypeStats['Incident']}</span>
                                 </div>
                             )}
                         </div>

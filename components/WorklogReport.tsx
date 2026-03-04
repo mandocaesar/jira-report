@@ -85,24 +85,12 @@ export default function WorklogReport({ boardId, sprintId }: WorklogReportProps)
     }, [] as number[]);
 
     return (
-        <div className="mt-8 space-y-6">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
-                        <span className="text-xl">⏱️</span>
-                    </div>
-                    <div>
-                        <h2 className="text-xl font-bold text-white tracking-tight">Daily Worklog Tracking</h2>
-                        <p className="text-sm text-emerald-400/80 font-medium">Sprint Time Tracking Heatmap</p>
-                    </div>
-                </div>
-
-                <div className="flex items-center gap-3 text-xs font-medium text-gray-400">
-                    <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-red-500/20 border border-red-500/30"></div> &lt; 4h</div>
-                    <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-yellow-500/20 border border-yellow-500/30"></div> 4-7h</div>
-                    <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-green-500/20 border border-green-500/30"></div> 7-8h</div>
-                    <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-blue-500/20 border border-blue-500/30"></div> &gt; 8h</div>
-                </div>
+        <div className="mt-2 space-y-6">
+            <div className="flex items-center justify-end">
+                <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-red-500/20 border border-red-500/30"></div> &lt; 4h</div>
+                <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-yellow-500/20 border border-yellow-500/30"></div> 4-7h</div>
+                <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-green-500/20 border border-green-500/30"></div> 7-8h</div>
+                <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-blue-500/20 border border-blue-500/30"></div> &gt; 8h</div>
             </div>
 
             <div className="bg-gray-800/30 border border-gray-700/50 rounded-xl overflow-hidden shadow-sm overflow-x-auto">
@@ -173,6 +161,6 @@ export default function WorklogReport({ boardId, sprintId }: WorklogReportProps)
                     </tbody>
                 </table>
             </div>
-        </div>
+        </div >
     );
 }

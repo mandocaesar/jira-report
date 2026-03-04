@@ -27,30 +27,9 @@ export default function SprintSummaryComponent({ summary }: SprintSummaryProps) 
     };
 
     return (
-        <div className="bg-gradient-to-br from-purple-900/30 to-pink-900/30 rounded-2xl border border-purple-500/30 backdrop-blur-sm overflow-hidden">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 border-b border-purple-500/20 px-8 py-6">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h2 className="text-2xl font-bold text-white mb-1">{sprint.name}</h2>
-                        <p className="text-purple-300">
-                            {formatDate(sprint.startDate)} → {formatDate(sprint.endDate)}
-                        </p>
-                    </div>
-                    <div className="flex items-center gap-2 px-4 py-2 bg-purple-500/20 rounded-full border border-purple-500/30">
-                        <span className="text-sm text-purple-300">Status:</span>
-                        <span className={`text-sm font-bold ${sprint.state === 'active' ? 'text-green-400' :
-                            sprint.state === 'closed' ? 'text-gray-400' :
-                                'text-blue-400'
-                            }`}>
-                            {sprint.state.toUpperCase()}
-                        </span>
-                    </div>
-                </div>
-            </div>
-
+        <div className="bg-gradient-to-br from-purple-900/30 to-pink-900/30">
             {/* Metrics */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-8 pb-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-8">
                 <div className="text-center p-6 bg-gradient-to-br from-blue-500/10 to-cyan-500/10 rounded-xl border border-blue-500/20">
                     <div className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent mb-2">
                         {totalStoryPoints}

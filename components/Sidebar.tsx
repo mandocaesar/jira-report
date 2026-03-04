@@ -192,7 +192,7 @@ export default function Sidebar({ children }: SidebarProps) {
                 </nav>
 
                 {/* Footer - Actions */}
-                <div className="border-t border-gray-800 p-4 space-y-2">
+                <div className="border-t border-gray-800 p-4 space-y-2 overflow-hidden">
                     <button
                         onClick={() => router.refresh()}
                         className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
@@ -201,11 +201,11 @@ export default function Sidebar({ children }: SidebarProps) {
                         <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                         </svg>
-                        {!collapsed && <span className="text-sm font-medium">Refresh Data</span>}
+                        {!collapsed && <span className="text-sm font-medium whitespace-nowrap truncate">Refresh Data</span>}
                     </button>
                     <Link
                         href="/api/auth/logout"
-                        className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
                         title={collapsed ? 'Logout' : ''}
                     >
                         <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">

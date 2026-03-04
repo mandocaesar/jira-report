@@ -9,6 +9,7 @@ import { SprintSummary } from '@/types';
 import { EpicBreakdownComponent } from '@/components/EpicBreakdown';
 import SprintReport from '@/components/SprintReport';
 import WorklogReport from '@/components/WorklogReport';
+import CollapsibleSection from '@/components/CollapsibleSection';
 import { SprintReportData } from '@/types';
 
 export default function Home() {
@@ -177,20 +178,25 @@ export default function Home() {
         {sprintData && !loading && (
           <div className="space-y-8 animate-fadeIn">
             {/* Sprint Summary */}
-            <SprintSummaryComponent summary={sprintData} />
+            <CollapsibleSection title="Sprint Summary" defaultOpen={true}>
+              <SprintSummaryComponent summary={sprintData} />
+            </CollapsibleSection>
 
             {/* User Utilizations */}
             <div className="space-y-12">
               {/* Engineers Section */}
-              <div>
-                <h2 className="text-xl font-bold text-blue-400 mb-6 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-blue-400"></span>
-                  <span>Engineers</span>
-                  <span className="text-sm font-normal text-gray-400">
-                    ({sprintData.userUtilizations.filter(u => u.role !== 'qa').length})
-                  </span>
-                </h2>
-
+              <CollapsibleSection
+                title={
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-blue-400"></span>
+                    <span className="text-blue-400">Engineers</span>
+                    <span className="text-sm font-normal text-gray-400">
+                      ({sprintData.userUtilizations.filter(u => u.role !== 'qa').length})
+                    </span>
+                  </div>
+                }
+                defaultOpen={true}
+              >
                 {sprintData.userUtilizations.filter(u => u.role !== 'qa').length === 0 ? (
                   <div className="p-8 bg-blue-900/10 border border-blue-500/20 rounded-2xl text-center">
                     <p className="text-blue-300/60">No engineers assigned</p>
@@ -207,18 +213,21 @@ export default function Home() {
                       ))}
                   </div>
                 )}
-              </div>
+              </CollapsibleSection>
 
               {/* QA Section */}
-              <div>
-                <h2 className="text-xl font-bold text-pink-400 mb-6 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-pink-400"></span>
-                  <span>QA</span>
-                  <span className="text-sm font-normal text-gray-400">
-                    ({sprintData.userUtilizations.filter(u => u.role === 'qa').length})
-                  </span>
-                </h2>
-
+              <CollapsibleSection
+                title={
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-pink-400"></span>
+                    <span className="text-pink-400">QA</span>
+                    <span className="text-sm font-normal text-gray-400">
+                      ({sprintData.userUtilizations.filter(u => u.role === 'qa').length})
+                    </span>
+                  </div>
+                }
+                defaultOpen={false}
+              >
                 {sprintData.userUtilizations.filter(u => u.role === 'qa').length === 0 ? (
                   <div className="p-8 bg-pink-900/10 border border-pink-500/20 rounded-2xl text-center">
                     <p className="text-pink-300/60">No QA assigned</p>
@@ -235,28 +244,34 @@ export default function Home() {
                       ))}
                   </div>
                 )}
-              </div>
+              </CollapsibleSection>
             </div>
 
             {/* Sprint Completion Report */}
             {reportData && (
-              <SprintReport report={reportData} jiraDomain={jiraDomain} />
+              <CollapsibleSection title="Sprint Completion & Regression Report" defaultOpen={false}>
+                <SprintReport report={reportData} jiraDomain={jiraDomain} />
+              </CollapsibleSection>
             )}
 
             {/* Epic Breakdown */}
             {selectedBoardId && selectedSprintId && (
-              <EpicBreakdownComponent
-                boardId={selectedBoardId}
-                sprintId={selectedSprintId}
-              />
+              <CollapsibleSection title="Epic Delivery Breakdown" defaultOpen={false}>
+                <EpicBreakdownComponent
+                  boardId={selectedBoardId}
+                  sprintId={selectedSprintId}
+                />
+              </CollapsibleSection>
             )}
 
             {/* Daily Worklog Tracking */}
             {selectedBoardId && selectedSprintId && (
-              <WorklogReport
-                boardId={selectedBoardId}
-                sprintId={selectedSprintId}
-              />
+              <CollapsibleSection title="Daily Worklog Tracking" defaultOpen={false}>
+                <WorklogReport
+                  boardId={selectedBoardId}
+                  sprintId={selectedSprintId}
+                />
+              </CollapsibleSection>
             )}
           </div>
         )}
