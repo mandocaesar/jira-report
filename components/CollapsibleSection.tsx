@@ -26,9 +26,12 @@ export default function CollapsibleSection({ title, defaultOpen = true, children
                         title
                     )}
                 </div>
-                <div className={`p-2 rounded-full bg-white/5 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>
-                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                <div className={`p-2 rounded-lg transition-all duration-300 ${isOpen
+                    ? 'bg-purple-500/20 border border-purple-500/30 rotate-180'
+                    : 'bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-purple-500/30 hover:from-purple-500/30 hover:to-pink-500/30'
+                    }`}>
+                    <svg className={`w-4 h-4 transition-colors duration-300 ${isOpen ? 'text-purple-400' : 'text-purple-300'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
                     </svg>
                 </div>
             </button>
