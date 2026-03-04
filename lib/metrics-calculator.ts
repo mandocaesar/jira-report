@@ -19,19 +19,7 @@ function isTestingStatus(statusName: string): boolean {
     return TEST_STATUS_KEYWORDS.some(kw => lower.includes(kw));
 }
 
-/**
- * Check if a status category is "In Progress"
- */
-function isInProgressCategory(categoryName: string): boolean {
-    return categoryName === 'In Progress';
-}
 
-/**
- * Check if a status category is "Done"
- */
-function isDoneCategory(categoryName: string): boolean {
-    return categoryName === 'Done';
-}
 
 /**
  * Changelog entry from Jira API
@@ -57,7 +45,8 @@ function getStatusTransitions(issue: JiraIssue): Array<{
     toStatus: string;
     toCategory: string;
 }> {
-    const changelog = (issue as any).changelog;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const changelog = (issue as unknown as { changelog?: any }).changelog;
     if (!changelog || !changelog.histories) return [];
 
     const transitions: Array<{
@@ -150,13 +139,7 @@ function findDoneTime(issue: JiraIssue): Date | null {
     return null;
 }
 
-/**
- * Get the week number within a sprint for a given date
- */
-function getWeekIndex(date: Date, sprintStart: Date): number {
-    const diff = date.getTime() - sprintStart.getTime();
-    return Math.floor(diff / (7 * 24 * 60 * 60 * 1000));
-}
+
 
 /**
  * Build weekly buckets for a sprint
@@ -166,7 +149,7 @@ function buildWeekBuckets(sprint: Sprint): Array<{ weekStart: Date; weekEnd: Dat
     const end = new Date(sprint.endDate);
     const buckets: Array<{ weekStart: Date; weekEnd: Date; label: string }> = [];
 
-    let weekStart = new Date(start);
+    const weekStart = new Date(start);
     let weekNum = 1;
 
     while (weekStart < end) {
@@ -284,9 +267,12 @@ export function calculateMetrics(sprint: Sprint, issues: JiraIssue[]): MetricsDa
         const firstInProgress = findFirstInProgressTime(issue);
         const firstTest = findFirstTestTime(issue);
 
-        // MTD: created → first In Progress
+        const sprintStartDate = new Date(sprint.startDate);
+        const baselineDate = sprintStartDate > createdDate ? sprintStartDate : createdDate;
+
+        // MTD: baseline → first In Progress
         if (firstInProgress) {
-            const hours = hoursBetween(createdDate, firstInProgress);
+            const hours = hoursBetween(baselineDate, firstInProgress);
             if (hours >= 0) deliverTimes.push(hours);
         }
 
@@ -296,9 +282,9 @@ export function calculateMetrics(sprint: Sprint, issues: JiraIssue[]): MetricsDa
             if (hours >= 0) testTimes.push(hours);
         }
 
-        // MTTD: created → Done
+        // MTTD: baseline → Done
         if (doneTime) {
-            const hours = hoursBetween(createdDate, doneTime);
+            const hours = hoursBetween(baselineDate, doneTime);
             if (hours >= 0) doneTimes.push(hours);
         }
     }

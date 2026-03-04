@@ -155,7 +155,7 @@ function TimeMetricsCards({ data }: { data: MetricsData }) {
     const cards = [
         {
             label: 'Mean Time to Deliver',
-            sublabel: 'Created → In Progress',
+            sublabel: 'Sprint Start → In Progress',
             value: timeMetrics.meanTimeToDeliver,
             sample: timeMetrics.sampleSize.deliver,
             thresholds: [24, 72] as [number, number],
@@ -175,7 +175,7 @@ function TimeMetricsCards({ data }: { data: MetricsData }) {
         },
         {
             label: 'Mean Time to Done',
-            sublabel: 'Created → Done',
+            sublabel: 'Sprint Start → Done',
             value: timeMetrics.meanTimeToDone,
             sample: timeMetrics.sampleSize.done,
             thresholds: [120, 240] as [number, number],
@@ -346,9 +346,10 @@ function CompletionRateChart({ data }: { data: MetricsData }) {
                             borderRadius: '8px',
                             color: '#F3F4F6',
                         }}
-                        formatter={((value: any, name: any) =>
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        formatter={(value: any, name: any) =>
                             name === 'Completion %' ? [`${value}%`, name] : [value, name]
-                        ) as any}
+                        }
                     />
                     <Legend wrapperStyle={{ color: '#9CA3AF', fontSize: 12 }} />
                     <Line
