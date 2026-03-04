@@ -222,7 +222,7 @@ export default function Sidebar({ children }: SidebarProps) {
             </aside>
 
             {/* Main Content */}
-            <main className={`flex-1 ${collapsed ? 'ml-20' : 'ml-64'} transition-all duration-300`}>
+            <main className={`flex-1 min-w-0 flex flex-col overflow-x-hidden ${collapsed ? 'ml-20' : 'ml-64'} transition-all duration-300`}>
                 {children}
             </main>
         </div>
