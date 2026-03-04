@@ -67,7 +67,7 @@ export default function SprintSummaryComponent({ summary }: SprintSummaryProps) 
             {/* Row 1: Key Metrics + Sprint Timeline */}
             <div className="grid grid-cols-2 md:grid-cols-6 gap-2 p-3">
                 {/* Total Story Points */}
-                <div className="text-center py-2.5 px-3 bg-gradient-to-br from-blue-500/10 to-cyan-500/10 rounded-lg border border-blue-500/20">
+                <div className="text-center py-2.5 px-3 bg-gradient-to-br from-blue-500/10 to-cyan-500/10 rounded-lg border border-blue-500/20 cursor-help" title="Sum of all sub-task and sub-chore story points assigned in this sprint. Only sub-tasks/sub-chores are counted, not parent stories.">
                     <div className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent leading-tight">
                         {totalStoryPoints}
                     </div>
@@ -75,7 +75,7 @@ export default function SprintSummaryComponent({ summary }: SprintSummaryProps) 
                 </div>
 
                 {/* Sprint Timeline (merged with Working Days) */}
-                <div className="col-span-2 md:col-span-3 py-2.5 px-4 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-lg border border-purple-500/20">
+                <div className="col-span-2 md:col-span-3 py-2.5 px-4 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-lg border border-purple-500/20" title="Working days = weekdays in the sprint period, excluding national holidays. Progress bar shows calendar position through the sprint.">
                     <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
                         <div className="flex items-center gap-2">
                             <span className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent leading-tight">
@@ -146,7 +146,7 @@ export default function SprintSummaryComponent({ summary }: SprintSummaryProps) 
                 </div>
 
                 {/* Total Mandays */}
-                <div className="text-center py-2.5 px-3 bg-gradient-to-br from-green-500/10 to-emerald-500/10 rounded-lg border border-green-500/20">
+                <div className="text-center py-2.5 px-3 bg-gradient-to-br from-green-500/10 to-emerald-500/10 rounded-lg border border-green-500/20 cursor-help" title="Sum of available days for all roster members, based on their title's configured days minus any manual leave. Mandays = Σ (title available days − leave days) per member.">
                     <div className="text-3xl font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent leading-tight">
                         {totalMandays}
                     </div>
@@ -162,7 +162,7 @@ export default function SprintSummaryComponent({ summary }: SprintSummaryProps) 
                 </div>
 
                 {/* Avg Utilization */}
-                <div className="text-center py-2.5 px-3 bg-gradient-to-br from-orange-500/10 to-amber-500/10 rounded-lg border border-orange-500/20">
+                <div className="text-center py-2.5 px-3 bg-gradient-to-br from-orange-500/10 to-amber-500/10 rounded-lg border border-orange-500/20 cursor-help" title="Average utilization = (Total Story Points ÷ Total Mandays) × 100%. Shows how much of the team's available capacity was used. Under 70% = under-utilized, over 110% = over-utilized.">
                     <div className={`text-3xl font-bold leading-tight ${getAverageStatusColor(averageUtilization)}`}>
                         {averageUtilization.toFixed(1)}%
                     </div>
@@ -176,7 +176,7 @@ export default function SprintSummaryComponent({ summary }: SprintSummaryProps) 
                     <div className="px-3 pb-3">
                         <div className="bg-gray-800/30 rounded-lg p-3 border border-gray-700/30">
                             <div className="flex items-center justify-between mb-2">
-                                <h3 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Work Type Distribution</h3>
+                                <h3 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider cursor-help" title="Classification based on the parent epic's work type label (Product, Technical Initiatives, or Incident). Points are from sub-tasks/sub-chores.">Work Type Distribution</h3>
                                 <span className="text-[10px] text-gray-500">{totalStoryPoints} pts total</span>
                             </div>
 
@@ -224,7 +224,7 @@ export default function SprintSummaryComponent({ summary }: SprintSummaryProps) 
             {/* Row 3: QA vs Engineer Breakdown */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 px-3 pb-3">
                 {/* Engineers Stats */}
-                <div className="bg-blue-900/10 rounded-lg p-3 border border-blue-500/20">
+                <div className="bg-blue-900/10 rounded-lg p-3 border border-blue-500/20" title="Engineers breakdown: Mandays = sum of each engineer's available days (from title config minus leave). Points = sub-task/sub-chore story points assigned to engineers. Avg Util = (Points ÷ Mandays) × 100%.">
                     <h3 className="text-xs font-bold text-blue-400 mb-2 flex items-center gap-1.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
                         Engineers ({summary.engineerStats?.count || 0})
@@ -271,7 +271,7 @@ export default function SprintSummaryComponent({ summary }: SprintSummaryProps) 
                 </div>
 
                 {/* QA Stats */}
-                <div className="bg-pink-900/10 rounded-lg p-3 border border-pink-500/20">
+                <div className="bg-pink-900/10 rounded-lg p-3 border border-pink-500/20" title="QA breakdown: Mandays = sum of each QA's available days (from title config minus leave). Points = sub-task/sub-chore story points assigned to QA members. Avg Util = (Points ÷ Mandays) × 100%.">
                     <h3 className="text-xs font-bold text-pink-400 mb-2 flex items-center gap-1.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-pink-400"></span>
                         QA ({summary.qaStats?.count || 0})
