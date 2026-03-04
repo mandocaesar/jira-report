@@ -29,19 +29,19 @@ export default function SprintSummaryComponent({ summary }: SprintSummaryProps) 
     return (
         <div className="bg-gradient-to-br from-purple-900/30 to-pink-900/30">
             {/* Metrics */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-8">
-                <div className="text-center p-6 bg-gradient-to-br from-blue-500/10 to-cyan-500/10 rounded-xl border border-blue-500/20">
-                    <div className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent mb-2">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4">
+                <div className="text-center p-4 bg-gradient-to-br from-blue-500/10 to-cyan-500/10 rounded-xl border border-blue-500/20">
+                    <div className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent mb-1">
                         {totalStoryPoints}
                     </div>
-                    <div className="text-sm text-gray-400">Total Story Points</div>
+                    <div className="text-xs text-gray-400">Total Story Points</div>
                 </div>
 
-                <div className="text-center p-6 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-xl border border-purple-500/20">
-                    <div className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent mb-2">
+                <div className="text-center p-4 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-xl border border-purple-500/20">
+                    <div className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent mb-1">
                         {totalWorkingDays}
                     </div>
-                    <div className="text-sm text-gray-400">Working Days</div>
+                    <div className="text-xs text-gray-400">Working Days</div>
                     {summary.holidays && summary.holidays.length > 0 && (
                         <div className="mt-2 text-left bg-black/20 rounded-lg p-2 border border-purple-500/20">
                             <div className="text-xs text-purple-300 font-medium mb-1 border-b border-purple-500/20 pb-1">
@@ -59,12 +59,12 @@ export default function SprintSummaryComponent({ summary }: SprintSummaryProps) 
                     )}
                 </div>
 
-                <div className="text-center p-6 bg-gradient-to-br from-green-500/10 to-emerald-500/10 rounded-xl border border-green-500/20">
-                    <div className="text-4xl font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent mb-2">
+                <div className="text-center p-4 bg-gradient-to-br from-green-500/10 to-emerald-500/10 rounded-xl border border-green-500/20">
+                    <div className="text-2xl font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent mb-1">
                         {totalMandays}
                     </div>
-                    <div className="text-sm text-gray-400">Total Mandays</div>
-                    <div className="text-xs text-gray-500 mt-1">
+                    <div className="text-xs text-gray-400">Total Mandays</div>
+                    <div className="text-[10px] text-gray-500">
                         ({userUtilizations.length} team members)
                     </div>
                     {totalLeaveDays > 0 && (
@@ -74,8 +74,8 @@ export default function SprintSummaryComponent({ summary }: SprintSummaryProps) 
                     )}
                 </div>
 
-                <div className="text-center p-6 bg-gradient-to-br from-orange-500/10 to-amber-500/10 rounded-xl border border-orange-500/20">
-                    <div className={`text-4xl font-bold mb-2 ${getAverageStatusColor(averageUtilization)}`}>
+                <div className="text-center p-4 bg-gradient-to-br from-orange-500/10 to-amber-500/10 rounded-xl border border-orange-500/20">
+                    <div className={`text-2xl font-bold mb-1 ${getAverageStatusColor(averageUtilization)}`}>
                         {averageUtilization.toFixed(1)}%
                     </div>
                     <div className="text-sm text-gray-400">Avg Utilization</div>

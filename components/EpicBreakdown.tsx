@@ -179,10 +179,10 @@ export function EpicBreakdownComponent({ boardId, sprintId, jiraDomain = 'bank-s
                         <div key={epic.epicKey} className="bg-gray-800/30 border border-gray-700/50 rounded-xl overflow-hidden shadow-sm hover:border-gray-600/50 transition-all duration-200">
                             {/* Epic Header */}
                             <div
-                                className="px-5 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer hover:bg-gray-700/20 transition-colors"
+                                className="px-4 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3 cursor-pointer hover:bg-gray-700/20 transition-colors"
                                 onClick={() => toggleEpic(epic.epicKey)}
                             >
-                                <div className="flex items-center gap-3 min-w-0 flex-1">
+                                <div className="flex items-center gap-2 min-w-0 flex-1">
                                     <div className="bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2 py-1 rounded text-xs font-mono font-medium shrink-0">
                                         {epic.epicKey}
                                     </div>
@@ -191,16 +191,16 @@ export function EpicBreakdownComponent({ boardId, sprintId, jiraDomain = 'bank-s
                                     </span>
                                 </div>
 
-                                <div className="flex items-center justify-between md:justify-end gap-6 shrink-0">
+                                <div className="flex items-center justify-between md:justify-end gap-4 shrink-0">
                                     {/* Completion Meta */}
-                                    <div className="flex flex-col items-end gap-1">
-                                        <div className="flex items-center gap-2 text-sm font-medium">
+                                    <div className="flex flex-col items-end gap-0.5">
+                                        <div className="flex items-center gap-2 text-xs font-medium">
                                             <span className="text-gray-400">{epic.completedPoints} / {epic.totalPoints} pts</span>
                                             <span className={getCompletionTextColor(epic.completionPercent)}>
                                                 {epic.completionPercent.toFixed(0)}%
                                             </span>
                                         </div>
-                                        <div className="w-32 h-1.5 bg-gray-700/50 rounded-full overflow-hidden">
+                                        <div className="w-24 h-1 bg-gray-700/50 rounded-full overflow-hidden">
                                             <div
                                                 className={`h-full bg-gradient-to-r ${getCompletionBarColor(epic.completionPercent)} transition-all duration-1000`}
                                                 style={{ width: `${Math.min(epic.completionPercent, 100)}%` }}
@@ -226,10 +226,10 @@ export function EpicBreakdownComponent({ boardId, sprintId, jiraDomain = 'bank-s
                                             <div key={story.key} className={`${storyIndex > 0 ? 'border-t border-gray-800' : ''}`}>
                                                 {/* Story Header */}
                                                 <div
-                                                    className="px-6 py-3 flex items-center justify-between gap-4 cursor-pointer hover:bg-gray-800/40 transition-colors group"
+                                                    className="px-4 py-2 flex items-center justify-between gap-3 cursor-pointer hover:bg-gray-800/40 transition-colors group"
                                                     onClick={(e) => toggleStory(story.key, e)}
                                                 >
-                                                    <div className="flex items-center gap-3 min-w-0 flex-1 pl-2">
+                                                    <div className="flex items-center gap-2 min-w-0 flex-1 pl-2">
                                                         <div className={`w-1.5 h-1.5 rounded-full ${isStandalone ? 'bg-gray-500' : 'bg-purple-500'}`}></div>
                                                         {!isStandalone && (
                                                             <a
@@ -242,15 +242,15 @@ export function EpicBreakdownComponent({ boardId, sprintId, jiraDomain = 'bank-s
                                                                 {story.key}
                                                             </a>
                                                         )}
-                                                        <span className="text-sm font-medium text-gray-300 truncate" title={story.summary}>
+                                                        <span className="text-xs font-medium text-gray-300 truncate" title={story.summary}>
                                                             {story.summary}
                                                         </span>
-                                                        <span className="text-xs text-gray-500 bg-gray-800 px-1.5 py-0.5 rounded">
+                                                        <span className="text-[10px] text-gray-500 bg-gray-800 px-1.5 py-0.5 rounded">
                                                             {story.issues.length} {story.issues.length === 1 ? 'task' : 'tasks'}
                                                         </span>
                                                     </div>
 
-                                                    <div className="flex items-center gap-4 shrink-0">
+                                                    <div className="flex items-center gap-3 shrink-0">
                                                         <span className="text-xs font-medium text-gray-400">
                                                             <span className={story.completedPoints === story.totalPoints ? 'text-green-400' : ''}>{story.completedPoints}</span>
                                                             {' '}/ {story.totalPoints} pts
@@ -268,15 +268,15 @@ export function EpicBreakdownComponent({ boardId, sprintId, jiraDomain = 'bank-s
 
                                                 {/* Sub-tasks */}
                                                 {isStoryExpanded && (
-                                                    <div className="px-8 py-2 bg-gray-900/80 border-t border-gray-800/50 shadow-inner">
+                                                    <div className="px-6 py-1 bg-gray-900/80 border-t border-gray-800/50 shadow-inner">
                                                         <div className="overflow-x-auto">
-                                                            <table className="w-full text-sm">
+                                                            <table className="w-full text-xs">
                                                                 <tbody>
                                                                     {story.issues.map(issue => {
                                                                         const colors = getStatusColors(issue.statusCategory);
                                                                         return (
                                                                             <tr key={issue.key} className="border-b border-gray-800/50 last:border-0 hover:bg-gray-800/30">
-                                                                                <td className="py-2.5 pr-4 pl-6 w-24">
+                                                                                <td className="py-1.5 pr-3 pl-4 w-20">
                                                                                     <a
                                                                                         href={`https://${jiraDomain}/browse/${issue.key}`}
                                                                                         target="_blank"
@@ -286,26 +286,26 @@ export function EpicBreakdownComponent({ boardId, sprintId, jiraDomain = 'bank-s
                                                                                         {issue.key}
                                                                                     </a>
                                                                                 </td>
-                                                                                <td className="py-2.5 pr-4 flex-1">
-                                                                                    <div className="flex items-center gap-2">
-                                                                                        <span className="text-xs text-gray-500 bg-gray-800 border border-gray-700 rounded px-1.5 whitespace-nowrap">
+                                                                                <td className="py-1.5 pr-3 pl-4 flex-1">
+                                                                                    <div className="flex items-center gap-1.5">
+                                                                                        <span className="text-[10px] text-gray-500 bg-gray-800 border border-gray-700 rounded px-1 whitespace-nowrap">
                                                                                             {issue.issueType}
                                                                                         </span>
-                                                                                        <span className="text-gray-300 truncate max-w-md">
+                                                                                        <span className="text-xs text-gray-300 truncate max-w-sm">
                                                                                             {issue.summary}
                                                                                         </span>
                                                                                     </div>
                                                                                 </td>
-                                                                                <td className="py-2.5 pr-4 w-32 text-center">
-                                                                                    <span className={`text-[10px] px-2 py-0.5 rounded-full border bg-gradient-to-r ${colors.bg} ${colors.text} ${colors.border} whitespace-nowrap`}>
+                                                                                <td className="py-1.5 pr-3 w-24 text-center">
+                                                                                    <span className={`text-[9px] px-1.5 py-0.5 rounded-full border bg-gradient-to-r ${colors.bg} ${colors.text} ${colors.border} whitespace-nowrap`}>
                                                                                         {issue.status}
                                                                                     </span>
                                                                                 </td>
-                                                                                <td className="py-2.5 pr-4 w-16 text-right font-medium text-gray-300">
+                                                                                <td className="py-1.5 pr-3 w-16 text-right font-medium text-gray-300">
                                                                                     {issue.storyPoints || '-'}
                                                                                 </td>
-                                                                                <td className="py-2.5 px-2 w-32 text-right">
-                                                                                    <span className="text-xs text-gray-500 truncate inline-block max-w-[120px]">
+                                                                                <td className="py-1.5 px-2 w-28 text-right">
+                                                                                    <span className="text-[10px] text-gray-500 truncate inline-block max-w-[100px]">
                                                                                         {issue.assignee || 'Unassigned'}
                                                                                     </span>
                                                                                 </td>
