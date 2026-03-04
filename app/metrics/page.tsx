@@ -93,7 +93,7 @@ export default function MetricsPage() {
     };
 
     return (
-        <main className="container mx-auto px-6 py-8">
+        <main className="px-3 sm:px-4 md:px-6 py-4 md:py-8 max-w-full">
             {/* Page Header */}
             <div className="mb-8">
                 <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-purple-400 bg-clip-text text-transparent">

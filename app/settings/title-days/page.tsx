@@ -81,9 +81,9 @@ export default function TitleDaysPage() {
         !== JSON.stringify(originalEntries.map(e => ({ t: e.title, d: e.availableDays })));
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900/20 to-gray-900">
+        <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-gray-900 via-purple-900/20 to-gray-900">
             <header className="border-b border-purple-500/20 bg-gray-900/50 backdrop-blur-xl">
-                <div className="container mx-auto px-6 py-8">
+                <div className="px-3 sm:px-4 md:px-6 py-4 md:py-8">
                     <div className="flex items-center gap-4">
                         <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
                             <span className="text-2xl">⏱️</span>
@@ -98,7 +98,7 @@ export default function TitleDaysPage() {
                 </div>
             </header>
 
-            <main className="container mx-auto px-6 py-8 max-w-2xl space-y-6">
+            <main className="px-3 sm:px-4 md:px-6 py-4 md:py-8 max-w-2xl mx-auto space-y-6">
                 {error && (
                     <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400">
                         {error}

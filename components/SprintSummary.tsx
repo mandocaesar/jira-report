@@ -65,7 +65,7 @@ export default function SprintSummaryComponent({ summary }: SprintSummaryProps) 
     return (
         <div className="bg-gradient-to-br from-purple-900/30 to-pink-900/30">
             {/* Row 1: Key Metrics + Sprint Timeline */}
-            <div className="grid grid-cols-6 gap-2 p-3">
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-2 p-3">
                 {/* Total Story Points */}
                 <div className="text-center py-2.5 px-3 bg-gradient-to-br from-blue-500/10 to-cyan-500/10 rounded-lg border border-blue-500/20">
                     <div className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent leading-tight">
@@ -74,9 +74,9 @@ export default function SprintSummaryComponent({ summary }: SprintSummaryProps) 
                     <div className="text-[10px] text-gray-400 mt-0.5">Story Points</div>
                 </div>
 
-                {/* Sprint Timeline (merged with Working Days) — spans 3 columns */}
-                <div className="col-span-3 py-2.5 px-4 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-lg border border-purple-500/20">
-                    <div className="flex items-center justify-between mb-1.5">
+                {/* Sprint Timeline (merged with Working Days) */}
+                <div className="col-span-2 md:col-span-3 py-2.5 px-4 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-lg border border-purple-500/20">
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
                         <div className="flex items-center gap-2">
                             <span className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent leading-tight">
                                 {totalWorkingDays}
@@ -118,7 +118,7 @@ export default function SprintSummaryComponent({ summary }: SprintSummaryProps) 
                     </div>
 
                     {/* Date labels */}
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-wrap items-center justify-between gap-1">
                         <span className="text-[9px] text-gray-500">{formatDate(sprint.startDate)}</span>
                         <div className="flex items-center gap-3 text-[9px]">
                             <span className="text-purple-400">{daysElapsed} elapsed</span>

@@ -71,7 +71,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen overflow-x-hidden">
 
       {/* Header */}
       <header className="border-b border-purple-500/20 bg-gray-900/50 backdrop-blur-xl sticky top-0 z-40">
@@ -121,7 +121,7 @@ export default function Home() {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-6 py-8">
+      <main className="px-3 sm:px-4 md:px-6 py-4 md:py-8 max-w-full">
         {/* Selectors */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
           <div>
@@ -176,7 +176,7 @@ export default function Home() {
 
         {/* Sprint Data Display */}
         {sprintData && !loading && (
-          <div className="space-y-8 animate-fadeIn">
+          <div className="space-y-4 md:space-y-8 animate-fadeIn">
             {/* Sprint Summary */}
             <CollapsibleSection title="Sprint Summary" defaultOpen={true}>
               <SprintSummaryComponent summary={sprintData} />
@@ -202,7 +202,7 @@ export default function Home() {
                     <p className="text-blue-300/60">No engineers assigned</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6">
                     {sprintData.userUtilizations
                       .filter(u => u.role !== 'qa')
                       .map((utilization) => (
@@ -294,7 +294,7 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="border-t border-purple-500/20 bg-gray-900/50 backdrop-blur-xl mt-20">
-        <div className="container mx-auto px-6 py-6 text-center text-sm text-gray-500">
+        <div className="px-3 sm:px-4 md:px-6 py-6 text-center text-sm text-gray-500">
           <p>Powered by Jira API and Indonesian Holiday API</p>
         </div>
       </footer>

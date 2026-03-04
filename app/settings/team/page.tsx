@@ -271,10 +271,10 @@ export default function TeamManagementPage() {
     const titleOptions = ['Tech Lead', 'EM', 'Sec Head', 'Associate', 'QA'];
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900/20 to-gray-900">
+        <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-gray-900 via-purple-900/20 to-gray-900">
             <header className="border-b border-purple-500/20 bg-gray-900/50 backdrop-blur-xl">
-                <div className="container mx-auto px-6 py-8">
-                    <div className="flex items-center justify-between">
+                <div className="px-3 sm:px-4 md:px-6 py-4 md:py-8">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                         <div className="flex items-center gap-4">
                             <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
                                 <span className="text-2xl">👥</span>
@@ -286,7 +286,7 @@ export default function TeamManagementPage() {
                                 <p className="text-gray-400 text-sm">Add, edit, and remove teams and members</p>
                             </div>
                         </div>
-                        <div className="flex gap-3">
+                        <div className="flex flex-wrap gap-2">
                             <button
                                 onClick={() => { setShowSync(!showSync); setSyncResult(null); setSyncError(null); }}
                                 className="px-4 py-2 text-sm bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 rounded-lg hover:bg-cyan-500/30 transition-all"
@@ -311,7 +311,7 @@ export default function TeamManagementPage() {
                 </div>
             </header>
 
-            <main className="container mx-auto px-6 py-8 space-y-6">
+            <main className="px-3 sm:px-4 md:px-6 py-4 md:py-8 max-w-full space-y-6">
                 {/* Status Messages */}
                 {error && (
                     <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 flex justify-between items-center">

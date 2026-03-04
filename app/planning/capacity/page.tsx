@@ -165,10 +165,10 @@ export default function CapacityPlanningPage() {
     };
 
     return (
-        <div className="min-h-screen">
+        <div className="min-h-screen overflow-x-hidden">
             {/* Header */}
             <header className="border-b border-purple-500/20 bg-gray-900/50 backdrop-blur-xl sticky top-0 z-40">
-                <div className="container mx-auto px-6 py-6">
+                <div className="px-3 sm:px-4 md:px-6 py-4 md:py-6">
                     <div className="flex items-center justify-between">
                         <div>
                             <h1 className="text-2xl font-bold text-white mb-1">Capacity Planning</h1>
@@ -190,7 +190,7 @@ export default function CapacityPlanningPage() {
                 </div>
             </header>
 
-            <main className="container mx-auto px-6 py-8">
+            <main className="px-3 sm:px-4 md:px-6 py-4 md:py-8 max-w-full">
                 {/* Board Selector */}
                 <div className="mb-8">
                     <label className="block text-sm font-semibold text-gray-300 mb-3">

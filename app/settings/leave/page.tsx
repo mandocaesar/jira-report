@@ -203,10 +203,10 @@ export default function LeaveManagementPage() {
     const hasChanges = JSON.stringify(leaveData) !== JSON.stringify(originalLeaveData);
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900/20 to-gray-900">
+        <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-gray-900 via-purple-900/20 to-gray-900">
             {/* Header */}
             <header className="border-b border-purple-500/20 bg-gray-900/50 backdrop-blur-xl">
-                <div className="container mx-auto px-6 py-8">
+                <div className="px-3 sm:px-4 md:px-6 py-4 md:py-8">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
                             <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
@@ -231,7 +231,7 @@ export default function LeaveManagementPage() {
                 </div>
             </header>
 
-            <main className="container mx-auto px-6 py-8">
+            <main className="px-3 sm:px-4 md:px-6 py-4 md:py-8 max-w-full">
                 {/* Selectors */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
                     <div>

@@ -41,7 +41,7 @@ export default function UserUtilizationCard({ utilization }: UserUtilizationCard
         <div
             className={`relative overflow-hidden rounded-2xl border ${colors.border}
                   bg-gradient-to-br ${colors.bg} backdrop-blur-sm
-                  hover:scale-105 transition-all duration-300 group`}
+                  hover:brightness-110 transition-all duration-300 group`}
         >
             {/* Background gradient effect */}
             <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
