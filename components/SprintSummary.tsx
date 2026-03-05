@@ -1,13 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { SprintSummary } from '@/types';
+import { SprintSummary, SprintReportData } from '@/types';
 
 interface SprintSummaryProps {
     summary: SprintSummary;
+    reportData?: SprintReportData | null;
 }
 
-export default function SprintSummaryComponent({ summary }: SprintSummaryProps) {
+export default function SprintSummaryComponent({ summary, reportData }: SprintSummaryProps) {
     const { sprint, totalStoryPoints, totalWorkingDays, averageUtilization, userUtilizations, workTypeStats } = summary;
 
     const [aiSummary, setAiSummary] = useState<string | null>(null);
@@ -18,10 +19,29 @@ export default function SprintSummaryComponent({ summary }: SprintSummaryProps) 
         setIsGeneratingAI(true);
         setAiError(null);
         try {
+            // First, fetch the epic breakdown for deeper sprint insights
+            let epicBreakdowns = [];
+            if (sprint.originBoardId) {
+                try {
+                    const epicRes = await fetch(`/api/epic-breakdown?sprintId=${sprint.id}&boardId=${sprint.originBoardId}`);
+                    if (epicRes.ok) {
+                        const epicData = await epicRes.json();
+                        epicBreakdowns = epicData.data || [];
+                    }
+                } catch (e) {
+                    console.error("Failed to fetch epic breakdown for AI", e);
+                }
+            }
+
+            // Now send it all to the AI
             const response = await fetch('/api/ai-summary', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(summary)
+                body: JSON.stringify({
+                    summary,
+                    reportData,
+                    epicBreakdowns
+                })
             });
             const data = await response.json();
 
@@ -96,34 +116,34 @@ export default function SprintSummaryComponent({ summary }: SprintSummaryProps) 
             <div className="grid grid-cols-2 md:grid-cols-6 gap-2 p-2">
                 {/* Total Story Points */}
                 <div className="text-center py-2 px-2 bg-gradient-to-br from-blue-500/10 to-cyan-500/10 rounded-lg border border-blue-500/20 cursor-help" title="Sum of all sub-task and sub-chore story points assigned in this sprint. Only sub-tasks/sub-chores are counted, not parent stories.">
-                    <div className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent leading-tight">
+                    <div className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent leading-tight pb-1">
                         {totalStoryPoints}
                     </div>
-                    <div className="text-[10px] text-gray-400 mt-0.5">Story Points</div>
+                    <div className="text-xs text-gray-400 mt-0.5">Story Points</div>
                 </div>
 
                 {/* Sprint Timeline (merged with Working Days) */}
                 <div className="col-span-2 md:col-span-3 py-2 px-3 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-lg border border-purple-500/20" title="Working days = weekdays in the sprint period, excluding national holidays. Progress bar shows calendar position through the sprint.">
-                    <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
-                        <div className="flex items-center gap-1.5">
-                            <span className="text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent leading-tight">
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                        <div className="flex items-center gap-2">
+                            <span className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent leading-tight">
                                 {totalWorkingDays}
                             </span>
-                            <span className="text-[10px] text-gray-400">working days</span>
+                            <span className="text-xs text-gray-400">working days</span>
                         </div>
                         <div className="flex items-center gap-2">
                             {isSprintActive && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium">
+                                <span className="text-xs px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium">
                                     ⏳ {daysRemaining} {daysRemaining === 1 ? 'day' : 'days'} left
                                 </span>
                             )}
                             {isSprintFinished && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-300 border border-green-500/30 font-medium">
+                                <span className="text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-300 border border-green-500/30 font-medium">
                                     ✅ Completed
                                 </span>
                             )}
                             {!isSprintActive && !isSprintFinished && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-500/20 text-gray-400 border border-gray-500/30 font-medium">
+                                <span className="text-xs px-2 py-0.5 rounded bg-gray-500/20 text-gray-400 border border-gray-500/30 font-medium">
                                     Not started
                                 </span>
                             )}
@@ -146,14 +166,14 @@ export default function SprintSummaryComponent({ summary }: SprintSummaryProps) 
                     </div>
 
                     {/* Date labels */}
-                    <div className="flex flex-wrap items-center justify-between gap-1">
-                        <span className="text-[9px] text-gray-500">{formatDate(sprint.startDate)}</span>
-                        <div className="flex items-center gap-3 text-[9px]">
-                            <span className="text-purple-400">{daysElapsed} elapsed</span>
+                    <div className="flex flex-wrap items-center justify-between gap-1 mt-1.5">
+                        <span className="text-[11px] text-gray-500">{formatDate(sprint.startDate)}</span>
+                        <div className="flex items-center gap-3 text-[11px]">
+                            <span className="text-purple-400 font-medium">{daysElapsed} elapsed</span>
                             <span className="text-gray-600">•</span>
-                            <span className="text-pink-400">{daysRemaining} remaining</span>
+                            <span className="text-pink-400 font-medium">{daysRemaining} remaining</span>
                         </div>
-                        <span className="text-[9px] text-gray-500">{formatDate(sprint.endDate)}</span>
+                        <span className="text-[11px] text-gray-500">{formatDate(sprint.endDate)}</span>
                     </div>
 
                     {/* Holidays tooltip */}
@@ -174,27 +194,29 @@ export default function SprintSummaryComponent({ summary }: SprintSummaryProps) 
                 </div>
 
                 {/* Total Mandays */}
-                <div className="text-center py-2 px-2 bg-gradient-to-br from-green-500/10 to-emerald-500/10 rounded-lg border border-green-500/20 cursor-help" title="Sum of available days for all roster members, based on their title's configured days minus any manual leave. Mandays = Σ (title available days − leave days) per member.">
-                    <div className="text-2xl font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent leading-tight">
+                <div className="text-center py-2 px-2 bg-gradient-to-br from-green-500/10 to-emerald-500/10 rounded-lg border border-green-500/20 cursor-help flex flex-col justify-center" title="Sum of available days for all roster members, based on their title's configured days minus any manual leave. Mandays = Σ (title available days − leave days) per member.">
+                    <div className="text-3xl font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent leading-tight pb-1">
                         {totalMandays}
                     </div>
-                    <div className="text-[10px] text-gray-400 mt-0.5">Mandays</div>
-                    <div className="text-[9px] text-gray-500">
-                        ({userUtilizations.length} members)
-                    </div>
-                    {totalLeaveDays > 0 && (
-                        <div className="text-[9px] text-red-400">
-                            -{totalLeaveDays} leave
+                    <div className="flex flex-col items-center justify-center">
+                        <div className="text-xs text-gray-400 mt-0.5">Mandays</div>
+                        <div className="text-[10px] text-gray-500">
+                            ({userUtilizations.length} members)
                         </div>
-                    )}
+                        {totalLeaveDays > 0 && (
+                            <div className="text-[10px] text-red-400">
+                                -{totalLeaveDays} leave
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* Avg Utilization */}
-                <div className="text-center py-2 px-2 bg-gradient-to-br from-orange-500/10 to-amber-500/10 rounded-lg border border-orange-500/20 cursor-help" title="Average utilization = (Total Story Points ÷ Total Mandays) × 100%. Shows how much of the team's available capacity was used. Under 70% = under-utilized, over 110% = over-utilized.">
-                    <div className={`text-2xl font-bold leading-tight ${getAverageStatusColor(averageUtilization)}`}>
+                <div className="text-center py-2 px-2 bg-gradient-to-br from-orange-500/10 to-amber-500/10 rounded-lg border border-orange-500/20 cursor-help flex flex-col justify-center" title="Average utilization = (Total Story Points ÷ Total Mandays) × 100%. Shows how much of the team's available capacity was used. Under 70% = under-utilized, over 110% = over-utilized.">
+                    <div className={`text-3xl font-bold leading-tight pb-1 ${getAverageStatusColor(averageUtilization)}`}>
                         {averageUtilization.toFixed(1)}%
                     </div>
-                    <div className="text-[10px] text-gray-400 mt-0.5">Avg Util</div>
+                    <div className="text-xs text-gray-400 mt-0.5">Avg Util</div>
                 </div>
             </div>
 
@@ -204,10 +226,10 @@ export default function SprintSummaryComponent({ summary }: SprintSummaryProps) 
                     <div className="px-2 pb-1">
                         <div className="bg-gray-800/30 rounded-lg px-2.5 py-1.5 border border-gray-700/30">
                             <div className="flex items-center gap-3">
-                                <h3 className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider shrink-0 cursor-help" title="Classification based on the parent epic's work type label (Product, Technical Initiatives, or Incident). Points are from sub-tasks/sub-chores.">Work Type</h3>
+                                <h3 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider shrink-0 cursor-help" title="Classification based on the parent epic's work type label (Product, Technical Initiatives, or Incident). Points are from sub-tasks/sub-chores.">Work Type</h3>
 
                                 {/* Stacked horizontal bar */}
-                                <div className="flex h-2 rounded-full overflow-hidden bg-gray-700/50 flex-1">
+                                <div className="flex h-3 rounded-full overflow-hidden bg-gray-700/50 flex-1">
                                     {Object.entries(workTypeStats).map(([type, points]) => {
                                         const percentage = totalStoryPoints > 0 ? (points / totalStoryPoints) * 100 : 0;
                                         if (percentage === 0) return null;
@@ -227,7 +249,7 @@ export default function SprintSummaryComponent({ summary }: SprintSummaryProps) 
                             </div>
 
                             {/* Legend pills */}
-                            <div className="flex flex-wrap gap-1.5 mt-1">
+                            <div className="flex flex-wrap gap-2 mt-2">
                                 {Object.entries(workTypeStats).map(([type, points]) => {
                                     const percentage = totalStoryPoints > 0 ? (points / totalStoryPoints) * 100 : 0;
                                     const colors = workTypeColors[type] || defaultColor;
@@ -235,12 +257,12 @@ export default function SprintSummaryComponent({ summary }: SprintSummaryProps) 
                                     return (
                                         <div
                                             key={type}
-                                            className={`flex items-center gap-1 px-1.5 py-0.5 rounded ${colors.bg} border ${colors.border}`}
+                                            className={`flex items-center gap-1.5 px-2 py-1 rounded ${colors.bg} border ${colors.border}`}
                                         >
-                                            <span className="text-[9px]">{emoji}</span>
-                                            <span className={`text-[9px] font-medium ${colors.text}`}>{type}</span>
-                                            <span className="text-[9px] font-bold text-white">{points} pts</span>
-                                            <span className="text-[8px] text-gray-500">({percentage.toFixed(0)}%)</span>
+                                            <span className="text-[11px]">{emoji}</span>
+                                            <span className={`text-[11px] font-medium ${colors.text}`}>{type}</span>
+                                            <span className="text-[11px] font-bold text-white ml-1">{points} pts</span>
+                                            <span className="text-[10px] text-gray-400">({percentage.toFixed(0)}%)</span>
                                         </div>
                                     );
                                 })}
@@ -255,40 +277,40 @@ export default function SprintSummaryComponent({ summary }: SprintSummaryProps) 
                 {/* Engineers Stats */}
                 <div className="bg-gradient-to-br from-blue-500/10 to-cyan-500/10 rounded-lg px-3 py-2 border border-blue-500/20" title="Engineers breakdown">
                     <div className="flex items-center gap-4">
-                        <h3 className="text-xs font-bold text-blue-400 flex items-center gap-1 shrink-0">
-                            <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                        <h3 className="text-sm font-bold text-blue-400 flex items-center gap-1.5 shrink-0">
+                            <span className="w-2 h-2 rounded-full bg-blue-400"></span>
                             Engineers ({summary.engineerStats?.count || 0})
                         </h3>
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-5">
                             <div>
-                                <span className="text-[10px] text-gray-400">Mandays </span>
-                                <span className="text-sm font-bold text-white">{summary.engineerStats?.mandays || 0}</span>
+                                <span className="text-[11px] text-gray-400">Mandays </span>
+                                <span className="text-base font-bold text-white">{summary.engineerStats?.mandays || 0}</span>
                                 {summary.engineerStats?.leaveDays > 0 && (
-                                    <span className="text-[9px] text-red-400 ml-0.5">-{summary.engineerStats.leaveDays}</span>
+                                    <span className="text-[10px] text-red-500 ml-1 font-medium">-{summary.engineerStats.leaveDays}</span>
                                 )}
                             </div>
                             <div>
-                                <span className="text-[10px] text-gray-400">Points </span>
-                                <span className="text-sm font-bold text-white">{summary.engineerStats?.storyPoints || 0}</span>
+                                <span className="text-[11px] text-gray-400">Points </span>
+                                <span className="text-base font-bold text-white">{summary.engineerStats?.storyPoints || 0}</span>
                             </div>
                             <div>
-                                <span className="text-[10px] text-gray-400">Util </span>
-                                <span className="text-sm font-bold text-blue-300">
+                                <span className="text-[11px] text-gray-400">Util </span>
+                                <span className="text-base font-bold text-blue-300">
                                     {(summary.engineerStats?.mandays > 0 ? (summary.engineerStats.storyPoints / summary.engineerStats.mandays * 100) : 0).toFixed(0)}%
                                 </span>
                             </div>
                         </div>
                         {/* Work type badges inline */}
                         {summary.engineerStats?.workTypeStats && (
-                            <div className="flex gap-1 ml-auto">
+                            <div className="flex gap-2 ml-auto">
                                 {summary.engineerStats.workTypeStats['Product'] > 0 && (
-                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-300 border border-green-500/30">📦 {summary.engineerStats.workTypeStats['Product']}</span>
+                                    <span className="text-[10px] px-2 py-0.5 rounded bg-green-500/20 text-green-300 border border-green-500/30">📦 {summary.engineerStats.workTypeStats['Product']}</span>
                                 )}
                                 {summary.engineerStats.workTypeStats['Technical Initiatives'] > 0 && (
-                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">⚙️ {summary.engineerStats.workTypeStats['Technical Initiatives']}</span>
+                                    <span className="text-[10px] px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">⚙️ {summary.engineerStats.workTypeStats['Technical Initiatives']}</span>
                                 )}
                                 {summary.engineerStats.workTypeStats['Incident'] > 0 && (
-                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-300 border border-red-500/30">🐛 {summary.engineerStats.workTypeStats['Incident']}</span>
+                                    <span className="text-[10px] px-2 py-0.5 rounded bg-red-500/20 text-red-300 border border-red-500/30">🐛 {summary.engineerStats.workTypeStats['Incident']}</span>
                                 )}
                             </div>
                         )}
@@ -298,40 +320,40 @@ export default function SprintSummaryComponent({ summary }: SprintSummaryProps) 
                 {/* QA Stats */}
                 <div className="bg-gradient-to-br from-pink-500/10 to-rose-500/10 rounded-lg px-3 py-2 border border-pink-500/20" title="QA breakdown">
                     <div className="flex items-center gap-4">
-                        <h3 className="text-xs font-bold text-pink-400 flex items-center gap-1 shrink-0">
-                            <span className="w-1.5 h-1.5 rounded-full bg-pink-400"></span>
+                        <h3 className="text-sm font-bold text-pink-400 flex items-center gap-1.5 shrink-0">
+                            <span className="w-2 h-2 rounded-full bg-pink-400"></span>
                             QA ({summary.qaStats?.count || 0})
                         </h3>
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-5">
                             <div>
-                                <span className="text-[10px] text-gray-400">Mandays </span>
-                                <span className="text-sm font-bold text-white">{summary.qaStats?.mandays || 0}</span>
+                                <span className="text-[11px] text-gray-400">Mandays </span>
+                                <span className="text-base font-bold text-white">{summary.qaStats?.mandays || 0}</span>
                                 {summary.qaStats?.leaveDays > 0 && (
-                                    <span className="text-[9px] text-red-400 ml-0.5">-{summary.qaStats.leaveDays}</span>
+                                    <span className="text-[10px] text-red-500 ml-1 font-medium">-{summary.qaStats.leaveDays}</span>
                                 )}
                             </div>
                             <div>
-                                <span className="text-[10px] text-gray-400">Points </span>
-                                <span className="text-sm font-bold text-white">{summary.qaStats?.storyPoints || 0}</span>
+                                <span className="text-[11px] text-gray-400">Points </span>
+                                <span className="text-base font-bold text-white">{summary.qaStats?.storyPoints || 0}</span>
                             </div>
                             <div>
-                                <span className="text-[10px] text-gray-400">Util </span>
-                                <span className="text-sm font-bold text-pink-300">
+                                <span className="text-[11px] text-gray-400">Util </span>
+                                <span className="text-base font-bold text-pink-300">
                                     {(summary.qaStats?.mandays > 0 ? (summary.qaStats.storyPoints / summary.qaStats.mandays * 100) : 0).toFixed(0)}%
                                 </span>
                             </div>
                         </div>
                         {/* Work type badges inline */}
                         {summary.qaStats?.workTypeStats && (
-                            <div className="flex gap-1 ml-auto">
+                            <div className="flex gap-2 ml-auto">
                                 {summary.qaStats.workTypeStats['Product'] > 0 && (
-                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-300 border border-green-500/30">📦 {summary.qaStats.workTypeStats['Product']}</span>
+                                    <span className="text-[10px] px-2 py-0.5 rounded bg-green-500/20 text-green-300 border border-green-500/30">📦 {summary.qaStats.workTypeStats['Product']}</span>
                                 )}
                                 {summary.qaStats.workTypeStats['Technical Initiatives'] > 0 && (
-                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">⚙️ {summary.qaStats.workTypeStats['Technical Initiatives']}</span>
+                                    <span className="text-[10px] px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">⚙️ {summary.qaStats.workTypeStats['Technical Initiatives']}</span>
                                 )}
                                 {summary.qaStats.workTypeStats['Incident'] > 0 && (
-                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-300 border border-red-500/30">🐛 {summary.qaStats.workTypeStats['Incident']}</span>
+                                    <span className="text-[10px] px-2 py-0.5 rounded bg-red-500/20 text-red-300 border border-red-500/30">🐛 {summary.qaStats.workTypeStats['Incident']}</span>
                                 )}
                             </div>
                         )}
@@ -377,22 +399,34 @@ export default function SprintSummaryComponent({ summary }: SprintSummaryProps) 
                                 🔄 Regenerate
                             </button>
                         </div>
-                        <h3 className="text-xs font-bold text-purple-400 flex items-center gap-1.5 mb-2.5">
-                            <span>✨</span> AI Executive Summary
+                        <h3 className="text-base font-bold text-purple-300 flex items-center gap-2 mb-4">
+                            <span className="text-lg">✨</span> AI Executive Summary
                         </h3>
-                        <div className="text-xs text-gray-300 space-y-2 leading-relaxed">
+                        <div className="text-sm text-gray-100 space-y-3 leading-relaxed">
                             {aiSummary.split('\n').filter(line => line.trim()).map((line, i) => {
-                                // Bold parsing for markdown
-                                const cleanLine = line.replace(/^\*?\*?[\-\*]\s+/, '').replace(/\*\*([^*]+)\*\*/g, '<strong class="text-white font-semibold">$1</strong>');
+                                // Specific handling for section headers generated by the prompt
+                                if (line.startsWith('**Key Highlights**') || line.startsWith('**Key Areas of Concern**')) {
+                                    const headerText = line.replace(/\*\*/g, '');
+                                    return (
+                                        <div key={i} className="mt-5 mb-2 first:mt-0">
+                                            <h4 className="text-sm font-bold text-purple-200 tracking-wide uppercase">{headerText}</h4>
+                                        </div>
+                                    );
+                                }
+
+                                // Bold parsing for markdown list items
+                                const isListItem = line.startsWith('-') || line.startsWith('*');
+                                const cleanLine = line.replace(/^\*?\*?[\-\*]\s+/, '').replace(/\*\*([^*]+)\*\*/g, '<strong class="text-white font-bold">$1</strong>');
+
                                 return (
-                                    <div key={i} className="flex gap-2.5 items-start">
-                                        <span className="text-purple-400 mt-[3px] flex-shrink-0 text-[10px]">•</span>
-                                        <span dangerouslySetInnerHTML={{ __html: cleanLine }} />
+                                    <div key={i} className={`flex gap-3 items-start ${!isListItem ? 'ml-4' : ''}`}>
+                                        {isListItem && <span className="text-purple-400 mt-[7px] flex-shrink-0 text-xs">•</span>}
+                                        <span dangerouslySetInnerHTML={{ __html: cleanLine }} className="font-medium text-[13px]" />
                                     </div>
                                 );
                             })}
                         </div>
-                        <div className="mt-4 pt-2 border-t border-purple-500/10 text-[9px] text-gray-500 flex items-center justify-between">
+                        <div className="mt-6 pt-3 border-t border-purple-500/10 text-[10px] text-gray-500 flex items-center justify-between">
                             <span className="flex items-center gap-1">Powered by <strong>Gemini 2.5 Flash-Lite</strong></span>
                             <span>AI can make mistakes. Verify important data.</span>
                         </div>

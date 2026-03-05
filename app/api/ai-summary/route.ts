@@ -4,42 +4,65 @@ import { NextResponse } from 'next/server';
 
 export async function POST(req: Request) {
     try {
-        const data = await req.json();
+        const { summary, reportData, epicBreakdowns } = await req.json();
 
         const prompt = `
 You are an expert Agile Scrum Master analyzing a sprint report. 
-Given the following sprint data, write a short, executive-level summary of the sprint's performance.
+Please generate an executive-level summary of the sprint's performance based on the specific data provided.
 
-Sprint constraints:
-- Name: ${data.sprint.name}
-- Total Points: ${data.totalStoryPoints}
-- Total Working Days: ${data.totalWorkingDays}
+The output MUST follow this STRICT markdown format, with exactly these headings. Do not include introductory or concluding remarks. Just output the content exactly as formatted below.
 
-Engineers (Count: ${data.engineerStats.count}):
-- Mandays: ${data.engineerStats.mandays}
-- Leave Days: ${data.engineerStats.leaveDays}
-- Points Delivered: ${data.engineerStats.storyPoints}
-- Utilization: ${((data.engineerStats.storyPoints / data.engineerStats.mandays) * 100).toFixed(0)}%
-- Work Type: ${JSON.stringify(data.engineerStats.workTypeStats)}
+**Key Highlights**
+- **Primary Epic Progress**: [Briefly highlight 1-2 major epics that saw significant progress, referencing points and completion percentage]
+- **Top Contributors**: [Highlight 1-3 top performing engineers/QA based on completed points and utilization percentage]
+- **Quick Wins**: [If any epics reached 100% or had very fast turnaround, highlight them. If none, mention other positive momentum]
 
-QA (Count: ${data.qaStats.count}):
-- Mandays: ${data.qaStats.mandays}
-- Leave Days: ${data.qaStats.leaveDays}
-- Points Delivered: ${data.qaStats.storyPoints}
-- Utilization: ${((data.qaStats.storyPoints / data.qaStats.mandays) * 100).toFixed(0)}%
+**Key Areas of Concern**
+- **Massive "To Do" Backlog**: [Analyze the status distribution—how many points were left in To Do vs In Progress. E.g. "A critical X% of points remained in To Do..."]
+- **Team-Wide Over utilization**: [Call out specific team members who were significantly over-utilized (e.g. >100%) or under-utilized, referencing their exact percentages and roles]
+- **Stalled Epics**: [Highlight 1-3 epics that had high points but 0% progress, or struggled to move forward]
 
-Provide 3 to 4 concise bullet points summarizing:
-1. Overall delivery and velocity.
-2. Team capacity and utilization (call out if they are over/under utilized compared to standard 100%).
-3. Work type distribution (e.g. heavy product focus vs tech debt/incidents).
-4. Any potential risks or notable achievements based on the data.
+Use a professional but analytical tone. Be specific with numbers, names, and percentages provided in the data.
 
-Use professional, encouraging tone. Keep it strictly to the facts presented. Formatted in simple markdown. Do not include introductory phrases like "Here is the summary". Just give me the bullet points.
+---
+Here is the Sprint Data to analyze:
+
+**Sprint Info:**
+- Name: ${summary.sprint.name}
+- Total Points: ${summary.totalStoryPoints}
+- Total Working Days: ${summary.totalWorkingDays}
+
+**Overall Delivery (Report Data):**
+- Completed Points: ${reportData?.completedPoints || 0} (${reportData?.completionPercent || 0}%)
+- Status Groups (Backlog vs In Progress vs Done): 
+${JSON.stringify(reportData?.statusGroups || [])}
+
+**Team Utilization (Members):**
+${JSON.stringify(
+            summary.userUtilizations.map((u: any) => ({
+                name: u.user.displayName,
+                role: u.role,
+                utilizationPercent: u.utilizationPercent,
+                completedPoints: u.storyPoints,
+                assignedDays: u.workingDays - u.leaveDays
+            }))
+        )}
+
+**Epic Breakdown (Progress):**
+${JSON.stringify(
+            (epicBreakdowns || []).map((e: any) => ({
+                key: e.epicKey,
+                name: e.epicName,
+                totalPoints: e.totalPoints,
+                completedPoints: e.completedPoints,
+                completionPercent: e.completionPercent
+            }))
+        )}
 `;
 
         const { text } = await generateText({
             model: google('gemini-2.5-flash-lite'),
-            system: 'You are an expert Agile coach assisting a team with their sprint review.',
+            system: 'You are an expert Agile coach assisting a team with their sprint review. Strictly adhere to formatting requested.',
             prompt: prompt,
         });
 
