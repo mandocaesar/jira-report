@@ -1,10 +1,223 @@
 @import "tailwindcss";
 
+@theme {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-border: hsl(var(--border));
+
+  /* OVERRIDE TAILWIND DEFAULTS TO BE THEME-AWARE */
+  --color-white: var(--t-white);
+  --color-black: var(--t-black);
+
+  --color-gray-50: var(--t-gray-50);
+  --color-gray-100: var(--t-gray-100);
+  --color-gray-200: var(--t-gray-200);
+  --color-gray-300: var(--t-gray-300);
+  --color-gray-400: var(--t-gray-400);
+  --color-gray-500: var(--t-gray-500);
+  --color-gray-600: var(--t-gray-600);
+  --color-gray-700: var(--t-gray-700);
+  --color-gray-800: var(--t-gray-800);
+  --color-gray-900: var(--t-gray-900);
+  --color-gray-950: var(--t-gray-950);
+
+  /* Generic remaps for common colors used in the app */
+  --color-app-gray-900: hsl(var(--app-gray-900));
+  --color-app-gray-800: hsl(var(--app-gray-800));
+  --color-app-gray-500: hsl(var(--app-gray-500));
+  --color-app-gray-400: hsl(var(--app-gray-400));
+
+  /* Theme-Aware Accent Colors for Text Legsibility */
+  --color-blue-200: var(--t-blue-200);
+  --color-blue-300: var(--t-blue-300);
+  --color-blue-400: var(--t-blue-400);
+
+  --color-green-200: var(--t-green-200);
+  --color-green-300: var(--t-green-300);
+  --color-green-400: var(--t-green-400);
+
+  --color-red-200: var(--t-red-200);
+  --color-red-300: var(--t-red-300);
+  --color-red-400: var(--t-red-400);
+
+  --color-pink-300: var(--t-pink-300);
+  --color-emerald-400: var(--t-emerald-400);
+  --color-cyan-400: var(--t-cyan-400);
+  --color-purple-400: var(--t-purple-400);
+  --color-amber-400: var(--t-amber-400);
+}
+
 :root {
+  /* LIGHT MODE (Pastel Color Scheme)
+     We invert the gray scale, so bg-gray-900 becomes white/light, text-white becomes black/dark */
+  --background: 270 100% 98%;
+  /* #faf5ff */
+  --foreground: 270 50% 20%;
+  --muted: 270 80% 95%;
+  --muted-foreground: 270 30% 50%;
+  --border: 270 60% 90%;
+
+  /* Theme color overrides for Light Mode */
+  --t-white: #1e1b4b;
+  /* Invert white text to a deep purple */
+  --t-black: #ffffff;
+  /* Invert black to white */
+
+  --t-gray-950: #faf5ff;
+  /* purple-50 Base page bg */
+  --t-gray-900: #ffffff;
+  /* Cards and elevated elements */
+  --t-gray-800: #f3e8ff;
+  /* purple-100 */
+  --t-gray-700: #e9d5ff;
+  /* purple-200 border */
+  --t-gray-600: #d8b4fe;
+  /* purple-300 */
+  --t-gray-500: #c084fc;
+  /* purple-400 */
+  --t-gray-400: #7e22ce;
+  /* purple-700 text */
+  --t-gray-300: #6b21a8;
+  /* purple-800 */
+  --t-gray-200: #581c87;
+  /* purple-900 */
+  --t-gray-100: #3b0764;
+  /* purple-950 */
+  --t-gray-50: #2e1065;
+
+  /* Generic Gray Overrides for Light Mode (inverts classic dark gray to light gray/white) */
+  --app-gray-900: 0 0% 100%;
+  /* Pure white */
+  --app-gray-800: 210 40% 96%;
+  /* Very light gray */
+  --app-gray-500: 215.4 16.3% 46.9%;
+  --app-gray-400: 215 20.2% 65.1%;
+
+  /* Accent Colors Inverted for Light Mode (pastel yet legible) */
+  --t-blue-200: #60a5fa;
+  /* blue-400 */
+  --t-blue-300: #3b82f6;
+  /* blue-500 */
+  --t-blue-400: #2563eb;
+  /* blue-600 */
+
+  --t-green-200: #4ade80;
+  /* green-400 */
+  --t-green-300: #22c55e;
+  /* green-500 */
+  --t-green-400: #16a34a;
+  /* green-600 */
+
+  --t-red-200: #f87171;
+  /* red-400 */
+  --t-red-300: #ef4444;
+  /* red-500 */
+  --t-red-400: #dc2626;
+  /* red-600 */
+
+  --t-pink-300: #ec4899;
+  /* pink-500 */
+  --t-emerald-400: #059669;
+  /* emerald-600 */
+  --t-cyan-400: #0891b2;
+  /* cyan-600 */
+  --t-purple-400: #9333ea;
+  /* purple-600 */
+  --t-amber-400: #d97706;
+  /* amber-600 */
+
+  /* Epic Breakdown Colors - Light Mode */
+  --card-bg: rgba(255, 255, 255, 0.9);
+  --border-color: rgba(233, 213, 255, 0.8);
+  /* purple-200 */
+  --hover-bg: rgba(250, 245, 255, 0.8);
+  /* purple-50 */
+  --row-bg: rgba(243, 232, 255, 0.5);
+  /* purple-100 */
+  --badge-bg: rgba(233, 213, 255, 0.8);
+  --text-primary: #3b0764;
+  /* purple-950 */
+  --text-secondary: #7e22ce;
+  /* purple-700 */
+  --accent-color: #a855f7;
+  /* purple-500 */
+  --link-color: #9333ea;
+  /* purple-600 */
+
+  /* Issue Type Colors */
+  --color-story: #10b981;
+  /* emerald-500 */
+  --color-incident: #f43f5e;
+  /* rose-500 */
+  --color-tech: #3b82f6;
+  /* blue-500 */
+  --color-other: #8b5cf6;
+  /* violet-500 */
+
+  /* Theme-Aware UI Components */
+  --scrollbar-track: rgba(216, 180, 254, 0.2);
+  /* purple-300 */
+  --scrollbar-thumb-from: rgb(216, 180, 254);
+  --scrollbar-thumb-to: rgb(249, 168, 212);
+  --scrollbar-thumb-hover-from: rgb(192, 132, 252);
+  --scrollbar-thumb-hover-to: rgb(244, 114, 182);
+  --selection-bg: rgba(216, 180, 254, 0.4);
+  --selection-text: #3b0764;
+}
+
+.dark {
+  /* DARK MODE */
   --background: 220 13% 9%;
   --foreground: 0 0% 98%;
+  --muted: 217.2 32.6% 17.5%;
+  --muted-foreground: 215 20.2% 65.1%;
+  --border: 217.2 32.6% 17.5%;
 
-  /* Epic Breakdown Colors */
+  /* Theme color overrides for Dark Mode (Restores standard Tailwind hexes) */
+  --t-white: #ffffff;
+  --t-black: #000000;
+
+  --t-gray-50: #f9fafb;
+  --t-gray-100: #f3f4f6;
+  --t-gray-200: #e5e7eb;
+  --t-gray-300: #d1d5db;
+  --t-gray-400: #9ca3af;
+  --t-gray-500: #6b7280;
+  --t-gray-600: #4b5563;
+  --t-gray-700: #374151;
+  --t-gray-800: #1f2937;
+  --t-gray-900: #111827;
+  --t-gray-950: #030712;
+
+  /* Generic Gray Overrides for Dark Mode (maintains original dark UI look) */
+  --app-gray-900: 220 13% 9%;
+  /* Same as background */
+  --app-gray-800: 217 33% 17%;
+  --app-gray-500: 215 20% 65%;
+  --app-gray-400: 215 16% 47%;
+
+  /* Accent Colors for Dark Mode (Original Tailwind hexes) */
+  --t-blue-200: #bfdbfe;
+  --t-blue-300: #93c5fd;
+  --t-blue-400: #60a5fa;
+
+  --t-green-200: #bbf7d0;
+  --t-green-300: #86efac;
+  --t-green-400: #4ade80;
+
+  --t-red-200: #fecaca;
+  --t-red-300: #fca5a5;
+  --t-red-400: #f87171;
+
+  --t-pink-300: #f9a8d4;
+  --t-emerald-400: #34d399;
+  --t-cyan-400: #22d3ee;
+  --t-purple-400: #c084fc;
+  --t-amber-400: #fbbf24;
+
+  /* Epic Breakdown Colors - Dark Mode */
   --card-bg: rgba(30, 30, 40, 0.8);
   --border-color: rgba(100, 100, 150, 0.2);
   --hover-bg: rgba(60, 60, 80, 0.3);
@@ -19,16 +232,25 @@
   --color-story: #22c55e;
   --color-incident: #ef4444;
   --color-tech: #3b82f6;
-  --color-other: #6b7280;
+  --color-other: #9ca3af;
+
+  /* Theme-Aware UI Components */
+  --scrollbar-track: rgba(17, 24, 39, 0.5);
+  --scrollbar-thumb-from: rgb(147, 51, 234);
+  --scrollbar-thumb-to: rgb(236, 72, 153);
+  --scrollbar-thumb-hover-from: rgb(168, 85, 247);
+  --scrollbar-thumb-hover-to: rgb(244, 114, 182);
+  --selection-bg: rgba(168, 85, 247, 0.3);
+  --selection-text: white;
 }
 
 * {
-  border-color: rgba(255, 255, 255, 0.1);
+  border-color: var(--color-border, rgba(255, 255, 255, 0.1));
 }
 
 body {
-  background: hsl(var(--background));
-  color: hsl(var(--foreground));
+  background: var(--color-background);
+  color: var(--color-foreground);
   font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-feature-settings: 'cv11', 'ss01';
 }
@@ -88,22 +310,22 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(17, 24, 39, 0.5);
+  background: var(--scrollbar-track);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(to bottom, rgb(147, 51, 234), rgb(236, 72, 153));
+  background: linear-gradient(to bottom, var(--scrollbar-thumb-from), var(--scrollbar-thumb-to));
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(to bottom, rgb(168, 85, 247), rgb(244, 114, 182));
+  background: linear-gradient(to bottom, var(--scrollbar-thumb-hover-from), var(--scrollbar-thumb-hover-to));
 }
 
 /* Selection styling */
 ::selection {
-  background-color: rgba(168, 85, 247, 0.3);
-  color: white;
+  background-color: var(--selection-bg);
+  color: var(--selection-text);
 }
 
 /* Smooth transitions */

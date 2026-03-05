@@ -156,6 +156,14 @@ export default function LeaveManagementPage() {
         setSaveSuccess(false);
     };
 
+    const toggleExclude = (accountId: string) => {
+        setLeaveData((prev) => ({
+            ...prev,
+            [accountId]: prev[accountId] === -1 ? 0 : -1,
+        }));
+        setSaveSuccess(false);
+    };
+
     const handleSave = async () => {
         if (!selectedSprintId) return;
 
@@ -188,17 +196,21 @@ export default function LeaveManagementPage() {
         }
     };
 
-    // Calculate summary stats
+    // Calculate summary stats (exclude members with -1)
     const totalLeave = teamMembers.reduce(
-        (sum, member) => sum + (leaveData[member.accountId] || 0),
+        (sum, member) => {
+            const days = leaveData[member.accountId] || 0;
+            return sum + (days > 0 ? days : 0);
+        },
         0
     );
+    const excludedCount = teamMembers.filter(m => leaveData[m.accountId] === -1).length;
     const engineerLeave = teamMembers
         .filter((m) => m.role === 'engineer')
-        .reduce((sum, member) => sum + (leaveData[member.accountId] || 0), 0);
+        .reduce((sum, member) => { const d = leaveData[member.accountId] || 0; return sum + (d > 0 ? d : 0); }, 0);
     const qaLeave = teamMembers
         .filter((m) => m.role === 'qa')
-        .reduce((sum, member) => sum + (leaveData[member.accountId] || 0), 0);
+        .reduce((sum, member) => { const d = leaveData[member.accountId] || 0; return sum + (d > 0 ? d : 0); }, 0);
 
     const hasChanges = JSON.stringify(leaveData) !== JSON.stringify(originalLeaveData);
 
@@ -286,9 +298,10 @@ export default function LeaveManagementPage() {
                                             <MemberLeaveRow
                                                 key={member.accountId}
                                                 member={member}
-                                                leaveDays={leaveData[member.accountId] || 0}
+                                                leaveDays={leaveData[member.accountId] ?? 0}
                                                 onUpdate={(delta) => updateLeave(member.accountId, delta)}
                                                 onSet={(value) => setLeave(member.accountId, value)}
+                                                onToggleExclude={() => toggleExclude(member.accountId)}
                                             />
                                         ))}
                                 </div>
@@ -307,9 +320,10 @@ export default function LeaveManagementPage() {
                                             <MemberLeaveRow
                                                 key={member.accountId}
                                                 member={member}
-                                                leaveDays={leaveData[member.accountId] || 0}
+                                                leaveDays={leaveData[member.accountId] ?? 0}
                                                 onUpdate={(delta) => updateLeave(member.accountId, delta)}
                                                 onSet={(value) => setLeave(member.accountId, value)}
+                                                onToggleExclude={() => toggleExclude(member.accountId)}
                                             />
                                         ))}
                                 </div>
@@ -337,7 +351,7 @@ export default function LeaveManagementPage() {
                         {/* Summary */}
                         <div className="bg-gradient-to-br from-purple-900/30 to-pink-900/30 border border-purple-500/30 rounded-2xl p-6">
                             <h2 className="text-lg font-semibold text-purple-300 mb-4">📊 Sprint Summary</h2>
-                            <div className="grid grid-cols-3 gap-4 text-center">
+                            <div className="grid grid-cols-4 gap-4 text-center">
                                 <div>
                                     <div className="text-2xl font-bold text-white">{totalLeave} days</div>
                                     <div className="text-sm text-gray-400">Total Leave</div>
@@ -349,6 +363,10 @@ export default function LeaveManagementPage() {
                                 <div>
                                     <div className="text-2xl font-bold text-pink-400">{qaLeave} days</div>
                                     <div className="text-sm text-gray-400">QA</div>
+                                </div>
+                                <div>
+                                    <div className="text-2xl font-bold text-red-400">{excludedCount}</div>
+                                    <div className="text-sm text-gray-400">Excluded</div>
                                 </div>
                             </div>
                         </div>
@@ -403,38 +421,60 @@ function MemberLeaveRow({
     leaveDays,
     onUpdate,
     onSet,
+    onToggleExclude,
 }: {
     member: TeamMember;
     leaveDays: number;
     onUpdate: (delta: number) => void;
     onSet: (value: number) => void;
+    onToggleExclude: () => void;
 }) {
+    const isExcluded = leaveDays === -1;
+
     return (
-        <div className="flex items-center justify-between p-3 bg-gray-900/30 rounded-lg border border-gray-700/50">
+        <div className={`flex items-center justify-between p-3 rounded-lg border transition-all ${isExcluded ? 'bg-red-900/10 border-red-500/30 opacity-60' : 'bg-gray-900/30 border-gray-700/50'}`}>
             <div className="flex-1">
-                <div className="font-medium text-white">{member.name}</div>
+                <div className={`font-medium ${isExcluded ? 'text-gray-400 line-through' : 'text-white'}`}>{member.name}</div>
                 <div className="text-xs text-gray-400">{member.title}</div>
             </div>
             <div className="flex items-center gap-2">
+                {isExcluded ? (
+                    <span className="text-xs font-bold text-red-400 bg-red-500/10 border border-red-500/30 px-3 py-1 rounded-lg">
+                        EXCLUDED
+                    </span>
+                ) : (
+                    <>
+                        <button
+                            onClick={() => onUpdate(-1)}
+                            className="w-8 h-8 rounded-lg bg-gray-700 hover:bg-gray-600 text-white flex items-center justify-center transition-colors"
+                        >
+                            −
+                        </button>
+                        <input
+                            type="number"
+                            min="0"
+                            value={leaveDays}
+                            onChange={(e) => onSet(parseInt(e.target.value) || 0)}
+                            className="w-16 px-2 py-1 text-center bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500"
+                        />
+                        <span className="text-sm text-gray-400 w-12">day{leaveDays !== 1 ? 's' : ''}</span>
+                        <button
+                            onClick={() => onUpdate(1)}
+                            className="w-8 h-8 rounded-lg bg-gray-700 hover:bg-gray-600 text-white flex items-center justify-center transition-colors"
+                        >
+                            +
+                        </button>
+                    </>
+                )}
                 <button
-                    onClick={() => onUpdate(-1)}
-                    className="w-8 h-8 rounded-lg bg-gray-700 hover:bg-gray-600 text-white flex items-center justify-center transition-colors"
+                    onClick={onToggleExclude}
+                    title={isExcluded ? 'Include in sprint' : 'Exclude from sprint'}
+                    className={`ml-2 w-8 h-8 rounded-lg flex items-center justify-center transition-colors text-sm ${isExcluded
+                        ? 'bg-green-500/20 hover:bg-green-500/30 text-green-400 border border-green-500/30'
+                        : 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20'
+                        }`}
                 >
-                    −
-                </button>
-                <input
-                    type="number"
-                    min="0"
-                    value={leaveDays}
-                    onChange={(e) => onSet(parseInt(e.target.value) || 0)}
-                    className="w-16 px-2 py-1 text-center bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500"
-                />
-                <span className="text-sm text-gray-400 w-12">day{leaveDays !== 1 ? 's' : ''}</span>
-                <button
-                    onClick={() => onUpdate(1)}
-                    className="w-8 h-8 rounded-lg bg-gray-700 hover:bg-gray-600 text-white flex items-center justify-center transition-colors"
-                >
-                    +
+                    {isExcluded ? '✓' : '✕'}
                 </button>
             </div>
         </div>
