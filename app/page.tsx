@@ -224,7 +224,7 @@ export default function Home() {
           <div className="space-y-4 md:space-y-8 animate-fadeIn">
             {/* Sprint Summary */}
             <CollapsibleSection title="Sprint Summary" defaultOpen={true}>
-              <SprintSummaryComponent summary={sprintData} />
+              <SprintSummaryComponent summary={sprintData} reportData={reportData} />
             </CollapsibleSection>
 
             {/* User Utilizations */}
