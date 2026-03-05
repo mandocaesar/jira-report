@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import teamRoster from '@/config/team-roster.json';
-import { calculateWorkingDays } from '@/lib/holiday-service';
+import { getTeamByBoardIdFromDb } from '@/lib/team-roster';
+import { calculateWorkingDays, getHolidaysInRange, isWeekend } from '@/lib/holiday-service';
 
 interface SprintForecast {
     sprintId: number;
@@ -19,6 +19,19 @@ interface SprintForecast {
         name: string;
         capacity: number;
         reason?: string;
+        leaveDays?: number;
+        excluded?: boolean;
+    }>;
+    holidays?: Array<{
+        date: string;
+        name: string;
+    }>;
+    leaves?: Array<{
+        name: string;
+        leaveDays: number;
+    }>;
+    excludedMembers?: Array<{
+        name: string;
     }>;
 }
 
@@ -39,14 +52,15 @@ export async function GET(request: NextRequest) {
         const boardId = parseInt(boardIdParam);
         const months = parseInt(monthsParam);
 
-        // Get team for this board
-        const team = Object.values(teamRoster.teams).find((t: any) => t.boardId === boardId);
-        if (!team) {
+        // Get team for this board (DB-first, falls back to static JSON)
+        const teamData = await getTeamByBoardIdFromDb(boardId);
+        if (!teamData) {
             return NextResponse.json(
                 { success: false, error: 'Team not found for board' },
                 { status: 404 }
             );
         }
+        const team = teamData.config;
 
         // Fetch active sprints from Jira API
         const jiraDomain = process.env.JIRA_DOMAIN;
@@ -128,20 +142,38 @@ export async function GET(request: NextRequest) {
             const workingDays = await calculateWorkingDays(startDate, endDate);
             let totalManDays = 0;
             const engineerDetails: any[] = [];
+            const leavesList: Array<{ name: string; leaveDays: number }> = [];
+            const excludedList: Array<{ name: string }> = [];
+            let activeEngineers = 0;
 
             // Calculate capacity for each engineer
             for (const member of team.members) {
                 const accountId = member.accountId;
+
+                // Get leave days
+                const leave = leaveData.find((l) => l.accountId === accountId);
+                const leaveDays = leave?.leaveDays || 0;
+
+                // Check if member is excluded (leaveDays = -1)
+                if (leaveDays === -1) {
+                    engineerDetails.push({
+                        accountId,
+                        name: member.name,
+                        capacity: 0,
+                        excluded: true,
+                        leaveDays: -1,
+                    });
+                    excludedList.push({ name: member.name });
+                    continue;
+                }
+
+                activeEngineers++;
 
                 // Find capacity adjustment for this engineer
                 const adjustment = capacityAdjustments.find(
                     (adj) => adj.accountId === accountId
                 );
                 const capacityPercent = adjustment?.capacity || 100;
-
-                // Get leave days
-                const leave = leaveData.find((l) => l.accountId === accountId);
-                const leaveDays = leave?.leaveDays || 0;
 
                 // Calculate effective days
                 const availableDays = workingDays - leaveDays;
@@ -154,14 +186,28 @@ export async function GET(request: NextRequest) {
                     name: member.name,
                     capacity: capacityPercent,
                     reason: adjustment?.reason,
+                    leaveDays,
                 });
+
+                if (leaveDays > 0) {
+                    leavesList.push({ name: member.name, leaveDays });
+                }
             }
 
-            const effectiveEngineers = totalManDays / workingDays;
+            const effectiveEngineers = workingDays > 0 ? totalManDays / workingDays : 0;
 
             // Estimate story points (assuming 1.8 points per man-day, adjustable)
             const pointsPerManDay = 1.8;
             const forecastedPoints = Math.floor(totalManDays * pointsPerManDay);
+
+            // Fetch specific holidays for this sprint (excluding weekends)
+            const rawHolidays = await getHolidaysInRange(startDate, endDate);
+            const formattedHolidays = rawHolidays
+                .filter(h => !isWeekend(h.holiday_date))
+                .map(h => ({
+                    date: h.holiday_date,
+                    name: h.holiday_name
+                }));
 
             forecasts.push({
                 sprintId,
@@ -169,12 +215,15 @@ export async function GET(request: NextRequest) {
                 startDate: startDate.toISOString(),
                 endDate: endDate.toISOString(),
                 capacity: {
-                    totalEngineers: team.members.length,
+                    totalEngineers: activeEngineers,
                     effectiveEngineers: Math.round(effectiveEngineers * 10) / 10,
                     totalManDays: Math.round(totalManDays * 10) / 10,
                     forecastedPoints,
                 },
                 engineers: engineerDetails,
+                holidays: formattedHolidays.length > 0 ? formattedHolidays : undefined,
+                leaves: leavesList.length > 0 ? leavesList : undefined,
+                excludedMembers: excludedList.length > 0 ? excludedList : undefined,
             });
         }
 
@@ -182,9 +231,9 @@ export async function GET(request: NextRequest) {
             success: true,
             data: {
                 boardId,
-                teamName: (team as any).name,
+                teamName: team.name,
                 sprints: forecasts,
-                engineers: team.members.map((m: any) => ({
+                engineers: team.members.map((m) => ({
                     accountId: m.accountId,
                     name: m.name,
                 })),

@@ -23,8 +23,14 @@ export async function getHolidaysForYear(year: number): Promise<Holiday[]> {
             throw new Error(`Holiday API error: ${response.status}`);
         }
 
-        const data: HolidayApiResponse = await response.json();
-        const holidays = data.data || [];
+        // The API returns an array directly: [{"date":"2026-01-01","name":"Tahun Baru..."}]
+        const rawData: Array<{ date: string; name: string }> = await response.json();
+
+        const holidays: Holiday[] = (rawData || []).map(h => ({
+            holiday_date: h.date,
+            holiday_name: h.name,
+            is_national_holiday: true
+        }));
 
         // Cache the result
         holidayCache.set(year, holidays);
@@ -55,17 +61,36 @@ export async function getHolidaysInRange(startDate: Date, endDate: Date): Promis
     // Flatten and filter to date range
     const allHolidays = holidayArrays.flat();
 
+    const startStr = toLocalDateString(startDate);
+    const endStr = toLocalDateString(endDate);
+
     return allHolidays.filter(holiday => {
-        const holidayDate = new Date(holiday.holiday_date);
-        return holidayDate >= startDate && holidayDate <= endDate;
+        return holiday.holiday_date >= startStr && holiday.holiday_date <= endStr;
     });
 }
 
 /**
- * Check if a date is a weekend (Saturday or Sunday)
+ * Helper to get YYYY-MM-DD in local time to avoid UTC offset bugs
  */
-export function isWeekend(date: Date): boolean {
-    const day = date.getDay();
+export function toLocalDateString(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+/**
+ * Check if a date is a weekend (Saturday or Sunday)
+ * Accepts either a Date object or a YYYY-MM-DD string
+ */
+export function isWeekend(date: Date | string): boolean {
+    let day: number;
+    if (typeof date === 'string') {
+        const [year, month, d] = date.split('-').map(Number);
+        day = new Date(year, month - 1, d).getDay();
+    } else {
+        day = date.getDay();
+    }
     return day === 0 || day === 6; // 0 = Sunday, 6 = Saturday
 }
 
@@ -73,7 +98,7 @@ export function isWeekend(date: Date): boolean {
  * Check if a date is a holiday
  */
 export function isHoliday(date: Date, holidays: Holiday[]): boolean {
-    const dateStr = date.toISOString().split('T')[0];
+    const dateStr = toLocalDateString(date);
     return holidays.some(holiday => holiday.holiday_date === dateStr);
 }
 

@@ -20,6 +20,19 @@ interface SprintForecast {
         name: string;
         capacity: number;
         reason?: string;
+        leaveDays?: number;
+        excluded?: boolean;
+    }>;
+    holidays?: Array<{
+        date: string;
+        name: string;
+    }>;
+    leaves?: Array<{
+        name: string;
+        leaveDays: number;
+    }>;
+    excludedMembers?: Array<{
+        name: string;
     }>;
 }
 
@@ -311,7 +324,7 @@ export default function CapacityPlanningPage() {
                                             <div className={`text-3xl font-bold ${getCapacityColor(sprint.capacity.effectiveEngineers, sprint.capacity.totalEngineers)}`}>
                                                 {sprint.capacity.effectiveEngineers.toFixed(1)}
                                             </div>
-                                            <div className="text-xs text-gray-500">of {sprint.capacity.totalEngineers} engineers</div>
+                                            <div className="text-xs text-gray-500">of {sprint.capacity.totalEngineers} members</div>
                                         </div>
                                     </div>
 
@@ -335,13 +348,64 @@ export default function CapacityPlanningPage() {
                                         </div>
                                     </div>
 
+                                    {/* Holidays info */}
+                                    {sprint.holidays && sprint.holidays.length > 0 && (
+                                        <div className="mb-4 pt-3 border-t border-purple-500/20">
+                                            <div className="text-sm font-semibold text-purple-300 mb-2 flex items-center gap-2">
+                                                <span>🏖️</span> Public Holidays:
+                                            </div>
+                                            <div className="flex flex-wrap gap-2">
+                                                {sprint.holidays.map((holiday, idx) => (
+                                                    <div key={idx} className="flex items-center gap-1.5 bg-purple-500/10 border border-purple-500/30 rounded-lg px-2.5 py-1.5 text-xs">
+                                                        <span className="text-purple-400 font-medium">{formatDate(holiday.date)}</span>
+                                                        <span className="text-gray-400">—</span>
+                                                        <span className="text-gray-300 max-w-[150px] truncate" title={holiday.name}>{holiday.name}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Team Leave */}
+                                    {sprint.leaves && sprint.leaves.length > 0 && (
+                                        <div className="mb-4 pt-3 border-t border-blue-500/20">
+                                            <div className="text-sm font-semibold text-blue-300 mb-2 flex items-center gap-2">
+                                                <span>📋</span> Team Leave:
+                                            </div>
+                                            <div className="flex flex-wrap gap-2">
+                                                {sprint.leaves.map((leave, idx) => (
+                                                    <div key={idx} className="flex items-center gap-1.5 bg-blue-500/10 border border-blue-500/30 rounded-lg px-2.5 py-1.5 text-xs">
+                                                        <span className="text-blue-300 font-medium">{leave.name}</span>
+                                                        <span className="text-blue-400 font-bold">{leave.leaveDays}d</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Excluded Members */}
+                                    {sprint.excludedMembers && sprint.excludedMembers.length > 0 && (
+                                        <div className="mb-4 pt-3 border-t border-red-500/20">
+                                            <div className="text-sm font-semibold text-red-300 mb-2 flex items-center gap-2">
+                                                <span>🚫</span> Excluded from Sprint:
+                                            </div>
+                                            <div className="flex flex-wrap gap-2">
+                                                {sprint.excludedMembers.map((member, idx) => (
+                                                    <div key={idx} className="flex items-center gap-1.5 bg-red-500/10 border border-red-500/30 rounded-lg px-2.5 py-1.5 text-xs">
+                                                        <span className="text-red-300 font-medium">{member.name}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {/* Capacity Adjustments */}
-                                    {sprint.engineers.some(e => e.capacity < 100 || e.reason) && (
+                                    {sprint.engineers.some(e => !e.excluded && (e.capacity < 100 || e.reason)) && (
                                         <div className="mt-4 pt-4 border-t border-gray-700">
                                             <div className="text-sm font-semibold text-gray-300 mb-2">⚠️ Capacity Adjustments:</div>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                                 {sprint.engineers
-                                                    .filter(e => e.capacity < 100 || e.reason)
+                                                    .filter(e => !e.excluded && (e.capacity < 100 || e.reason))
                                                     .map((engineer) => (
                                                         <div key={engineer.accountId} className="flex items-center justify-between text-sm bg-gray-900/30 rounded-lg px-3 py-2">
                                                             <span className="text-gray-300">{engineer.name}</span>

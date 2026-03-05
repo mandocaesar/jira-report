@@ -231,9 +231,11 @@ export async function calculateSprintUtilization(
                 avatarUrl: '',
             };
 
-            const leaveDays = getLeaveDays(member.accountId);
+            const rawLeaveDays = getLeaveDays(member.accountId);
+            const isExcluded = rawLeaveDays === -1;
+            const leaveDays = isExcluded ? 0 : rawLeaveDays;
             const titleBaseDays = Math.min(getAvailableDaysFromMap(member.title, titleDaysMap), totalWorkingDays);
-            const availableDays = Math.max(0, titleBaseDays - leaveDays);
+            const availableDays = isExcluded ? 0 : Math.max(0, titleBaseDays - leaveDays);
 
             const utilizationPercent = availableDays > 0
                 ? (storyPoints / availableDays) * 100
@@ -242,7 +244,7 @@ export async function calculateSprintUtilization(
             userUtilizations.push({
                 user,
                 storyPoints,
-                workingDays: titleBaseDays,
+                workingDays: isExcluded ? 0 : titleBaseDays,
                 leaveDays,
                 availableDays,
                 utilizationPercent,
@@ -258,22 +260,24 @@ export async function calculateSprintUtilization(
                 totalWorkTypeStats[type] = (totalWorkTypeStats[type] || 0) + points;
             }
 
-            // Aggregate stats by role (only roster members count toward capacity)
-            if (member.role === 'qa') {
-                qaCount++;
-                qaMandays += availableDays;
-                qaStoryPoints += storyPoints;
-                qaLeaveDays += leaveDays;
-                for (const [type, points] of Object.entries(workTypeStats)) {
-                    qaWorkTypeStats[type] = (qaWorkTypeStats[type] || 0) + points;
-                }
-            } else {
-                engineerCount++;
-                engineerMandays += availableDays;
-                engineerStoryPoints += storyPoints;
-                engineerLeaveDays += leaveDays;
-                for (const [type, points] of Object.entries(workTypeStats)) {
-                    engineerWorkTypeStats[type] = (engineerWorkTypeStats[type] || 0) + points;
+            // Aggregate stats by role (only non-excluded roster members count toward capacity)
+            if (!isExcluded) {
+                if (member.role === 'qa') {
+                    qaCount++;
+                    qaMandays += availableDays;
+                    qaStoryPoints += storyPoints;
+                    qaLeaveDays += leaveDays;
+                    for (const [type, points] of Object.entries(workTypeStats)) {
+                        qaWorkTypeStats[type] = (qaWorkTypeStats[type] || 0) + points;
+                    }
+                } else {
+                    engineerCount++;
+                    engineerMandays += availableDays;
+                    engineerStoryPoints += storyPoints;
+                    engineerLeaveDays += leaveDays;
+                    for (const [type, points] of Object.entries(workTypeStats)) {
+                        engineerWorkTypeStats[type] = (engineerWorkTypeStats[type] || 0) + points;
+                    }
                 }
             }
         }

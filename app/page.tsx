@@ -20,6 +20,32 @@ export default function Home() {
   const [jiraDomain, setJiraDomain] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
+
+  const handleExportPDF = async () => {
+    if (!selectedSprintId) return;
+    try {
+      setPdfLoading(true);
+      const params = new URLSearchParams({ sprintId: String(selectedSprintId) });
+      if (selectedBoardId) params.set('boardId', String(selectedBoardId));
+      const res = await fetch(`/api/report/pdf?${params}`);
+      if (!res.ok) throw new Error('Failed to generate PDF');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = res.headers.get('Content-Disposition')?.match(/filename="(.+)"/)?.[1] || 'Sprint_Report.pdf';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('PDF export failed:', err);
+      alert('Failed to generate PDF. Please try again.');
+    } finally {
+      setPdfLoading(false);
+    }
+  };
 
   const handleBoardChange = (boardId: number | null) => {
     setSelectedBoardId(boardId);
@@ -103,6 +129,25 @@ export default function Home() {
                   {loading ? 'Refreshing...' : 'Refresh'}
                 </button>
               )}
+              {selectedSprintId && sprintData && !loading && (
+                <button
+                  onClick={handleExportPDF}
+                  disabled={pdfLoading}
+                  className="px-3 py-1.5 text-xs text-blue-400 hover:text-blue-300 border border-blue-500/30 hover:border-blue-500/60 bg-blue-500/10 hover:bg-blue-500/20 rounded-lg transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {pdfLoading ? (
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                    </svg>
+                  )}
+                  {pdfLoading ? 'Generating...' : 'Export PDF'}
+                </button>
+              )}
               <button
                 onClick={async () => {
                   await fetch('/api/auth/logout', { method: 'POST' });
@@ -123,7 +168,7 @@ export default function Home() {
       {/* Main Content */}
       <main className="px-3 sm:px-4 md:px-6 py-4 md:py-8 max-w-full">
         {/* Selectors */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 print:hidden">
           <div>
             <label className="block text-sm font-semibold text-gray-300 mb-3">
               Select Board
@@ -278,7 +323,7 @@ export default function Home() {
 
         {/* Empty State */}
         {!selectedSprintId && !loading && (
-          <div className="flex flex-col items-center justify-center py-20">
+          <div className="flex flex-col items-center justify-center py-20 print:hidden">
             <div className="w-24 h-24 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-2xl flex items-center justify-center mb-6 border border-purple-500/20">
               <svg className="w-12 h-12 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />

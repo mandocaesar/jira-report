@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { ThemeToggle } from './ThemeToggle';
 
 interface NavItem {
     name: string;
@@ -103,29 +104,29 @@ export default function Sidebar({ children }: SidebarProps) {
         <div className="flex min-h-screen">
             {/* Sidebar */}
             <aside
-                className={`fixed left-0 top-0 h-screen bg-gray-900 border-r border-gray-800 transition-all duration-300 z-50 flex flex-col ${collapsed ? 'w-20' : 'w-64'
+                className={`fixed left-0 top-0 h-screen bg-background border-r border-border transition-all duration-300 z-50 flex flex-col ${collapsed ? 'w-20' : 'w-64'
                     }`}
             >
                 {/* Header */}
-                <div className="h-16 flex items-center justify-between px-4 border-b border-gray-800">
+                <div className="h-16 flex items-center justify-between px-4 border-b border-border">
                     {!collapsed && (
                         <div className="flex items-center gap-2">
                             <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center text-white font-bold">
                                 J
                             </div>
                             <div>
-                                <h1 className="text-sm font-bold text-white">Jira Sprint</h1>
-                                <p className="text-xs text-gray-400">Report Dashboard</p>
+                                <h1 className="text-sm font-bold text-foreground">Jira Sprint</h1>
+                                <p className="text-xs text-muted-foreground">Report Dashboard</p>
                             </div>
                         </div>
                     )}
                     <button
                         onClick={() => setCollapsed(!collapsed)}
-                        className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+                        className="p-2 hover:bg-muted rounded-lg transition-colors"
                         title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
                     >
                         <svg
-                            className="w-5 h-5 text-gray-400"
+                            className="w-5 h-5 text-muted-foreground"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
@@ -154,7 +155,7 @@ export default function Sidebar({ children }: SidebarProps) {
                     {navigation.map((section) => (
                         <div key={section.title} className="mb-6">
                             {!collapsed && (
-                                <h3 className="px-3 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                                <h3 className="px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                                     {section.title}
                                 </h3>
                             )}
@@ -167,7 +168,7 @@ export default function Sidebar({ children }: SidebarProps) {
                                             href={item.href}
                                             className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group relative ${isActive
                                                 ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white'
-                                                : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                                                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                                                 }`}
                                             title={collapsed ? item.name : ''}
                                         >
@@ -176,7 +177,7 @@ export default function Sidebar({ children }: SidebarProps) {
                                                 <div className="flex-1 min-w-0">
                                                     <div className="text-sm font-medium truncate">{item.name}</div>
                                                     {item.description && !isActive && (
-                                                        <div className="text-xs text-gray-500 truncate">{item.description}</div>
+                                                        <div className="text-xs text-muted-foreground truncate">{item.description}</div>
                                                     )}
                                                 </div>
                                             )}
@@ -192,10 +193,10 @@ export default function Sidebar({ children }: SidebarProps) {
                 </nav>
 
                 {/* Footer - Actions */}
-                <div className="border-t border-gray-800 p-4 space-y-2 overflow-hidden">
+                <div className="border-t border-border p-4 space-y-2 overflow-hidden">
                     <button
                         onClick={() => router.refresh()}
-                        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                         title={collapsed ? 'Refresh Data' : ''}
                     >
                         <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -203,9 +204,13 @@ export default function Sidebar({ children }: SidebarProps) {
                         </svg>
                         {!collapsed && <span className="text-sm font-medium whitespace-nowrap truncate">Refresh Data</span>}
                     </button>
+
+                    {/* Theme Toggle Button */}
+                    <ThemeToggle collapsed={collapsed} />
+
                     <Link
                         href="/api/auth/logout"
-                        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                         title={collapsed ? 'Logout' : ''}
                     >
                         <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">

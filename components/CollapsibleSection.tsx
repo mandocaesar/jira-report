@@ -26,7 +26,7 @@ export default function CollapsibleSection({ title, defaultOpen = true, children
                         title
                     )}
                 </div>
-                <div className={`p-2 rounded-lg transition-all duration-300 ${isOpen
+                <div className={`p-2 rounded-lg transition-all duration-300 print:hidden ${isOpen
                     ? 'bg-purple-500/20 border border-purple-500/30 rotate-180'
                     : 'bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-purple-500/30 hover:from-purple-500/30 hover:to-pink-500/30'
                     }`}>
@@ -36,7 +36,7 @@ export default function CollapsibleSection({ title, defaultOpen = true, children
                 </div>
             </button>
             <div
-                className={`transition-all duration-500 ease-in-out ${isOpen ? 'opacity-100 max-h-[5000px]' : 'opacity-0 max-h-0'}`}
+                className={`transition-all duration-500 ease-in-out print:opacity-100 print:max-h-none ${isOpen ? 'opacity-100 max-h-[5000px]' : 'opacity-0 max-h-0'}`}
             >
                 <div className="p-3 sm:p-4 md:p-6 pt-0 border-t border-white/5">
                     {children}
