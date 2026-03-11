@@ -64,7 +64,7 @@ ${JSON.stringify(
 `;
 
         const { text } = await generateText({
-            model: google('gemini-2.5-flash-lite'),
+            model: google('gemini-2.5-flash'),
             system: 'You are an expert Agile coach assisting a team with their sprint review. Strictly adhere to formatting requested.',
             prompt: prompt,
         });

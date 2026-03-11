@@ -50,6 +50,35 @@ export default function Home() {
     }
   };
 
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailSuccess, setEmailSuccess] = useState<string | null>(null);
+  const handleSendEmail = async () => {
+    if (!selectedBoardId) return;
+    try {
+      setEmailSending(true);
+      setEmailSuccess(null);
+      const res = await fetch('/api/cron', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ boardId: selectedBoardId }),
+      });
+      const result = await res.json();
+      if (!result.success) throw new Error(result.error);
+      const r = result.result;
+      if (r.status === 'success') {
+        setEmailSuccess(`Report sent to ${r.sentTo}`);
+        setTimeout(() => setEmailSuccess(null), 5000);
+      } else {
+        alert(`Report skipped: ${r.reason}`);
+      }
+    } catch (err) {
+      console.error('Email send failed:', err);
+      alert(err instanceof Error ? err.message : 'Failed to send report email.');
+    } finally {
+      setEmailSending(false);
+    }
+  };
+
   const handleBoardChange = (boardId: number | null) => {
     setSelectedBoardId(boardId);
     setSelectedSprintId(null); // Reset sprint when board changes
@@ -136,23 +165,42 @@ export default function Home() {
                 </button>
               )}
               {selectedSprintId && sprintData && !loading && (
-                <button
-                  onClick={handleExportPDF}
-                  disabled={pdfLoading}
-                  className="px-3 py-1.5 text-xs text-blue-400 hover:text-blue-300 border border-blue-500/30 hover:border-blue-500/60 bg-blue-500/10 hover:bg-blue-500/20 rounded-lg transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {pdfLoading ? (
-                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                  ) : (
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                    </svg>
-                  )}
-                  {pdfLoading ? 'Generating...' : 'Export PDF'}
-                </button>
+                <>
+                  <button
+                    onClick={handleExportPDF}
+                    disabled={pdfLoading}
+                    className="px-3 py-1.5 text-xs text-blue-400 hover:text-blue-300 border border-blue-500/30 hover:border-blue-500/60 bg-blue-500/10 hover:bg-blue-500/20 rounded-lg transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {pdfLoading ? (
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                      </svg>
+                    )}
+                    {pdfLoading ? 'Generating...' : 'Export PDF'}
+                  </button>
+                  <button
+                    onClick={handleSendEmail}
+                    disabled={emailSending}
+                    className="px-3 py-1.5 text-xs text-green-400 hover:text-green-300 border border-green-500/30 hover:border-green-500/60 bg-green-500/10 hover:bg-green-500/20 rounded-lg transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {emailSending ? (
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                    )}
+                    {emailSending ? 'Sending...' : 'Send Report'}
+                  </button>
+                </>
               )}
               <button
                 onClick={async () => {
