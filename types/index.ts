@@ -23,6 +23,25 @@ export interface Board {
 export interface JiraIssue {
   id: string;
   key: string;
+  changelog?: {
+    histories: Array<{
+      id: string;
+      author: {
+        accountId: string;
+        displayName: string;
+      };
+      created: string;
+      items: Array<{
+        field: string;
+        fieldtype: string;
+        fieldId?: string;
+        from?: string | null;
+        fromString?: string | null;
+        to?: string | null;
+        toString?: string | null;
+      }>;
+    }>;
+  };
   fields: {
     summary: string;
     issuetype: {
@@ -71,6 +90,7 @@ export interface JiraIssue {
       }>;
     };
     [key: string]: any; // For custom fields like story points
+    created: string;
   };
 }
 
@@ -102,6 +122,20 @@ export interface MemberBreakdown {
   statusGroups: StatusGroup[];
 }
 
+export interface ScopeChange {
+  issueKey: string;
+  summary: string;
+  issueType: string;
+  parentKey?: string;
+  parentSummary?: string;
+  assignee: string | null;
+  type: 'added' | 'points_changed';
+  changeDate: string;
+  oldValue?: string;
+  newValue?: string;
+  description: string;
+}
+
 export interface SprintReportData {
   sprint: Sprint;
   totalPoints: number;
@@ -111,6 +145,7 @@ export interface SprintReportData {
   statusGroups: StatusGroup[];
   memberBreakdowns: MemberBreakdown[];
   carryOverIssues: ReportIssue[];
+  scopeChanges: ScopeChange[];
 }
 
 // User information

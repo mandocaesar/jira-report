@@ -1,6 +1,6 @@
 import React from 'react';
 import { Document, Page, View, Text, StyleSheet, Font } from '@react-pdf/renderer';
-import { SprintSummary, SprintReportData } from '@/types';
+import { SprintSummary, SprintReportData, WorklogReportData } from '@/types';
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -32,6 +32,8 @@ export interface SprintReportPDFProps {
     report: SprintReportData | null;
     epicBreakdowns: EpicBreakdownData[];
     teamName?: string;
+    aiSummary?: string | null;
+    worklogData?: WorklogReportData | null;
 }
 
 // ── Color Tokens ─────────────────────────────────────────────────────────
@@ -42,11 +44,22 @@ const C = {
     accent: '#7c3aed',      // violet-600
     success: '#16a34a',      // green-600
     successBg: '#f0fdf4',   // green-50
-    warning: '#ca8a04',      // yellow-600
-    warningBg: '#fefce8',   // yellow-50
-    danger: '#dc2626',       // red-600
-    dangerBg: '#fef2f2',    // red-50
-    infoBg: '#eff6ff',      // blue-50
+    infoBg: '#eff6ff',       // blue-50
+    warning: '#ea580c',      // orange-600
+    warningBg: '#fff7ed',    // orange-50
+    danger: '#e11d48',       // rose-600
+    dangerBg: '#fff1f2',     // rose-50
+
+    // Heatmap Colors
+    heatNone: '#f3f4f6',     // gray-100 (0h)
+    heatLow: '#fee2e2',      // red-100 (<4h)
+    heatLowText: '#ef4444',
+    heatMed: '#fef08a',      // yellow-200 (4-7h)
+    heatMedText: '#eab308',
+    heatGood: '#bbf7d0',     // green-200 (7-8h)
+    heatGoodText: '#22c55e',
+    heatHigh: '#bfdbfe',     // blue-200 (>8h)
+    heatHighText: '#3b82f6',
     info: '#2563eb',         // blue-600
     grayDark: '#1f2937',    // gray-800
     gray: '#4b5563',        // gray-600
@@ -230,12 +243,77 @@ function ProgressBar({ percent, color }: { percent: number; color: string }) {
     );
 }
 
+function AIMarkdownParser({ content }: { content: string }) {
+    const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
+
+    return (
+        <View style={{ marginTop: 8 }}>
+            {lines.map((line, idx) => {
+                const isHeading = line.startsWith('**') && line.endsWith('**') && line.split('**').length === 3;
+
+                if (isHeading) {
+                    return (
+                        <Text key={idx} style={{ fontSize: 11, fontFamily: 'Helvetica-Bold', color: '#6d28d9', marginTop: idx > 0 ? 12 : 0, marginBottom: 6 }}>
+                            {line.slice(2, -2)}
+                        </Text>
+                    );
+                }
+
+                let isBullet = false;
+                let textLine = line;
+                // handle lists
+                if (textLine.startsWith('- ') || textLine.startsWith('* ')) {
+                    isBullet = true;
+                    textLine = textLine.substring(2);
+                }
+
+                // Split by bold (**bold text**)
+                const parts = textLine.split(/(\*\*.*?\*\*)/g);
+
+                return (
+                    <View key={idx} style={{ flexDirection: 'row', marginBottom: 6, paddingLeft: isBullet ? 10 : 0 }}>
+                        {isBullet && <Text style={{ width: 10, fontSize: 10, color: '#8b5cf6' }}>•</Text>}
+                        <Text style={{ flex: 1, fontSize: 9, lineHeight: 1.5, color: '#374151' }}>
+                            {parts.map((part, i) => {
+                                if (part.startsWith('**') && part.endsWith('**')) {
+                                    return <Text key={i} style={{ fontFamily: 'Helvetica-Bold', color: '#111827' }}>{part.slice(2, -2)}</Text>;
+                                }
+                                return <Text key={i}>{part}</Text>;
+                            })}
+                        </Text>
+                    </View>
+                );
+            })}
+        </View>
+    );
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────
+
+function getHeatmapStyles(hours: number) {
+    if (hours === 0) return { bg: C.heatNone, color: C.grayMed };
+    if (hours < 4) return { bg: C.heatLow, color: C.heatLowText };
+    if (hours < 7) return { bg: C.heatMed, color: C.heatMedText };
+    if (hours <= 8) return { bg: C.heatGood, color: C.heatGoodText };
+    return { bg: C.heatHigh, color: C.heatHighText }; // > 8
+}
+
 // ── Main Document ────────────────────────────────────────────────────────
 
-export default function SprintReportPDF({ summary, report, epicBreakdowns, teamName }: SprintReportPDFProps) {
+export default function SprintReportPDF({ summary, report, epicBreakdowns, teamName, aiSummary, worklogData }: SprintReportPDFProps) {
     const { sprint, totalStoryPoints, totalWorkingDays, averageUtilization, userUtilizations, qaStats, engineerStats, holidays } = summary;
     const engineers = userUtilizations.filter(u => u.role !== 'qa');
     const qas = userUtilizations.filter(u => u.role === 'qa');
+
+    const scopeChanges = report?.scopeChanges || [];
+    const hasScopeChanges = scopeChanges.length > 0;
+    const scopeChangesByType = scopeChanges.reduce((acc, sc) => {
+        if (!acc[sc.issueType]) acc[sc.issueType] = { count: 0, added: 0, pointsChanged: 0 };
+        acc[sc.issueType].count += 1;
+        if (sc.type === 'added') acc[sc.issueType].added += 1;
+        else if (sc.type === 'points_changed') acc[sc.issueType].pointsChanged += 1;
+        return acc;
+    }, {} as Record<string, { count: number; added: number; pointsChanged: number; }>);
 
     return (
         <Document
@@ -258,8 +336,19 @@ export default function SprintReportPDF({ summary, report, epicBreakdowns, teamN
                 <Footer />
             </Page>
 
-            {/* ────────── EXECUTIVE SUMMARY ────────── */}
-            <Page size="A4" style={s.page}>
+            {/* ────────── AI SUMMARY (Part 1) ────────── */}
+            {aiSummary && (
+                <Page size="A4" style={s.page} wrap>
+                    {/* Render AI summary first, without a section header as requested */}
+                    <View style={{ marginBottom: 16 }}>
+                        <AIMarkdownParser content={aiSummary} />
+                    </View>
+                    <Footer />
+                </Page>
+            )}
+
+            {/* ────────── EXECUTIVE SUMMARY DASHBOARD (Part 2) ────────── */}
+            <Page size="A4" style={s.page} wrap>
                 <SectionHeader title="Executive Summary" color={C.primary} />
 
                 {/* KPI cards */}
@@ -285,6 +374,38 @@ export default function SprintReportPDF({ summary, report, epicBreakdowns, teamN
                         <Text style={s.kpiLabel}>Working Days</Text>
                     </View>
                 </View>
+
+                {/* Scope Changes Summary */}
+                {hasScopeChanges && (
+                    <>
+                        <SectionHeader title="Scope Changes Summary" color={C.warning} />
+                        <View style={{ flexDirection: 'row', backgroundColor: '#fff7ed', borderRadius: 4, padding: 8, marginBottom: 16, borderWidth: 1, borderColor: '#fed7aa' }}>
+                            <View style={{ width: '25%', alignItems: 'center', justifyContent: 'center', borderRightWidth: 1, borderRightColor: '#fdba74', paddingRight: 8 }}>
+                                <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: '#ea580c', marginBottom: 4, textTransform: 'uppercase' }}>Scope Changes</Text>
+                                <Text style={{ fontSize: 24, fontFamily: 'Helvetica-Bold', color: '#f97316' }}>{scopeChanges.length}</Text>
+                                <Text style={{ fontSize: 6, color: C.gray, marginTop: 4, textTransform: 'uppercase' }}>Total Events</Text>
+                            </View>
+                            <View style={{ width: '75%', paddingLeft: 12, flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                                {Object.entries(scopeChangesByType).map(([type, stats]) => (
+                                    <View key={type} style={{ width: '47%', backgroundColor: '#fff', padding: 6, borderRadius: 3, borderWidth: 1, borderColor: '#fed7aa' }}>
+                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#ffedd5', paddingBottom: 4, marginBottom: 4 }}>
+                                            <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold', color: C.grayDark }}>{type}</Text>
+                                            <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold', color: '#ea580c' }}>{stats.count}</Text>
+                                        </View>
+                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2 }}>
+                                            <Text style={{ fontSize: 7, color: C.gray }}>Added</Text>
+                                            <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold', color: stats.added > 0 ? C.danger : C.grayLight }}>{stats.added > 0 ? stats.added : '-'}</Text>
+                                        </View>
+                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                                            <Text style={{ fontSize: 7, color: C.gray }}>Pts Changed</Text>
+                                            <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold', color: stats.pointsChanged > 0 ? C.warning : C.grayLight }}>{stats.pointsChanged > 0 ? stats.pointsChanged : '-'}</Text>
+                                        </View>
+                                    </View>
+                                ))}
+                            </View>
+                        </View>
+                    </>
+                )}
 
                 {/* Capacity breakdown — Engineers vs QA */}
                 <SectionHeader title="Capacity Overview" color={C.accent} />
@@ -439,13 +560,63 @@ export default function SprintReportPDF({ summary, report, epicBreakdowns, teamN
                 <Footer />
             </Page>
 
+            {/* ────────── SCOPE CHANGES ────────── */}
+            {report && report.scopeChanges && report.scopeChanges.length > 0 && (
+                <Page size="A4" style={s.page} wrap>
+                    <SectionHeader title="Scope Changes During Sprint" color="#ea580c" />
+                    <View style={s.table}>
+                        <View style={s.thRow}>
+                            <Text style={[s.th, { width: 60 }]}>Issue</Text>
+                            <Text style={[s.th, { width: 60, textAlign: 'center' }]}>Type</Text>
+                            <Text style={[s.th, { width: 60, textAlign: 'center' }]}>Date</Text>
+                            <Text style={[s.th, { width: 335 }]}>Details</Text>
+                        </View>
+                        {Object.entries(report.scopeChanges.reduce((acc, change) => {
+                            const groupKey = change.parentKey || change.issueKey;
+                            const groupSummary = change.parentKey ? (change.parentSummary || 'Parent Issue') : change.summary;
+                            if (!acc[groupKey]) acc[groupKey] = { summary: groupSummary, changes: [] };
+                            acc[groupKey].changes.push(change);
+                            return acc;
+                        }, {} as Record<string, { summary: string, changes: typeof report.scopeChanges }>)).map(([groupKey, group], groupIdx) => (
+                            <React.Fragment key={groupKey}>
+                                <View style={[s.tr, { backgroundColor: '#fff7ed', borderBottomColor: '#ffedd5' }]} wrap={false}>
+                                    <View style={{ width: '100%', flexDirection: 'row', paddingHorizontal: 8, paddingVertical: 6, alignItems: 'center' }}>
+                                        <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold', color: '#ea580c', marginRight: 6 }}>{groupKey}</Text>
+                                        <Text style={{ fontSize: 8, color: C.grayMed, flex: 1, marginRight: 6 }}>{group.summary}</Text>
+                                        <Badge label={`${group.changes.length} events`} color="#ea580c" bg="#ffedd5" />
+                                    </View>
+                                </View>
+                                {group.changes.map((sc, i) => (
+                                    <View key={i} style={s.tr} wrap={false}>
+                                        <Text style={[s.tdBold, { width: 60, color: C.info, paddingLeft: 12 }]}>{sc.issueKey}</Text>
+                                        <View style={{ width: 60, alignItems: 'center', paddingVertical: 6 }}>
+                                            <Badge label={sc.type === 'added' ? 'Added' : 'Points'} color={sc.type === 'added' ? C.danger : C.warning} bg={sc.type === 'added' ? C.dangerBg : C.warningBg} />
+                                        </View>
+                                        <Text style={[s.td, { width: 60, textAlign: 'center' }]}>{fmtShortDate(sc.changeDate)}</Text>
+                                        <View style={{ width: 335, paddingVertical: 6, paddingHorizontal: 6 }}>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+                                                <Text style={{ fontSize: 8, color: C.grayDark, fontFamily: 'Helvetica-Bold' }}>{sc.description}</Text>
+                                                <Badge label={sc.issueType} color={C.grayMed} bg={C.grayBg} />
+                                            </View>
+                                            <Text style={{ fontSize: 7, color: C.grayMed }}>{sc.summary}</Text>
+                                            {sc.assignee && <Text style={{ fontSize: 7, color: C.grayLight, marginTop: 1 }}>Assignee: {sc.assignee}</Text>}
+                                        </View>
+                                    </View>
+                                ))}
+                            </React.Fragment>
+                        ))}
+                    </View>
+                    <Footer />
+                </Page>
+            )}
+
             {/* ────────── EPIC DELIVERY BREAKDOWN ────────── */}
             {epicBreakdowns.length > 0 && (
                 <Page size="A4" style={s.page} wrap>
                     <SectionHeader title="Epic Delivery Breakdown" color="#7c3aed" />
 
                     {epicBreakdowns.filter(e => e.totalPoints > 0).map((epic) => (
-                        <View key={epic.epicKey} style={{ marginBottom: 14 }} wrap={false}>
+                        <View key={epic.epicKey} style={{ marginBottom: 14 }}>
                             {/* Epic header - stacked layout to prevent overflow */}
                             <View style={{ backgroundColor: '#f5f3ff', padding: 8, borderRadius: 4, marginBottom: 4, borderWidth: 1, borderColor: '#e9d5ff' }}>
                                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 3 }}>
@@ -491,6 +662,91 @@ export default function SprintReportPDF({ summary, report, epicBreakdowns, teamN
                             </View>
                         </View>
                     ))}
+                    <Footer />
+                </Page>
+            )}
+
+            {/* ────────── DAILY WORKLOG TRACKING ────────── */}
+            {worklogData && worklogData.memberWorklogs.length > 0 && (
+                <Page size="A4" orientation="landscape" style={s.page} wrap>
+                    <SectionHeader title="Daily Worklog Tracking (Hours)" color="#0ea5e9" />
+
+                    {/* Legend */}
+                    <View style={{ flexDirection: 'row', gap: 12, marginBottom: 8, justifyContent: 'flex-end', paddingRight: 10 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                            <View style={{ width: 8, height: 8, backgroundColor: C.heatLow, borderRadius: 2 }}></View>
+                            <Text style={{ fontSize: 7, color: C.grayDark }}>&lt; 4h</Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                            <View style={{ width: 8, height: 8, backgroundColor: C.heatMed, borderRadius: 2 }}></View>
+                            <Text style={{ fontSize: 7, color: C.grayDark }}>4-7h</Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                            <View style={{ width: 8, height: 8, backgroundColor: C.heatGood, borderRadius: 2 }}></View>
+                            <Text style={{ fontSize: 7, color: C.grayDark }}>7-8h</Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                            <View style={{ width: 8, height: 8, backgroundColor: C.heatHigh, borderRadius: 2 }}></View>
+                            <Text style={{ fontSize: 7, color: C.grayDark }}>&gt; 8h</Text>
+                        </View>
+                    </View>
+
+                    <View style={s.table}>
+                        {/* Table Header */}
+                        <View style={s.thRow}>
+                            <Text style={[s.th, { width: 120 }]}>Team Member</Text>
+                            {worklogData.dates.map((date, index) => {
+                                const d = new Date(date);
+                                const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+                                return (
+                                    <View key={date} style={[s.th, { flex: 1, alignItems: 'center', paddingHorizontal: 0, paddingVertical: 4, backgroundColor: isWeekend ? '#f1f5f9' : 'transparent' }]}>
+                                        <Text style={{ fontSize: 5, color: C.grayMed }}>{d.toLocaleDateString('en-US', { weekday: 'short' })}</Text>
+                                        <Text style={{ fontSize: 6, fontFamily: 'Helvetica-Bold', color: isWeekend ? C.grayMed : C.grayDark }}>{d.getDate()}</Text>
+                                    </View>
+                                )
+                            })}
+                            <Text style={[s.th, { width: 40, textAlign: 'center', color: C.success }]}>Total</Text>
+                        </View>
+
+                        {/* Table Body */}
+                        {worklogData.memberWorklogs.map((member, i) => (
+                            <View key={member.accountId} style={i % 2 === 0 ? s.tr : s.trAlt} wrap={false}>
+                                <View style={{ width: 120, paddingVertical: 5, paddingHorizontal: 6, justifyContent: 'center' }}>
+                                    <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold', color: C.grayDark }}>{member.displayName}</Text>
+                                    <Text style={{ fontSize: 6, color: member.role === 'qa' ? '#db2777' : '#3b82f6', marginTop: 1, textTransform: 'uppercase' }}>{member.role}</Text>
+                                </View>
+
+                                {member.dailyLogs.map((log, logIdx) => {
+                                    const d = new Date(log.date);
+                                    const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+                                    const heat = getHeatmapStyles(log.hours);
+                                    return (
+                                        <View key={log.date} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 4, backgroundColor: isWeekend ? '#f8fafc' : 'transparent' }}>
+                                            <View style={{
+                                                width: '80%',
+                                                aspectRatio: 1.5,
+                                                backgroundColor: heat.bg,
+                                                borderRadius: 2,
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                            }}>
+                                                <Text style={{ fontSize: 6, fontFamily: log.hours > 0 ? 'Helvetica-Bold' : 'Helvetica', color: heat.color }}>
+                                                    {log.hours > 0 ? log.hours.toFixed(1).replace('.0', '') : '-'}
+                                                </Text>
+                                            </View>
+                                        </View>
+                                    );
+                                })}
+
+                                <View style={{ width: 40, alignItems: 'center', justifyContent: 'center' }}>
+                                    <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold', color: member.totalHours >= 60 ? C.success : C.grayDark }}>
+                                        {member.totalHours.toFixed(1).replace('.0', '')}
+                                    </Text>
+                                </View>
+                            </View>
+                        ))}
+                    </View>
+
                     <Footer />
                 </Page>
             )}

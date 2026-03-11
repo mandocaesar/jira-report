@@ -4,7 +4,7 @@ import { jwtVerify } from 'jose';
 const AUTH_SECRET = new TextEncoder().encode(process.env.AUTH_SECRET || 'default-secret-change-me');
 
 // Routes that don't require authentication
-const publicRoutes = ['/login', '/api/auth/login'];
+const publicRoutes = ['/login', '/api/auth/login', '/api/cron'];
 
 export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;

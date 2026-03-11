@@ -160,7 +160,7 @@ class JiraClient {
         const teamId = boardId ? this.getTeamIdForBoard(boardId) : null;
 
         const endpoint = `/sprint/${sprintId}/issue?` +
-            `fields=summary,assignee,issuetype,status,created,parent,subtasks,customfield_10001,customfield_10014,${this.storyPointsFields.join(',')}&` +
+            `fields=summary,assignee,worklog,issuetype,status,created,parent,subtasks,customfield_10001,customfield_10014,${this.storyPointsFields.join(',')}&` +
             `expand=changelog&` +
             `maxResults=1000`;
 

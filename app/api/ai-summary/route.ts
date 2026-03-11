@@ -13,14 +13,17 @@ Please generate an executive-level summary of the sprint's performance based on 
 The output MUST follow this STRICT markdown format, with exactly these headings. Do not include introductory or concluding remarks. Just output the content exactly as formatted below.
 
 **Key Highlights**
-- **Primary Epic Progress**: [Briefly highlight 1-2 major epics that saw significant progress, referencing points and completion percentage]
+- **Sprint Goal & Delivery**: [Assess overall story point completion rate and delivery momentum based on the overall completion percentage]
 - **Top Contributors**: [Highlight 1-3 top performing engineers/QA based on completed points and utilization percentage]
-- **Quick Wins**: [If any epics reached 100% or had very fast turnaround, highlight them. If none, mention other positive momentum]
+- **Quick Wins**: [Highlight any fast turnarounds or notable positive momentum]
+
+**Epic Summary**
+[For EVERY Epic heavily worked on this sprint, create a brief bullet point stating its name, completion percentage, points completed/total, and a 1-sentence analytical observation about its specific progress. Keep it dense and analytical.]
 
 **Key Areas of Concern**
-- **Massive "To Do" Backlog**: [Analyze the status distribution—how many points were left in To Do vs In Progress. E.g. "A critical X% of points remained in To Do..."]
-- **Team-Wide Over utilization**: [Call out specific team members who were significantly over-utilized (e.g. >100%) or under-utilized, referencing their exact percentages and roles]
-- **Stalled Epics**: [Highlight 1-3 epics that had high points but 0% progress, or struggled to move forward]
+- **Backlog & Risk**: [Analyze the status distribution—how many points were left in To Do vs In Progress. E.g. "A critical X% of points remained in To Do..."]
+- **Capacity & Utilization**: [Call out specific team members who were significantly over-utilized (e.g. >100%) or under-utilized, referencing exact percentages and roles]
+- **Stalled Items**: [Highlight exactly which epics or areas struggled to move forward, referencing 0% progress or low completion rates]
 
 Use a professional but analytical tone. Be specific with numbers, names, and percentages provided in the data.
 

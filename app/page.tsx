@@ -21,14 +21,17 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfAiSummary, setPdfAiSummary] = useState<string | null>(null);
 
   const handleExportPDF = async () => {
     if (!selectedSprintId) return;
     try {
       setPdfLoading(true);
-      const params = new URLSearchParams({ sprintId: String(selectedSprintId) });
-      if (selectedBoardId) params.set('boardId', String(selectedBoardId));
-      const res = await fetch(`/api/report/pdf?${params}`);
+      const res = await fetch(`/api/report/pdf`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sprintId: selectedSprintId, boardId: selectedBoardId, aiSummary: pdfAiSummary })
+      });
       if (!res.ok) throw new Error('Failed to generate PDF');
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -52,6 +55,7 @@ export default function Home() {
     setSelectedSprintId(null); // Reset sprint when board changes
     setSprintData(null);
     setReportData(null);
+    setPdfAiSummary(null);
   };
 
   const handleSprintChange = async (sprintId: number | null) => {
@@ -60,6 +64,7 @@ export default function Home() {
     if (!sprintId) {
       setSprintData(null);
       setReportData(null);
+      setPdfAiSummary(null);
       return;
     }
 
@@ -85,6 +90,7 @@ export default function Home() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load sprint data');
       setSprintData(null);
+      setPdfAiSummary(null);
     } finally {
       setLoading(false);
     }
@@ -224,7 +230,7 @@ export default function Home() {
           <div className="space-y-4 md:space-y-8 animate-fadeIn">
             {/* Sprint Summary */}
             <CollapsibleSection title="Sprint Summary" defaultOpen={true}>
-              <SprintSummaryComponent summary={sprintData} reportData={reportData} />
+              <SprintSummaryComponent summary={sprintData} reportData={reportData} onAiSummaryGenerate={setPdfAiSummary} />
             </CollapsibleSection>
 
             {/* User Utilizations */}

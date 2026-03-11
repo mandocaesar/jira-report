@@ -27,7 +27,7 @@ export async function GET(
         // Fetch sprint details and issues in parallel
         const [sprint, issues] = await Promise.all([
             jiraClient.getSprint(sprintId),
-            jiraClient.getSprintIssues(sprintId, boardId ? parseInt(boardId, 10) : undefined),
+            jiraClient.getSprintIssuesWithChangelog(sprintId, boardId ? parseInt(boardId, 10) : undefined),
         ]);
 
         // Calculate utilization and sprint report in parallel

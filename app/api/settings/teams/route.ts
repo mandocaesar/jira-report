@@ -69,7 +69,7 @@ export async function PUT(request: Request) {
             );
         }
 
-        const { id, name, boardId } = await request.json();
+        const { id, name, boardId, reportEmailGroup, isSchedulingEnabled } = await request.json();
 
         if (!id) {
             return NextResponse.json(
@@ -83,6 +83,8 @@ export async function PUT(request: Request) {
             data: {
                 ...(name !== undefined && { name }),
                 ...(boardId !== undefined && { boardId: parseInt(boardId) }),
+                ...(reportEmailGroup !== undefined && { reportEmailGroup }),
+                ...(isSchedulingEnabled !== undefined && { isSchedulingEnabled }),
             },
         });
 

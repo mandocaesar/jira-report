@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { google } from '@ai-sdk/google';
+import { generateText } from 'ai';
 import { renderToBuffer } from '@react-pdf/renderer';
 import React from 'react';
 import { createJiraClient } from '@/lib/jira-client';
@@ -6,13 +8,34 @@ import { calculateSprintUtilization } from '@/lib/utilization-calculator';
 import { calculateSprintReport } from '@/lib/sprint-report-calculator';
 import SprintReportPDF from '@/components/SprintReportPDF';
 import teamRoster from '@/config/team-roster.json';
+import { prisma, isDatabaseAvailable } from '@/lib/db';
+import { WorklogReportData } from '@/types';
 
-// GET /api/report/pdf?sprintId=xxx&boardId=xxx
-export async function GET(request: NextRequest) {
+// Helper to generate date range
+function generateDateRange(startIso: string, endIso: string): string[] {
+    const dates: string[] = [];
+    const startDate = new Date(startIso);
+    const endDate = new Date(endIso);
+    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(23, 59, 59, 999);
+    const currentDate = new Date(startDate);
+    while (currentDate <= endDate) {
+        const year = currentDate.getFullYear();
+        const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+        const day = String(currentDate.getDate()).padStart(2, '0');
+        dates.push(`${year}-${month}-${day}`);
+        currentDate.setDate(currentDate.getDate() + 1);
+    }
+    return dates;
+}
+
+// POST /api/report/pdf
+export async function POST(request: NextRequest) {
     try {
-        const { searchParams } = new URL(request.url);
-        const sprintIdParam = searchParams.get('sprintId');
-        const boardIdParam = searchParams.get('boardId');
+        const body = await request.json();
+        const sprintIdParam = body.sprintId;
+        const boardIdParam = body.boardId;
+        const aiSummary = body.aiSummary || null;
 
         if (!sprintIdParam) {
             return NextResponse.json(
@@ -29,7 +52,7 @@ export async function GET(request: NextRequest) {
         // 1. Fetch sprint + issues
         const [sprint, issues] = await Promise.all([
             jiraClient.getSprint(sprintId),
-            jiraClient.getSprintIssues(sprintId, boardId),
+            jiraClient.getSprintIssuesWithChangelog(sprintId, boardId),
         ]);
 
         // 2. Calculate utilization + report
@@ -128,17 +151,174 @@ export async function GET(request: NextRequest) {
             teamName = (team as any)?.name || '';
         }
 
-        // 5. Render PDF
+        // 5. Fetch Worklogs
+        let worklogData: WorklogReportData | null = null;
+        if (boardId) {
+            try {
+                const teamMembersMap = new Map<string, any>();
+                let usedDb = false;
+                if (isDatabaseAvailable() && prisma) {
+                    try {
+                        const dbTeams = await prisma.team.findMany({ where: { boardId }, include: { members: true } });
+                        if (dbTeams.length > 0) {
+                            usedDb = true;
+                            for (const team of dbTeams) {
+                                for (const member of team.members) {
+                                    teamMembersMap.set(member.accountId, { ...member, teamId: team.id, teamName: team.name });
+                                }
+                            }
+                        }
+                    } catch (err) { }
+                }
+                if (!usedDb) {
+                    for (const [teamId, teamConfig] of Object.entries((teamRoster as any).teams)) {
+                        if ((teamConfig as any).boardId === boardId) {
+                            for (const member of (teamConfig as any).members) {
+                                teamMembersMap.set(member.accountId, { ...member, teamId, teamName: (teamConfig as any).name });
+                            }
+                        }
+                    }
+                }
+
+                if (teamMembersMap.size > 0 && sprint.startDate && sprint.endDate) {
+                    const dates = generateDateRange(sprint.startDate, sprint.endDate);
+                    const memberWorklogsMap = new Map<string, any>();
+                    for (const [accountId, member] of teamMembersMap.entries()) {
+                        memberWorklogsMap.set(accountId, {
+                            accountId,
+                            displayName: member.name,
+                            avatarUrl: '',
+                            role: member.role as 'qa' | 'engineer',
+                            title: member.title,
+                            dailyLogs: dates.map(date => ({ date, hours: 0 })),
+                            totalHours: 0
+                        });
+                    }
+
+                    for (const issue of issues) {
+                        if (issue.fields.assignee && memberWorklogsMap.has(issue.fields.assignee.accountId)) {
+                            const m = memberWorklogsMap.get(issue.fields.assignee.accountId)!;
+                            if (!m.avatarUrl && issue.fields.assignee.avatarUrls?.['48x48']) {
+                                m.avatarUrl = issue.fields.assignee.avatarUrls['48x48'];
+                            }
+                        }
+                        const wData = issue.fields.worklog;
+                        if (!wData || !wData.worklogs || wData.worklogs.length === 0) continue;
+
+                        for (const log of wData.worklogs) {
+                            const authorId = log.author.accountId;
+                            if (!memberWorklogsMap.has(authorId)) continue;
+                            const member = memberWorklogsMap.get(authorId)!;
+                            const startedDate = new Date(log.started);
+                            const tDate = `${startedDate.getFullYear()}-${String(startedDate.getMonth() + 1).padStart(2, '0')}-${String(startedDate.getDate()).padStart(2, '0')}`;
+                            if (dates.includes(tDate)) {
+                                const hours = log.timeSpentSeconds / 3600;
+                                const dailyLog = member.dailyLogs.find((dl: any) => dl.date === tDate);
+                                if (dailyLog) {
+                                    dailyLog.hours += hours;
+                                    member.totalHours += hours;
+                                }
+                            }
+                        }
+                    }
+
+                    const memberWorklogs = Array.from(memberWorklogsMap.values()).sort((a, b) => {
+                        if (a.role !== b.role) return a.role === 'engineer' ? -1 : 1;
+                        return a.displayName.localeCompare(b.displayName);
+                    });
+
+                    worklogData = { sprintId, dates, memberWorklogs };
+                }
+            } catch (err) {
+                console.warn('Could not fetch worklogs for PDF:', err);
+            }
+        }
+
+        // 6. Generate AI Summary directly on PDF generation
+        let finalAiSummary = aiSummary;
+        if (!finalAiSummary) {
+            try {
+                const prompt = `
+You are an expert Agile Scrum Master analyzing a sprint report. 
+Please generate an executive-level summary of the sprint's performance based on the specific data provided.
+
+The output MUST follow this STRICT markdown format, with exactly these headings. Do not include introductory or concluding remarks. Just output the content exactly as formatted below.
+
+**Key Highlights**
+- **Sprint Goal & Delivery**: [Assess overall story point completion rate and delivery momentum based on the overall completion percentage]
+- **Top Contributors**: [Highlight 1-3 top performing engineers/QA based on completed points and utilization percentage]
+- **Quick Wins**: [Highlight any fast turnarounds or notable positive momentum]
+
+**Epic Summary**
+[For EVERY Epic heavily worked on this sprint, create a brief bullet point stating its name, completion percentage, points completed/total, and a 1-sentence analytical observation about its specific progress. Keep it dense and analytical.]
+
+**Key Areas of Concern**
+- **Backlog & Risk**: [Analyze the status distribution—how many points were left in To Do vs In Progress. E.g. "A critical X% of points remained in To Do..."]
+- **Capacity & Utilization**: [Call out specific team members who were significantly over-utilized (e.g. >100%) or under-utilized, referencing exact percentages and roles]
+- **Stalled Items**: [Highlight exactly which epics or areas struggled to move forward, referencing 0% progress or low completion rates]
+
+Use a professional but analytical tone. Be specific with numbers, names, and percentages provided in the data.
+
+---
+Here is the Sprint Data to analyze:
+
+**Sprint Info:**
+- Name: ${sprint.name}
+- Total Points: ${utilization.totalStoryPoints}
+- Total Working Days: ${utilization.totalWorkingDays}
+
+**Overall Delivery (Report Data):**
+- Completed Points: ${sprintReport?.completedPoints || 0} (${sprintReport?.completionPercent || 0}%)
+- Status Groups (Backlog vs In Progress vs Done): 
+${JSON.stringify(sprintReport?.statusGroups || [])}
+
+**Team Utilization (Members):**
+${JSON.stringify(
+                    utilization.userUtilizations.map((u: any) => ({
+                        name: u.user.displayName,
+                        role: u.role,
+                        utilizationPercent: u.utilizationPercent,
+                        completedPoints: u.storyPoints,
+                        assignedDays: u.workingDays - u.leaveDays
+                    }))
+                )}
+
+**Epic Breakdown (Progress):**
+${JSON.stringify(
+                    (epicBreakdowns || []).map((e: any) => ({
+                        key: e.epicKey,
+                        name: e.epicName,
+                        totalPoints: e.totalPoints,
+                        completedPoints: e.completedPoints,
+                        completionPercent: e.completionPercent
+                    }))
+                )}
+`;
+
+                const { text } = await generateText({
+                    model: google('gemini-2.5-flash-lite'),
+                    system: 'You are an expert Agile coach assisting a team with their sprint review. Strictly adhere to formatting requested.',
+                    prompt: prompt,
+                });
+                finalAiSummary = text;
+            } catch (err) {
+                console.error("AI summarization inside PDF failed:", err);
+            }
+        }
+
+        // 7. Render PDF
         const pdfBuffer = await renderToBuffer(
             React.createElement(SprintReportPDF, {
                 summary: utilization,
                 report: sprintReport,
                 epicBreakdowns,
+                worklogData,
                 teamName,
+                aiSummary: finalAiSummary,
             }) as any
         );
 
-        // 6. Return PDF as downloadable file
+        // 8. Return PDF as downloadable file
         const safeSprintName = sprint.name.replace(/[^a-zA-Z0-9_\- ]/g, '').replace(/ /g, '_');
         const filename = `Sprint_Report_${safeSprintName}.pdf`;
 

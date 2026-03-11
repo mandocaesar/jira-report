@@ -6,9 +6,10 @@ import { SprintSummary, SprintReportData } from '@/types';
 interface SprintSummaryProps {
     summary: SprintSummary;
     reportData?: SprintReportData | null;
+    onAiSummaryGenerate?: (summary: string) => void;
 }
 
-export default function SprintSummaryComponent({ summary, reportData }: SprintSummaryProps) {
+export default function SprintSummaryComponent({ summary, reportData, onAiSummaryGenerate }: SprintSummaryProps) {
     const { sprint, totalStoryPoints, totalWorkingDays, averageUtilization, userUtilizations, workTypeStats } = summary;
 
     const [aiSummary, setAiSummary] = useState<string | null>(null);
@@ -26,7 +27,7 @@ export default function SprintSummaryComponent({ summary, reportData }: SprintSu
                     const epicRes = await fetch(`/api/epic-breakdown?sprintId=${sprint.id}&boardId=${sprint.originBoardId}`);
                     if (epicRes.ok) {
                         const epicData = await epicRes.json();
-                        epicBreakdowns = epicData.data || [];
+                        epicBreakdowns = epicData.epicBreakdowns || [];
                     }
                 } catch (e) {
                     console.error("Failed to fetch epic breakdown for AI", e);
@@ -50,6 +51,7 @@ export default function SprintSummaryComponent({ summary, reportData }: SprintSu
             }
 
             setAiSummary(data.summary);
+            onAiSummaryGenerate?.(data.summary);
         } catch (err) {
             setAiError(err instanceof Error ? err.message : 'An error occurred');
         } finally {
@@ -109,6 +111,18 @@ export default function SprintSummaryComponent({ summary, reportData }: SprintSu
         'Incident': { bg: 'bg-red-500/15', border: 'border-red-500/30', text: 'text-red-400', bar: 'bg-red-500' },
     };
     const defaultColor = { bg: 'bg-gray-500/15', border: 'border-gray-500/30', text: 'text-gray-400', bar: 'bg-gray-500' };
+
+    // Scope changes calculation
+    const scopeChanges = reportData?.scopeChanges || [];
+    const scopeChangesByType = scopeChanges.reduce((acc, change) => {
+        const type = change.issueType || 'Unknown';
+        if (!acc[type]) acc[type] = { count: 0, added: 0, pointsChanged: 0 };
+        acc[type].count++;
+        if (change.type === 'added') acc[type].added++;
+        else acc[type].pointsChanged++;
+        return acc;
+    }, {} as Record<string, { count: number, added: number, pointsChanged: number }>);
+    const hasScopeChanges = Object.keys(scopeChangesByType).length > 0;
 
     return (
         <div className="bg-gradient-to-br from-purple-900/30 to-pink-900/30">
@@ -271,6 +285,50 @@ export default function SprintSummaryComponent({ summary, reportData }: SprintSu
                     </div>
                 )
             }
+
+            {/* Scope Changes Summary */}
+            {hasScopeChanges && (
+                <div className="px-2 pb-2">
+                    <div className="bg-gray-800/30 rounded-lg border border-gray-700/30 overflow-hidden flex flex-col md:flex-row">
+                        {/* Section Hero KPI */}
+                        <div className="md:w-1/5 min-w-[150px] bg-gradient-to-br from-orange-500/10 to-amber-500/5 p-4 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-gray-700/50 cursor-help" title="Total number of scope change events mid-sprint">
+                            <h3 className="text-[11px] font-semibold text-orange-400/80 uppercase tracking-wider flex items-center gap-1.5 mb-2">
+                                🔄 Scope Changes
+                            </h3>
+                            <div className="text-4xl font-bold bg-gradient-to-r from-orange-400 to-amber-400 bg-clip-text text-transparent leading-tight pb-1">
+                                {scopeChanges.length}
+                            </div>
+                            <div className="text-[10px] text-gray-400 uppercase tracking-widest mt-0.5">Total Events</div>
+                        </div>
+
+                        {/* Detailed Breakdown Grid */}
+                        <div className="md:w-4/5 p-3 flex flex-wrap gap-2.5">
+                            {Object.entries(scopeChangesByType).map(([type, stats]) => (
+                                <div key={type} className="flex-1 min-w-[140px] max-w-[220px] bg-gray-900/40 rounded border border-gray-700/40 p-2.5">
+                                    <div className="flex justify-between items-center mb-2 pb-1.5 border-b border-gray-700/50">
+                                        <span className="text-xs font-semibold text-gray-300">{type}</span>
+                                        <span className="text-sm font-bold text-white bg-gray-800 px-1.5 rounded shrink-0">{stats.count}</span>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <div className="flex justify-between items-center text-[10px]">
+                                            <span className="text-gray-500 flex items-center gap-1"><span className="text-[8px] text-red-500/70">➕</span> Added</span>
+                                            <span className={`font-semibold ${stats.added > 0 ? 'text-red-400' : 'text-gray-600'}`}>
+                                                {stats.added > 0 ? stats.added : '-'}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between items-center text-[10px]">
+                                            <span className="text-gray-500 flex items-center gap-1"><span className="text-[8px] text-yellow-500/70">✎</span> Pts Changed</span>
+                                            <span className={`font-semibold ${stats.pointsChanged > 0 ? 'text-yellow-500' : 'text-gray-600'}`}>
+                                                {stats.pointsChanged > 0 ? stats.pointsChanged : '-'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Row 3: QA vs Engineer Breakdown */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5 px-2 pb-2">

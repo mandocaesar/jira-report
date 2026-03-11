@@ -43,6 +43,8 @@ interface Team {
     id: string;
     name: string;
     boardId: number;
+    reportEmailGroup?: string;
+    isSchedulingEnabled?: boolean;
     members: Member[];
 }
 
@@ -64,6 +66,10 @@ export default function TeamManagementPage() {
     // Edit member
     const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
     const [editMember, setEditMember] = useState({ name: '', email: '', role: '', title: '' });
+
+    // Team Settings
+    const [editingTeamSettingsId, setEditingTeamSettingsId] = useState<string | null>(null);
+    const [editTeamSettings, setEditTeamSettings] = useState({ reportEmailGroup: '', isSchedulingEnabled: false });
 
     // Sync from Jira
     const [showSync, setShowSync] = useState(false);
@@ -188,6 +194,23 @@ export default function TeamManagementPage() {
             fetchTeams();
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to delete team');
+        }
+    };
+
+    const handleUpdateTeamSettings = async (teamId: string) => {
+        try {
+            const res = await fetch('/api/settings/teams', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: teamId, ...editTeamSettings }),
+            });
+            const result = await res.json();
+            if (!result.success) throw new Error(result.error);
+            setEditingTeamSettingsId(null);
+            showSuccess('Team settings updated');
+            fetchTeams();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to update team settings');
         }
     };
 
@@ -500,6 +523,19 @@ export default function TeamManagementPage() {
                             </div>
                             <div className="flex gap-2">
                                 <button
+                                    onClick={() => {
+                                        if (editingTeamSettingsId === team.id) {
+                                            setEditingTeamSettingsId(null);
+                                        } else {
+                                            setEditingTeamSettingsId(team.id);
+                                            setEditTeamSettings({ reportEmailGroup: team.reportEmailGroup || '', isSchedulingEnabled: team.isSchedulingEnabled || false });
+                                        }
+                                    }}
+                                    className="px-3 py-1.5 text-sm bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded-lg hover:bg-purple-500/30 transition-all"
+                                >
+                                    ⚙️ Settings
+                                </button>
+                                <button
                                     onClick={() => { setAddingMemberTeamId(addingMemberTeamId === team.id ? null : team.id); setNewMember({ accountId: '', name: '', email: '', role: 'engineer', title: 'Associate' }); }}
                                     className="px-3 py-1.5 text-sm bg-blue-500/20 text-blue-300 border border-blue-500/30 rounded-lg hover:bg-blue-500/30 transition-all"
                                 >
@@ -513,6 +549,38 @@ export default function TeamManagementPage() {
                                 </button>
                             </div>
                         </div>
+
+                        {/* Team Settings Form */}
+                        {editingTeamSettingsId === team.id && (
+                            <div className="px-6 py-4 bg-purple-900/10 border-b border-purple-500/20 space-y-3">
+                                <h4 className="text-sm font-semibold text-purple-300">Automated Scheduled Reports</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div className="flex items-center gap-3 bg-gray-900/50 p-3 rounded-lg border border-gray-700">
+                                        <input
+                                            type="checkbox"
+                                            id={`schedule-enabled-${team.id}`}
+                                            checked={editTeamSettings.isSchedulingEnabled}
+                                            onChange={(e) => setEditTeamSettings(p => ({ ...p, isSchedulingEnabled: e.target.checked }))}
+                                            className="w-4 h-4 rounded text-purple-500 focus:ring-purple-500 focus:ring-offset-gray-900 bg-gray-700 border-gray-600"
+                                        />
+                                        <label htmlFor={`schedule-enabled-${team.id}`} className="text-sm text-gray-300 cursor-pointer">
+                                            Enable Scheduled Sprint Reporting
+                                        </label>
+                                    </div>
+                                    <input
+                                        type="text"
+                                        placeholder="Email Group / Recipients (comma separated)"
+                                        value={editTeamSettings.reportEmailGroup}
+                                        onChange={(e) => setEditTeamSettings(p => ({ ...p, reportEmailGroup: e.target.value }))}
+                                        className="px-3 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-purple-500/50 w-full"
+                                    />
+                                </div>
+                                <div className="flex gap-2 pt-2">
+                                    <button onClick={() => handleUpdateTeamSettings(team.id)} className="px-4 py-1.5 text-sm bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-all">Save Settings</button>
+                                    <button onClick={() => setEditingTeamSettingsId(null)} className="px-4 py-1.5 text-sm text-gray-400 border border-gray-700 rounded-lg hover:text-white transition-all">Cancel</button>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Add Member Form */}
                         {addingMemberTeamId === team.id && (

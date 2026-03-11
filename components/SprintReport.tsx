@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { SprintReportData } from '@/types';
 
 interface SprintReportProps {
@@ -54,7 +55,7 @@ function getCompletionBarColor(percent: number): string {
 }
 
 export default function SprintReport({ report, jiraDomain }: SprintReportProps) {
-    const { totalPoints, completedPoints, completionPercent, statusGroups, memberBreakdowns } = report;
+    const { totalPoints, completedPoints, completionPercent, statusGroups, memberBreakdowns, scopeChanges } = report;
 
     return (
         <div className="space-y-3">
@@ -212,6 +213,104 @@ export default function SprintReport({ report, jiraDomain }: SprintReportProps) 
                                             </div>
                                         </td>
                                     </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
+            {/* Scope Changes */}
+            {scopeChanges && scopeChanges.length > 0 && (
+                <div className="bg-orange-500/10 rounded-xl border border-orange-500/20 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-orange-500/20 bg-orange-500/5">
+                        <div className="flex items-center gap-2">
+                            <svg className="w-4 h-4 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <h3 className="text-xs font-semibold text-orange-400">Scope Changes During Sprint</h3>
+                            <span className="text-[10px] bg-orange-500/20 text-orange-300 px-2 py-0.5 rounded-full border border-orange-500/30">
+                                {scopeChanges.length} events
+                            </span>
+                        </div>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="border-b border-orange-500/20 text-[10px] text-orange-300/70 uppercase tracking-wider bg-orange-500/5">
+                                    <th className="px-4 py-2 font-medium">Issue</th>
+                                    <th className="px-3 py-2 font-medium">Type</th>
+                                    <th className="px-3 py-2 font-medium">Date</th>
+                                    <th className="px-4 py-2 font-medium">Details</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {Object.entries(scopeChanges.reduce((acc, change) => {
+                                    const groupKey = change.parentKey || change.issueKey;
+                                    const groupSummary = change.parentKey ? (change.parentSummary || 'Parent Issue') : change.summary;
+                                    if (!acc[groupKey]) acc[groupKey] = { summary: groupSummary, changes: [] };
+                                    acc[groupKey].changes.push(change);
+                                    return acc;
+                                }, {} as Record<string, { summary: string, changes: typeof scopeChanges }>)).map(([groupKey, group]) => (
+                                    <React.Fragment key={groupKey}>
+                                        <tr className="bg-orange-500/10 border-b border-orange-500/20">
+                                            <td colSpan={4} className="px-4 py-2">
+                                                <div className="flex items-center gap-2">
+                                                    <a
+                                                        href={jiraDomain ? `https://${jiraDomain}/browse/${groupKey}` : '#'}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                        className="text-xs font-bold text-orange-300 hover:text-orange-200 transition-colors"
+                                                    >
+                                                        {groupKey}
+                                                    </a>
+                                                    <span className="text-[10px] text-gray-300 line-clamp-1">{group.summary}</span>
+                                                    <span className="text-[10px] px-1.5 py-0.5 ml-1 bg-orange-500/20 rounded-md text-orange-200">
+                                                        {group.changes.length}
+                                                    </span>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {group.changes.map((change, idx) => (
+                                            <tr key={`${groupKey}-${idx}`} className="border-b border-orange-500/10 hover:bg-orange-500/5 transition-colors align-top">
+                                                <td className="px-4 py-3 pl-8">
+                                                    <div className="flex flex-col">
+                                                        <a
+                                                            href={jiraDomain ? `https://${jiraDomain}/browse/${change.issueKey}` : '#'}
+                                                            target="_blank"
+                                                            rel="noreferrer"
+                                                            className="text-xs font-medium text-orange-300 hover:text-orange-200 transition-colors"
+                                                        >
+                                                            {change.issueKey}
+                                                        </a>
+                                                        <span className="text-[10px] text-orange-400/80 mt-0.5">{change.issueType}</span>
+                                                        <span className="text-[10px] text-gray-400 line-clamp-2 mt-0.5">{change.summary}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-3 py-3">
+                                                    <span className={`text-[10px] px-2 py-0.5 rounded border ${change.type === 'added'
+                                                        ? 'bg-red-500/10 text-red-400 border-red-500/20'
+                                                        : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
+                                                        }`}>
+                                                        {change.type === 'added' ? 'Added to Sprint' : 'Points Changed'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-3 py-3">
+                                                    <div className="text-[10px] text-gray-400">
+                                                        {new Date(change.changeDate).toLocaleString([], {
+                                                            month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                                                        })}
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div className="text-xs text-gray-300">{change.description}</div>
+                                                    {change.assignee && (
+                                                        <div className="text-[10px] text-gray-500 mt-1">Assignee: {change.assignee}</div>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </React.Fragment>
                                 ))}
                             </tbody>
                         </table>

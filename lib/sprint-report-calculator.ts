@@ -1,4 +1,4 @@
-import { JiraIssue, Sprint, User, SprintReportData, StatusGroup, MemberBreakdown, ReportIssue } from '@/types';
+import { JiraIssue, Sprint, User, SprintReportData, StatusGroup, MemberBreakdown, ReportIssue, ScopeChange } from '@/types';
 import { getMemberByAccountId, getTeamByBoardIdFromDb } from './team-roster';
 
 /**
@@ -51,6 +51,94 @@ function getStatusName(issue: JiraIssue): string {
 }
 
 /**
+ * Calculates scope changes (added to sprint, points changed)
+ */
+function calculateScopeChanges(sprint: Sprint, issues: JiraIssue[]): ScopeChange[] {
+    const changes: ScopeChange[] = [];
+    const sprintStartTime = new Date(sprint.startDate).getTime();
+
+    const storyPointsFields = ['customfield_10036', 'customfield_10052'];
+
+    for (const issue of issues) {
+        let wasAddedDuringSprint = false;
+
+        // 1. Check if the issue was created after the sprint started
+        if (issue.fields.created) {
+            const createdTime = new Date(issue.fields.created).getTime();
+            if (createdTime > sprintStartTime) {
+                wasAddedDuringSprint = true;
+                changes.push({
+                    issueKey: issue.key,
+                    summary: issue.fields.summary,
+                    issueType: issue.fields.issuetype.name,
+                    parentKey: issue.fields.parent?.key,
+                    parentSummary: issue.fields.parent?.fields?.summary,
+                    assignee: extractUser(issue)?.displayName || null,
+                    type: 'added',
+                    changeDate: issue.fields.created,
+                    description: 'Issue created during sprint'
+                });
+            }
+        }
+
+        // 2. Check changelog for sprint additions or point changes
+        if (issue.changelog && issue.changelog.histories) {
+            for (const history of issue.changelog.histories) {
+                const historyTime = new Date(history.created).getTime();
+                if (historyTime <= sprintStartTime) continue;
+
+                for (const item of history.items) {
+                    // Check if added to sprint
+                    if (!wasAddedDuringSprint && (item.field === 'Sprint' || item.fieldId === 'customfield_10020')) {
+                        const addedToThisSprint = item.to?.includes(String(sprint.id)) || item.toString?.includes(sprint.name);
+                        if (addedToThisSprint) {
+                            wasAddedDuringSprint = true;
+                            changes.push({
+                                issueKey: issue.key,
+                                summary: issue.fields.summary,
+                                issueType: issue.fields.issuetype.name,
+                                parentKey: issue.fields.parent?.key,
+                                parentSummary: issue.fields.parent?.fields?.summary,
+                                assignee: extractUser(issue)?.displayName || null,
+                                type: 'added',
+                                changeDate: history.created,
+                                description: `Added to sprint (previously: ${item.fromString || 'None'})`
+                            });
+                        }
+                    }
+
+                    // Check for point changes
+                    const isStoryPointField = item.fieldId ? storyPointsFields.includes(item.fieldId) : (item.field === 'Story Points' || item.field === 'QA Story Point');
+                    if (isStoryPointField) {
+                        const oldVal = item.fromString || '0';
+                        const newVal = item.toString || '0';
+                        // Ignore trivial changes like null -> 0 if they're equivalent in math terms
+                        if (oldVal !== newVal && parseFloat(oldVal || '0') !== parseFloat(newVal || '0')) {
+                            changes.push({
+                                issueKey: issue.key,
+                                summary: issue.fields.summary,
+                                issueType: issue.fields.issuetype.name,
+                                parentKey: issue.fields.parent?.key,
+                                parentSummary: issue.fields.parent?.fields?.summary,
+                                assignee: extractUser(issue)?.displayName || null,
+                                type: 'points_changed',
+                                changeDate: history.created,
+                                oldValue: oldVal,
+                                newValue: newVal,
+                                description: `${item.field || 'Story Points'} changed from ${oldVal} to ${newVal}`
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Sort changes newest first
+    return changes.sort((a, b) => new Date(b.changeDate).getTime() - new Date(a.changeDate).getTime());
+}
+
+/**
  * Calculate sprint report data from sub-tasks.
  * 
  * - Filters to sub-tasks only (issuetype.subtask === true)
@@ -71,6 +159,9 @@ export async function calculateSprintReport(
     );
 
     console.log(`[SprintReport] Total issues: ${issues.length}, Sub-tasks: ${subtasks.length}`);
+
+    const scopeChanges = calculateScopeChanges(sprint, subtasks);
+    console.log(`[SprintReport] Detected ${scopeChanges.length} scope changes on sub-tasks.`);
 
     // Get team roster from DB (falls back to JSON)
     const teamInfo = boardId ? await getTeamByBoardIdFromDb(boardId) : null;
@@ -263,5 +354,6 @@ export async function calculateSprintReport(
         statusGroups,
         memberBreakdowns,
         carryOverIssues,
+        scopeChanges,
     };
 }
