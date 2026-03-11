@@ -1,7 +1,87 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { SprintReportData } from '@/types';
+
+function ScopeChangeGroup({ groupKey, group, jiraDomain }: {
+    groupKey: string;
+    group: { summary: string; changes: any[] };
+    jiraDomain?: string;
+}) {
+    const [collapsed, setCollapsed] = useState(true);
+
+    return (
+        <>
+            <tr
+                className="bg-orange-500/10 border-b border-orange-500/20 cursor-pointer hover:bg-orange-500/15 transition-colors select-none"
+                onClick={() => setCollapsed(!collapsed)}
+            >
+                <td colSpan={4} className="px-4 py-2">
+                    <div className="flex items-center gap-2">
+                        <svg
+                            className={`w-3 h-3 text-orange-400 transition-transform duration-200 ${collapsed ? '' : 'rotate-90'}`}
+                            fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                        >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                        <a
+                            href={jiraDomain ? `https://${jiraDomain}/browse/${groupKey}` : '#'}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs font-bold text-orange-300 hover:text-orange-200 transition-colors"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            {groupKey}
+                        </a>
+                        <span className="text-[10px] text-gray-300 line-clamp-1">{group.summary}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 ml-auto bg-orange-500/20 rounded-md text-orange-200 shrink-0">
+                            {group.changes.length} change{group.changes.length > 1 ? 's' : ''}
+                        </span>
+                    </div>
+                </td>
+            </tr>
+            {!collapsed && group.changes.map((change, idx) => (
+                <tr key={`${groupKey}-${idx}`} className="border-b border-orange-500/10 hover:bg-orange-500/5 transition-colors align-top">
+                    <td className="px-4 py-3 pl-8">
+                        <div className="flex flex-col">
+                            <a
+                                href={jiraDomain ? `https://${jiraDomain}/browse/${change.issueKey}` : '#'}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-xs font-medium text-orange-300 hover:text-orange-200 transition-colors"
+                            >
+                                {change.issueKey}
+                            </a>
+                            <span className="text-[10px] text-orange-400/80 mt-0.5">{change.issueType}</span>
+                            <span className="text-[10px] text-gray-400 line-clamp-2 mt-0.5">{change.summary}</span>
+                        </div>
+                    </td>
+                    <td className="px-3 py-3">
+                        <span className={`text-[10px] px-2 py-0.5 rounded border ${change.type === 'added'
+                            ? 'bg-red-500/10 text-red-400 border-red-500/20'
+                            : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
+                            }`}>
+                            {change.type === 'added' ? 'Added to Sprint' : 'Points Changed'}
+                        </span>
+                    </td>
+                    <td className="px-3 py-3">
+                        <div className="text-[10px] text-gray-400">
+                            {new Date(change.changeDate).toLocaleString([], {
+                                month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                            })}
+                        </div>
+                    </td>
+                    <td className="px-4 py-3">
+                        <div className="text-xs text-gray-300">{change.description}</div>
+                        {change.assignee && (
+                            <div className="text-[10px] text-gray-500 mt-1">Assignee: {change.assignee}</div>
+                        )}
+                    </td>
+                </tr>
+            ))}
+        </>
+    );
+}
 
 interface SprintReportProps {
     report: SprintReportData;
@@ -245,73 +325,23 @@ export default function SprintReport({ report, jiraDomain }: SprintReportProps) 
                                 </tr>
                             </thead>
                             <tbody>
-                                {Object.entries(scopeChanges.reduce((acc, change) => {
-                                    const groupKey = change.parentKey || change.issueKey;
-                                    const groupSummary = change.parentKey ? (change.parentSummary || 'Parent Issue') : change.summary;
-                                    if (!acc[groupKey]) acc[groupKey] = { summary: groupSummary, changes: [] };
-                                    acc[groupKey].changes.push(change);
-                                    return acc;
-                                }, {} as Record<string, { summary: string, changes: typeof scopeChanges }>)).map(([groupKey, group]) => (
-                                    <React.Fragment key={groupKey}>
-                                        <tr className="bg-orange-500/10 border-b border-orange-500/20">
-                                            <td colSpan={4} className="px-4 py-2">
-                                                <div className="flex items-center gap-2">
-                                                    <a
-                                                        href={jiraDomain ? `https://${jiraDomain}/browse/${groupKey}` : '#'}
-                                                        target="_blank"
-                                                        rel="noreferrer"
-                                                        className="text-xs font-bold text-orange-300 hover:text-orange-200 transition-colors"
-                                                    >
-                                                        {groupKey}
-                                                    </a>
-                                                    <span className="text-[10px] text-gray-300 line-clamp-1">{group.summary}</span>
-                                                    <span className="text-[10px] px-1.5 py-0.5 ml-1 bg-orange-500/20 rounded-md text-orange-200">
-                                                        {group.changes.length}
-                                                    </span>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                        {group.changes.map((change, idx) => (
-                                            <tr key={`${groupKey}-${idx}`} className="border-b border-orange-500/10 hover:bg-orange-500/5 transition-colors align-top">
-                                                <td className="px-4 py-3 pl-8">
-                                                    <div className="flex flex-col">
-                                                        <a
-                                                            href={jiraDomain ? `https://${jiraDomain}/browse/${change.issueKey}` : '#'}
-                                                            target="_blank"
-                                                            rel="noreferrer"
-                                                            className="text-xs font-medium text-orange-300 hover:text-orange-200 transition-colors"
-                                                        >
-                                                            {change.issueKey}
-                                                        </a>
-                                                        <span className="text-[10px] text-orange-400/80 mt-0.5">{change.issueType}</span>
-                                                        <span className="text-[10px] text-gray-400 line-clamp-2 mt-0.5">{change.summary}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="px-3 py-3">
-                                                    <span className={`text-[10px] px-2 py-0.5 rounded border ${change.type === 'added'
-                                                        ? 'bg-red-500/10 text-red-400 border-red-500/20'
-                                                        : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
-                                                        }`}>
-                                                        {change.type === 'added' ? 'Added to Sprint' : 'Points Changed'}
-                                                    </span>
-                                                </td>
-                                                <td className="px-3 py-3">
-                                                    <div className="text-[10px] text-gray-400">
-                                                        {new Date(change.changeDate).toLocaleString([], {
-                                                            month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
-                                                        })}
-                                                    </div>
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                    <div className="text-xs text-gray-300">{change.description}</div>
-                                                    {change.assignee && (
-                                                        <div className="text-[10px] text-gray-500 mt-1">Assignee: {change.assignee}</div>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </React.Fragment>
-                                ))}
+                                {(() => {
+                                    const grouped = scopeChanges.reduce((acc, change) => {
+                                        const groupKey = change.parentKey || change.issueKey;
+                                        const groupSummary = change.parentKey ? (change.parentSummary || 'Parent Issue') : change.summary;
+                                        if (!acc[groupKey]) acc[groupKey] = { summary: groupSummary, changes: [] };
+                                        acc[groupKey].changes.push(change);
+                                        return acc;
+                                    }, {} as Record<string, { summary: string, changes: typeof scopeChanges }>);
+                                    return Object.entries(grouped).map(([groupKey, group]) => (
+                                        <ScopeChangeGroup
+                                            key={groupKey}
+                                            groupKey={groupKey}
+                                            group={group}
+                                            jiraDomain={jiraDomain}
+                                        />
+                                    ));
+                                })()}
                             </tbody>
                         </table>
                     </div>
