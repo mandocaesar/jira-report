@@ -1,10 +1,28 @@
 
 import { generateText } from 'ai';
 import { NextResponse } from 'next/server';
+import prisma from '@/lib/db';
 
 export async function POST(req: Request) {
     try {
-        const { sprintMetrics, boardMetrics, type } = await req.json();
+        const { sprintMetrics, boardMetrics, type, sprintId, boardId } = await req.json();
+
+        // Determine cache key
+        const cacheType = type === 'sprint' ? 'metrics-sprint' : 'metrics-board';
+        const cacheSprintId = sprintId || 0;
+        const cacheBoardId = boardId || 0;
+
+        // Check cache first
+        try {
+            const cached = await prisma.aiSummaryCache.findUnique({
+                where: { type_sprintId_boardId: { type: cacheType, sprintId: cacheSprintId, boardId: cacheBoardId } }
+            });
+            if (cached) {
+                return NextResponse.json({ summary: cached.summary, cached: true });
+            }
+        } catch {
+            // DB unavailable, continue to generate
+        }
 
         let prompt = '';
 
@@ -70,6 +88,17 @@ ${JSON.stringify(
             system: 'You are an expert Agile coach assisting a team with flow metrics. Strictly adhere to the requested markdown formatting.',
             prompt: prompt,
         });
+
+        // Cache the result
+        try {
+            await prisma.aiSummaryCache.upsert({
+                where: { type_sprintId_boardId: { type: cacheType, sprintId: cacheSprintId, boardId: cacheBoardId } },
+                update: { summary: text },
+                create: { type: cacheType, sprintId: cacheSprintId, boardId: cacheBoardId, summary: text }
+            });
+        } catch {
+            // DB unavailable, skip caching
+        }
 
         return NextResponse.json({ summary: text });
     } catch (error) {

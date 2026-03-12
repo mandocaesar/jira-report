@@ -119,3 +119,17 @@ model TitleAvailableDays {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
+
+// Cached AI-generated summaries to save tokens
+model AiSummaryCache {
+  id        String   @id @default(cuid())
+  type      String   // "sprint" or "metrics-sprint" or "metrics-board"
+  sprintId  Int      @default(0)
+  boardId   Int      @default(0)
+  summary   String   @db.Text
+  createdAt DateTime @default(now())
+
+  @@unique([type, sprintId, boardId], map: "type_sprintId_boardId")
+  @@index([type, sprintId])
+  @@index([type, boardId])
+}

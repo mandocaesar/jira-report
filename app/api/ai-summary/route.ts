@@ -1,10 +1,28 @@
 
 import { generateText } from 'ai';
 import { NextResponse } from 'next/server';
+import prisma from '@/lib/db';
 
 export async function POST(req: Request) {
     try {
         const { summary, reportData, epicBreakdowns } = await req.json();
+
+        const sprintId = summary?.sprint?.id;
+        const boardId = summary?.sprint?.originBoardId;
+
+        // Check cache first
+        if (sprintId) {
+            try {
+                const cached = await prisma.aiSummaryCache.findUnique({
+                    where: { type_sprintId_boardId: { type: 'sprint', sprintId, boardId: boardId || 0 } }
+                });
+                if (cached) {
+                    return NextResponse.json({ summary: cached.summary, cached: true });
+                }
+            } catch {
+                // DB unavailable, continue to generate
+            }
+        }
 
         const prompt = `
 You are an expert Agile Scrum Master analyzing a sprint report. 
@@ -73,6 +91,19 @@ ${JSON.stringify(
             system: 'You are an expert Agile coach assisting a team with their sprint review. Strictly adhere to formatting requested.',
             prompt: prompt,
         });
+
+        // Cache the result
+        if (sprintId) {
+            try {
+                await prisma.aiSummaryCache.upsert({
+                    where: { type_sprintId_boardId: { type: 'sprint', sprintId, boardId: boardId || 0 } },
+                    update: { summary: text },
+                    create: { type: 'sprint', sprintId, boardId: boardId || 0, summary: text }
+                });
+            } catch {
+                // DB unavailable, skip caching
+            }
+        }
 
         return NextResponse.json({ summary: text });
     } catch (error) {
