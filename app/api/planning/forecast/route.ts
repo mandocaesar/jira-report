@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getTeamByBoardIdFromDb } from '@/lib/team-roster';
-import { calculateWorkingDays, getHolidaysInRange, isWeekend } from '@/lib/holiday-service';
+import { getHolidaysInRange, isWeekend, toLocalDateString } from '@/lib/holiday-service';
 
 interface SprintForecast {
     sprintId: number;
@@ -95,121 +95,112 @@ export async function GET(request: NextRequest) {
             return start <= forecastEnd;
         });
 
-        // Calculate forecast for each sprint
-        const forecasts: SprintForecast[] = [];
+        if (relevantSprints.length === 0) {
+            return NextResponse.json({
+                success: true,
+                data: { boardId, teamName: team.name, sprints: [], engineers: team.members.map((m) => ({ accountId: m.accountId, name: m.name })) },
+            });
+        }
 
-        for (const sprint of relevantSprints) {
+        // ── Batch all data upfront instead of per-sprint ──
+
+        // 1. Compute the overall date range across all sprints
+        const earliestStart = new Date(Math.min(...relevantSprints.map((s: any) => new Date(s.startDate).getTime())));
+        const latestEnd = new Date(Math.max(...relevantSprints.map((s: any) => new Date(s.endDate).getTime())));
+        const allSprintIds = relevantSprints.map((s: any) => s.id as number);
+
+        // 2. Batch DB queries + holiday fetch in parallel
+        const [allCapacityAdjustments, allLeaveData, allHolidays] = await Promise.all([
+            // Single query for all capacity adjustments covering any sprint in range
+            prisma ? prisma.engineerCapacity.findMany({
+                where: { startDate: { lte: latestEnd }, endDate: { gte: earliestStart } },
+            }).catch(() => []) : Promise.resolve([]),
+            // Single query for all leave data across all sprint IDs
+            prisma ? prisma.sprintLeave.findMany({
+                where: { sprintId: { in: allSprintIds } },
+            }).catch(() => []) : Promise.resolve([]),
+            // Single holiday fetch for entire range (cache will handle dedup)
+            getHolidaysInRange(earliestStart, latestEnd),
+        ]);
+
+        // Index leave data by sprintId for O(1) lookup
+        const leaveBySprintId = new Map<number, typeof allLeaveData>();
+        for (const leave of allLeaveData) {
+            const arr = leaveBySprintId.get(leave.sprintId) || [];
+            arr.push(leave);
+            leaveBySprintId.set(leave.sprintId, arr);
+        }
+
+        // ── Process all sprints (no more async per-sprint) ──
+        const forecasts: SprintForecast[] = relevantSprints.map((sprint: any) => {
             const sprintId = sprint.id;
             const sprintName = sprint.name;
             const startDate = new Date(sprint.startDate);
             const endDate = new Date(sprint.endDate);
+            const startStr = toLocalDateString(startDate);
+            const endStr = toLocalDateString(endDate);
 
-            // Get capacity adjustments for this sprint period
-            let capacityAdjustments: any[] = [];
-            if (prisma) {
-                try {
-                    capacityAdjustments = await prisma.engineerCapacity.findMany({
-                        where: {
-                            OR: [
-                                {
-                                    startDate: {
-                                        lte: endDate,
-                                    },
-                                    endDate: {
-                                        gte: startDate,
-                                    },
-                                },
-                            ],
-                        },
-                    });
-                } catch (dbError) {
-                    console.warn('Database unavailable for capacity adjustments, using defaults');
+            // Filter pre-fetched capacity adjustments for this sprint's date range
+            const capacityAdjustments = allCapacityAdjustments.filter(
+                (adj: any) => new Date(adj.startDate) <= endDate && new Date(adj.endDate) >= startDate
+            );
+
+            // Get leave data for this sprint from indexed map
+            const leaveData = leaveBySprintId.get(sprintId) || [];
+
+            // Filter pre-fetched holidays for this sprint's range
+            const sprintHolidays = allHolidays.filter(
+                h => h.holiday_date >= startStr && h.holiday_date <= endStr
+            );
+
+            // Count working days from pre-fetched holidays (no async needed)
+            let workingDays = 0;
+            const current = new Date(startDate);
+            while (current <= endDate) {
+                const dateStr = toLocalDateString(current);
+                if (!isWeekend(current) && !sprintHolidays.some(h => h.holiday_date === dateStr)) {
+                    workingDays++;
                 }
+                current.setDate(current.getDate() + 1);
             }
 
-            // Get leave data for this sprint
-            let leaveData: any[] = [];
-            if (prisma) {
-                try {
-                    leaveData = await prisma.sprintLeave.findMany({
-                        where: { sprintId },
-                    });
-                } catch (dbError) {
-                    console.warn('Database unavailable for leave data, using defaults');
-                }
-            }
-
-            const workingDays = await calculateWorkingDays(startDate, endDate);
             let totalManDays = 0;
             const engineerDetails: any[] = [];
             const leavesList: Array<{ name: string; leaveDays: number }> = [];
             const excludedList: Array<{ name: string }> = [];
             let activeEngineers = 0;
 
-            // Calculate capacity for each engineer
             for (const member of team.members) {
                 const accountId = member.accountId;
-
-                // Get leave days
                 const leave = leaveData.find((l) => l.accountId === accountId);
                 const leaveDays = leave?.leaveDays || 0;
 
-                // Check if member is excluded (leaveDays = -1)
                 if (leaveDays === -1) {
-                    engineerDetails.push({
-                        accountId,
-                        name: member.name,
-                        capacity: 0,
-                        excluded: true,
-                        leaveDays: -1,
-                    });
+                    engineerDetails.push({ accountId, name: member.name, capacity: 0, excluded: true, leaveDays: -1 });
                     excludedList.push({ name: member.name });
                     continue;
                 }
 
                 activeEngineers++;
-
-                // Find capacity adjustment for this engineer
-                const adjustment = capacityAdjustments.find(
-                    (adj) => adj.accountId === accountId
-                );
+                const adjustment = capacityAdjustments.find((adj: any) => adj.accountId === accountId);
                 const capacityPercent = adjustment?.capacity || 100;
-
-                // Calculate effective days
                 const availableDays = workingDays - leaveDays;
                 const effectiveDays = (availableDays * capacityPercent) / 100;
-
                 totalManDays += effectiveDays;
 
-                engineerDetails.push({
-                    accountId,
-                    name: member.name,
-                    capacity: capacityPercent,
-                    reason: adjustment?.reason,
-                    leaveDays,
-                });
-
-                if (leaveDays > 0) {
-                    leavesList.push({ name: member.name, leaveDays });
-                }
+                engineerDetails.push({ accountId, name: member.name, capacity: capacityPercent, reason: adjustment?.reason, leaveDays });
+                if (leaveDays > 0) leavesList.push({ name: member.name, leaveDays });
             }
 
             const effectiveEngineers = workingDays > 0 ? totalManDays / workingDays : 0;
-
-            // Estimate story points (assuming 1.8 points per man-day, adjustable)
             const pointsPerManDay = 1.8;
             const forecastedPoints = Math.floor(totalManDays * pointsPerManDay);
 
-            // Fetch specific holidays for this sprint (excluding weekends)
-            const rawHolidays = await getHolidaysInRange(startDate, endDate);
-            const formattedHolidays = rawHolidays
+            const formattedHolidays = sprintHolidays
                 .filter(h => !isWeekend(h.holiday_date))
-                .map(h => ({
-                    date: h.holiday_date,
-                    name: h.holiday_name
-                }));
+                .map(h => ({ date: h.holiday_date, name: h.holiday_name }));
 
-            forecasts.push({
+            return {
                 sprintId,
                 sprintName,
                 startDate: startDate.toISOString(),
@@ -224,8 +215,8 @@ export async function GET(request: NextRequest) {
                 holidays: formattedHolidays.length > 0 ? formattedHolidays : undefined,
                 leaves: leavesList.length > 0 ? leavesList : undefined,
                 excludedMembers: excludedList.length > 0 ? excludedList : undefined,
-            });
-        }
+            };
+        });
 
         return NextResponse.json({
             success: true,
