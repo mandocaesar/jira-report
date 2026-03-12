@@ -82,11 +82,11 @@ export default function TitleDaysPage() {
 
     return (
         <div className="min-h-screen overflow-x-hidden">
-            <header className="border-b border-border bg-gray-900/50 backdrop-blur-xl">
+            <header className="border-b border-border bg-background/50 backdrop-blur-xl">
                 <div className="px-3 sm:px-4 md:px-6 py-4 md:py-8">
                     <div className="flex items-center gap-4">
                         <div className="w-12 h-12 bg-foreground rounded-xl flex items-center justify-center">
-                            <span className="text-2xl">⏱️</span>
+                            <svg className="w-6 h-6 text-background" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" strokeLinecap="round" strokeLinejoin="round" /></svg>
                         </div>
                         <div>
                             <h1 className="text-3xl font-bold text-foreground">
@@ -118,54 +118,51 @@ export default function TitleDaysPage() {
                     <>
                         {/* Info */}
                         <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl text-blue-300 text-sm">
-                            💡 Available days defines the maximum number of days each title level can contribute to a sprint. Leave days are subtracted from this value.
+                            Available days defines the maximum number of days each title level can contribute to a sprint. Leave days are subtracted from this value.
                         </div>
 
                         {/* Entries */}
-                        <div className="bg-gray-800/30 border border-gray-700 rounded-2xl overflow-hidden">
-                            <div className="px-6 py-4 border-b border-gray-700/50 bg-gray-800/20">
+                        <div className="bg-muted/30 border border-border rounded-2xl overflow-hidden">
+                            <div className="px-6 py-4 border-b border-border bg-muted/20">
                                 <h2 className="text-lg font-semibold text-foreground">Title Configuration</h2>
                             </div>
 
-                            <div className="divide-y divide-gray-700/30">
+                            <div className="divide-y divide-border">
                                 {entries.map((entry) => (
-                                    <div key={entry.title} className="flex items-center justify-between px-6 py-4 hover:bg-gray-700/10 transition-colors">
+                                    <div key={entry.title} className="flex items-center justify-between px-6 py-4 hover:bg-muted/20 transition-colors">
                                         <div className="flex items-center gap-3">
-                                            <span className="text-lg">
-                                                {entry.title === 'Tech Lead' ? '🎯' :
-                                                    entry.title === 'EM' ? '📋' :
-                                                        entry.title === 'QA' ? '🧪' :
-                                                            entry.title === 'Sec Head' ? '🔑' : '💻'}
+                                            <span className="w-5 h-5 rounded bg-muted flex items-center justify-center text-xs text-muted-foreground font-semibold">
+                                                {entry.title.charAt(0)}
                                             </span>
-                                            <span className="font-medium text-white">{entry.title}</span>
+                                            <span className="font-medium text-foreground">{entry.title}</span>
                                         </div>
                                         <div className="flex items-center gap-3">
                                             <button
                                                 onClick={() => updateDays(entry.title, entry.availableDays - 1)}
-                                                className="w-8 h-8 rounded-lg bg-gray-700 hover:bg-gray-600 text-white flex items-center justify-center transition-colors"
+                                                className="w-8 h-8 rounded-lg bg-muted hover:bg-muted/80 text-foreground flex items-center justify-center transition-colors"
                                             >−</button>
                                             <input
                                                 type="number"
                                                 min="0"
                                                 value={entry.availableDays}
                                                 onChange={(e) => updateDays(entry.title, parseInt(e.target.value) || 0)}
-                                                className="w-16 px-2 py-1 text-center bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
+                                                className="w-full px-2 py-1 text-center bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:border-blue-500"
                                             />
-                                            <span className="text-sm text-gray-400 w-12">days</span>
+                                            <span className="text-sm text-muted-foreground w-12">days</span>
                                             <button
                                                 onClick={() => updateDays(entry.title, entry.availableDays + 1)}
-                                                className="w-8 h-8 rounded-lg bg-gray-700 hover:bg-gray-600 text-white flex items-center justify-center transition-colors"
+                                                className="w-8 h-8 rounded-lg bg-muted hover:bg-muted/80 text-foreground flex items-center justify-center transition-colors"
                                             >+</button>
                                             <button
                                                 onClick={() => removeEntry(entry.title)}
                                                 className="ml-2 text-red-400 hover:text-red-300 text-sm"
                                                 title="Remove"
-                                            >🗑️</button>
+                                            >×</button>
                                         </div>
                                     </div>
                                 ))}
                                 {entries.length === 0 && (
-                                    <div className="px-6 py-12 text-center text-gray-500">
+                                    <div className="px-6 py-12 text-center text-muted-foreground">
                                         No title configurations. Click &quot;Seed from Config&quot; on the Team page first, or add titles below.
                                     </div>
                                 )}
@@ -173,22 +170,22 @@ export default function TitleDaysPage() {
                         </div>
 
                         {/* Add New Title */}
-                        <div className="bg-gray-800/30 border border-gray-700 rounded-2xl p-6 space-y-4">
-                            <h3 className="text-sm font-semibold text-gray-300">Add New Title</h3>
+                        <div className="bg-muted/30 border border-border rounded-2xl p-6 space-y-4">
+                            <h3 className="text-sm font-semibold text-muted-foreground">Add New Title</h3>
                             <div className="flex items-center gap-3">
                                 <input
                                     type="text"
                                     placeholder="Title name (e.g., Senior Engineer)"
                                     value={newTitle}
                                     onChange={(e) => setNewTitle(e.target.value)}
-                                    className="flex-1 px-4 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-blue-500/50"
+                                    className="flex-1 px-4 py-2 bg-muted border border-border rounded-lg text-foreground text-sm placeholder-muted-foreground focus:outline-none focus:border-blue-500/50"
                                 />
                                 <input
                                     type="number"
                                     min="0"
                                     value={newDays}
                                     onChange={(e) => setNewDays(parseInt(e.target.value) || 0)}
-                                    className="w-20 px-3 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white text-sm text-center focus:outline-none focus:border-blue-500/50"
+                                    className="w-20 px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm text-center focus:outline-none focus:border-blue-500/50"
                                 />
                                 <button
                                     onClick={addEntry}
@@ -208,7 +205,7 @@ export default function TitleDaysPage() {
                                 {saving ? (
                                     <><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> Saving...</>
                                 ) : (
-                                    <>{hasChanges ? '💾 Save Changes' : '✓ No Changes'}</>
+                                    <>{hasChanges ? 'Save Changes' : 'No Changes'}</>
                                 )}
                             </button>
                         </div>

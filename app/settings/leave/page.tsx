@@ -217,7 +217,7 @@ export default function LeaveManagementPage() {
     return (
         <div className="min-h-screen overflow-x-hidden">
             {/* Header */}
-            <header className="border-b border-border bg-gray-900/50 backdrop-blur-xl">
+            <header className="border-b border-border bg-background/50 backdrop-blur-xl">
                 <div className="px-3 sm:px-4 md:px-6 py-4 md:py-8">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
@@ -235,7 +235,7 @@ export default function LeaveManagementPage() {
                         </div>
                         <a
                             href="/"
-                            className="px-4 py-2 text-sm text-gray-400 hover:text-white border border-gray-700 hover:border-blue-500/50 rounded-lg transition-all duration-200"
+                            className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground border border-border hover:border-blue-500/50 rounded-lg transition-all duration-200"
                         >
                             ← Back to Dashboard
                         </a>
@@ -247,11 +247,11 @@ export default function LeaveManagementPage() {
                 {/* Selectors */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
                     <div>
-                        <label className="block text-sm font-semibold text-gray-300 mb-3">📋 Board</label>
+                        <label className="block text-sm font-semibold text-muted-foreground mb-3">Board</label>
                         <BoardSelector onBoardChange={handleBoardChange} selectedBoardId={selectedBoardId} />
                     </div>
                     <div>
-                        <label className="block text-sm font-semibold text-gray-300 mb-3">🏃 Sprint</label>
+                        <label className="block text-sm font-semibold text-muted-foreground mb-3">Sprint</label>
                         <SprintSelector
                             onSprintChange={handleSprintChange}
                             selectedSprintId={selectedSprintId}
@@ -286,7 +286,7 @@ export default function LeaveManagementPage() {
                     <div className="space-y-8">
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             {/* Engineers */}
-                            <div className="bg-gray-800/30 border border-gray-700 rounded-2xl p-6">
+                            <div className="bg-muted/30 border border-border rounded-2xl p-6">
                                 <h2 className="text-xl font-bold text-blue-400 mb-6 flex items-center gap-2">
                                     <span className="w-2 h-2 rounded-full bg-blue-400"></span>
                                     Engineers ({teamMembers.filter((m) => m.role === 'engineer').length})
@@ -308,7 +308,7 @@ export default function LeaveManagementPage() {
                             </div>
 
                             {/* QA */}
-                            <div className="bg-gray-800/30 border border-gray-700 rounded-2xl p-6">
+                            <div className="bg-muted/30 border border-border rounded-2xl p-6">
                                 <h2 className="text-xl font-bold text-indigo-400 mb-6 flex items-center gap-2">
                                     <span className="w-2 h-2 rounded-full bg-indigo-400"></span>
                                     QA ({teamMembers.filter((m) => m.role === 'qa').length})
@@ -334,14 +334,14 @@ export default function LeaveManagementPage() {
                         {sprintHolidays.length > 0 && (
                             <div className="bg-blue-900/10 border border-blue-500/30 rounded-2xl p-6">
                                 <h2 className="text-lg font-semibold text-blue-300 mb-4 flex items-center gap-2">
-                                    <span>🏖️</span>
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                                     Excluded Holidays during this Sprint
                                 </h2>
                                 <div className="space-y-2">
                                     {sprintHolidays.map((holiday, idx) => (
-                                        <div key={idx} className="flex justify-between text-sm items-center p-2 rounded-lg bg-gray-800/30 text-gray-300">
+                                        <div key={idx} className="flex justify-between text-sm items-center p-2 rounded-lg bg-muted/30 text-foreground/70">
                                             <span className="font-medium">{holiday.holiday_name}</span>
-                                            <span className="text-gray-500">{new Date(holiday.holiday_date).toLocaleDateString()}</span>
+                                            <span className="text-muted-foreground">{new Date(holiday.holiday_date).toLocaleDateString()}</span>
                                         </div>
                                     ))}
                                 </div>
@@ -350,23 +350,23 @@ export default function LeaveManagementPage() {
 
                         {/* Summary */}
                         <div className="bg-muted/50 border border-border rounded-2xl p-6">
-                            <h2 className="text-lg font-semibold text-foreground mb-4">📊 Sprint Summary</h2>
+                            <h2 className="text-lg font-semibold text-foreground mb-4">Sprint Summary</h2>
                             <div className="grid grid-cols-4 gap-4 text-center">
                                 <div>
-                                    <div className="text-2xl font-bold text-white">{totalLeave} days</div>
-                                    <div className="text-sm text-gray-400">Total Leave</div>
+                                    <div className="text-2xl font-bold text-foreground">{totalLeave} days</div>
+                                    <div className="text-sm text-muted-foreground">Total Leave</div>
                                 </div>
                                 <div>
                                     <div className="text-2xl font-bold text-blue-400">{engineerLeave} days</div>
-                                    <div className="text-sm text-gray-400">Engineers</div>
+                                    <div className="text-sm text-muted-foreground">Engineers</div>
                                 </div>
                                 <div>
                                     <div className="text-2xl font-bold text-indigo-400">{qaLeave} days</div>
-                                    <div className="text-sm text-gray-400">QA</div>
+                                    <div className="text-sm text-muted-foreground">QA</div>
                                 </div>
                                 <div>
                                     <div className="text-2xl font-bold text-red-400">{excludedCount}</div>
-                                    <div className="text-sm text-gray-400">Excluded</div>
+                                    <div className="text-sm text-muted-foreground">Excluded</div>
                                 </div>
                             </div>
                         </div>
@@ -405,7 +405,7 @@ export default function LeaveManagementPage() {
                             </svg>
                         </div>
                         <h3 className="text-xl font-semibold text-foreground mb-2">Select Board and Sprint</h3>
-                        <p className="text-gray-400 text-center max-w-md">
+                        <p className="text-muted-foreground text-center max-w-md">
                             Choose a board and sprint from the dropdowns above to manage leave days
                         </p>
                     </div>
@@ -432,10 +432,10 @@ function MemberLeaveRow({
     const isExcluded = leaveDays === -1;
 
     return (
-        <div className={`flex items-center justify-between p-3 rounded-lg border transition-all ${isExcluded ? 'bg-red-900/10 border-red-500/30 opacity-60' : 'bg-gray-900/30 border-gray-700/50'}`}>
+        <div className={`flex items-center justify-between p-3 rounded-lg border transition-all ${isExcluded ? 'bg-red-900/10 border-red-500/30 opacity-60' : 'bg-muted/20 border-border'}`}>
             <div className="flex-1">
-                <div className={`font-medium ${isExcluded ? 'text-gray-400 line-through' : 'text-white'}`}>{member.name}</div>
-                <div className="text-xs text-gray-400">{member.title}</div>
+                <div className={`font-medium ${isExcluded ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{member.name}</div>
+                <div className="text-xs text-muted-foreground">{member.title}</div>
             </div>
             <div className="flex items-center gap-2">
                 {isExcluded ? (
@@ -446,7 +446,7 @@ function MemberLeaveRow({
                     <>
                         <button
                             onClick={() => onUpdate(-1)}
-                            className="w-8 h-8 rounded-lg bg-gray-700 hover:bg-gray-600 text-white flex items-center justify-center transition-colors"
+                            className="w-8 h-8 rounded-lg bg-muted hover:bg-muted/80 text-foreground flex items-center justify-center transition-colors"
                         >
                             −
                         </button>
@@ -455,12 +455,12 @@ function MemberLeaveRow({
                             min="0"
                             value={leaveDays}
                             onChange={(e) => onSet(parseInt(e.target.value) || 0)}
-                            className="w-16 px-2 py-1 text-center bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
+                            className="w-16 px-2 py-1 text-center bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:border-blue-500"
                         />
-                        <span className="text-sm text-gray-400 w-12">day{leaveDays !== 1 ? 's' : ''}</span>
+                        <span className="text-sm text-muted-foreground w-12">day{leaveDays !== 1 ? 's' : ''}</span>
                         <button
                             onClick={() => onUpdate(1)}
-                            className="w-8 h-8 rounded-lg bg-gray-700 hover:bg-gray-600 text-white flex items-center justify-center transition-colors"
+                            className="w-8 h-8 rounded-lg bg-muted hover:bg-muted/80 text-foreground flex items-center justify-center transition-colors"
                         >
                             +
                         </button>

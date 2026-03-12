@@ -135,7 +135,7 @@ export default function Home() {
     <div className="min-h-screen overflow-x-hidden">
 
       {/* Header */}
-      <header className="border-b border-border bg-gray-900/50 backdrop-blur-xl sticky top-0 z-40">
+      <header className="border-b border-border bg-background/50 backdrop-blur-xl sticky top-0 z-40">
         <div className="px-4 py-4">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0">
@@ -224,7 +224,7 @@ export default function Home() {
         {/* Selectors */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 print:hidden">
           <div>
-            <label className="block text-sm font-semibold text-gray-300 mb-3">
+            <label className="block text-sm font-semibold text-muted-foreground mb-3">
               Select Board
             </label>
             <BoardSelector
@@ -233,7 +233,7 @@ export default function Home() {
             />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-300 mb-3">
+            <label className="block text-sm font-semibold text-muted-foreground mb-3">
               Select Sprint
             </label>
             <SprintSelector
@@ -289,7 +289,7 @@ export default function Home() {
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-blue-400"></span>
                     <span className="text-blue-400">Engineers</span>
-                    <span className="text-sm font-normal text-gray-400">
+                    <span className="text-sm font-normal text-muted-foreground">
                       ({sprintData.userUtilizations.filter(u => u.role !== 'qa').length})
                     </span>
                   </div>
@@ -320,7 +320,7 @@ export default function Home() {
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-indigo-400"></span>
                     <span className="text-indigo-400">QA</span>
-                    <span className="text-sm font-normal text-gray-400">
+                    <span className="text-sm font-normal text-muted-foreground">
                       ({sprintData.userUtilizations.filter(u => u.role === 'qa').length})
                     </span>
                   </div>
@@ -392,7 +392,7 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-border bg-gray-900/50 backdrop-blur-xl mt-20">
+      <footer className="border-t border-border bg-background/50 backdrop-blur-xl mt-20">
         <div className="px-3 sm:px-4 md:px-6 py-6 text-center text-sm text-muted-foreground">
           <p>Powered by Jira API and Indonesian Holiday API</p>
         </div>

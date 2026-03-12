@@ -37,30 +37,30 @@ interface EpicBreakdownProps {
 
 const statusColors: Record<string, { bg: string; border: string; text: string; bar: string }> = {
     'Done': {
-        bg: 'from-green-500/10 to-emerald-500/10',
+        bg: 'bg-green-500/10',
         border: 'border-green-500/20',
         text: 'text-green-400',
-        bar: 'from-green-500 to-emerald-500',
+        bar: 'bg-green-500',
     },
     'In Progress': {
-        bg: 'from-blue-500/10 to-cyan-500/10',
+        bg: 'bg-blue-500/10',
         border: 'border-blue-500/20',
         text: 'text-blue-400',
-        bar: 'from-blue-500 to-cyan-500',
+        bar: 'bg-blue-500',
     },
     'To Do': {
-        bg: 'from-gray-500/10 to-slate-500/10',
+        bg: 'bg-gray-500/10',
         border: 'border-gray-500/20',
         text: 'text-gray-400',
-        bar: 'from-gray-500 to-slate-500',
+        bar: 'bg-gray-500',
     },
 };
 
 const defaultColors = {
-    bg: 'from-blue-500/10 to-indigo-500/10',
+    bg: 'bg-blue-500/10',
     border: 'border-blue-500/20',
     text: 'text-blue-400',
-    bar: 'from-blue-500 to-indigo-500',
+    bar: 'bg-blue-500',
 };
 
 function getStatusColors(category: string) {
@@ -68,10 +68,10 @@ function getStatusColors(category: string) {
 }
 
 function getCompletionBarColor(percent: number): string {
-    if (percent >= 90) return 'from-green-500 to-emerald-500';
-    if (percent >= 70) return 'from-blue-500 to-cyan-500';
-    if (percent >= 50) return 'from-yellow-500 to-amber-500';
-    return 'from-red-500 to-orange-500';
+    if (percent >= 90) return 'bg-green-500';
+    if (percent >= 70) return 'bg-blue-500';
+    if (percent >= 50) return 'bg-yellow-500';
+    return 'bg-red-500';
 }
 
 function getCompletionTextColor(percent: number): string {
@@ -138,7 +138,7 @@ export function EpicBreakdownComponent({ boardId, sprintId, jiraDomain = 'bank-s
 
     if (loading) {
         return (
-            <div className="flex flex-col items-center justify-center p-12 mt-8 space-y-4 text-gray-400 bg-gray-800/20 rounded-xl border border-gray-700/20 animate-pulse">
+            <div className="flex flex-col items-center justify-center p-12 mt-8 space-y-4 text-muted-foreground bg-muted/20 rounded-xl border border-border animate-pulse">
                 <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
                 <p>Analyzing epics and calculating metrics...</p>
             </div>
@@ -148,7 +148,10 @@ export function EpicBreakdownComponent({ boardId, sprintId, jiraDomain = 'bank-s
     if (error) {
         return (
             <div className="p-6 mt-8 bg-red-500/10 border border-red-500/30 rounded-xl">
-                <p className="text-red-400 font-medium">⚠️ Error: {error}</p>
+                <p className="text-red-400 font-medium flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                    Error: {error}
+                </p>
             </div>
         );
     }
@@ -161,7 +164,7 @@ export function EpicBreakdownComponent({ boardId, sprintId, jiraDomain = 'bank-s
         <div className="mt-8 space-y-6">
             <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-foreground rounded-xl flex items-center justify-center">
-                    <span className="text-xl">📦</span>
+                    <svg className="w-5 h-5 text-background" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" /></svg>
                 </div>
                 <div>
                     <h2 className="text-xl font-bold text-foreground tracking-tight">Epic Breakdown</h2>
@@ -176,17 +179,17 @@ export function EpicBreakdownComponent({ boardId, sprintId, jiraDomain = 'bank-s
                     if (epic.totalPoints === 0) return null;
 
                     return (
-                        <div key={epic.epicKey} className="bg-gray-800/30 border border-gray-700/50 rounded-xl overflow-hidden shadow-sm hover:border-gray-600/50 transition-all duration-200">
+                        <div key={epic.epicKey} className="bg-muted/30 border border-border rounded-xl overflow-hidden shadow-sm hover:border-muted-foreground/30 transition-all duration-200">
                             {/* Epic Header */}
                             <div
-                                className="px-4 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3 cursor-pointer hover:bg-gray-700/20 transition-colors"
+                                className="px-4 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3 cursor-pointer hover:bg-muted/30 transition-colors"
                                 onClick={() => toggleEpic(epic.epicKey)}
                             >
                                 <div className="flex items-center gap-2 min-w-0 flex-1">
                                     <div className="bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2 py-1 rounded text-xs font-mono font-medium shrink-0">
                                         {epic.epicKey}
                                     </div>
-                                    <span className="font-semibold text-gray-200 truncate" title={epic.epicName}>
+                                    <span className="font-semibold text-foreground truncate" title={epic.epicName}>
                                         {epic.epicName}
                                     </span>
                                 </div>
@@ -195,20 +198,20 @@ export function EpicBreakdownComponent({ boardId, sprintId, jiraDomain = 'bank-s
                                     {/* Completion Meta */}
                                     <div className="flex flex-col items-end gap-0.5">
                                         <div className="flex items-center gap-2 text-xs font-medium">
-                                            <span className="text-gray-400">{epic.completedPoints} / {epic.totalPoints} pts</span>
+                                            <span className="text-muted-foreground">{epic.completedPoints} / {epic.totalPoints} pts</span>
                                             <span className={getCompletionTextColor(epic.completionPercent)}>
                                                 {epic.completionPercent.toFixed(0)}%
                                             </span>
                                         </div>
-                                        <div className="w-24 h-1 bg-gray-700/50 rounded-full overflow-hidden">
+                                        <div className="w-24 h-1 bg-muted/50 rounded-full overflow-hidden">
                                             <div
-                                                className={`h-full bg-gradient-to-r ${getCompletionBarColor(epic.completionPercent)} transition-all duration-1000`}
+                                                className={`h-full ${getCompletionBarColor(epic.completionPercent)} transition-all duration-1000`}
                                                 style={{ width: `${Math.min(epic.completionPercent, 100)}%` }}
                                             />
                                         </div>
                                     </div>
 
-                                    <div className={`text-gray-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
+                                    <div className={`text-muted-foreground transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
                                         ▼
                                     </div>
                                 </div>
@@ -216,17 +219,17 @@ export function EpicBreakdownComponent({ boardId, sprintId, jiraDomain = 'bank-s
 
                             {/* Epic Details (Stories) */}
                             {isExpanded && (
-                                <div className="bg-gray-900/50 border-t border-gray-700/50">
+                                <div className="bg-muted/30 border-t border-border">
                                     {epic.stories.map((story, storyIndex) => {
                                         const isStoryExpanded = expandedStories.has(story.key);
                                         const storyPercent = story.totalPoints > 0 ? (story.completedPoints / story.totalPoints) * 100 : 0;
                                         const isStandalone = story.key === 'Standalone';
 
                                         return (
-                                            <div key={story.key} className={`${storyIndex > 0 ? 'border-t border-gray-800' : ''}`}>
+                                            <div key={story.key} className={`${storyIndex > 0 ? 'border-t border-border' : ''}`}>
                                                 {/* Story Header */}
                                                 <div
-                                                    className="px-4 py-2 flex items-center justify-between gap-3 cursor-pointer hover:bg-gray-800/40 transition-colors group"
+                                                    className="px-4 py-2 flex items-center justify-between gap-3 cursor-pointer hover:bg-muted/30 transition-colors group"
                                                     onClick={(e) => toggleStory(story.key, e)}
                                                 >
                                                     <div className="flex items-center gap-2 min-w-0 flex-1 pl-2">
@@ -242,21 +245,21 @@ export function EpicBreakdownComponent({ boardId, sprintId, jiraDomain = 'bank-s
                                                                 {story.key}
                                                             </a>
                                                         )}
-                                                        <span className="text-xs font-medium text-gray-300 truncate" title={story.summary}>
+                                                        <span className="text-xs font-medium text-foreground/70 truncate" title={story.summary}>
                                                             {story.summary}
                                                         </span>
-                                                        <span className="text-[10px] text-gray-500 bg-gray-800 px-1.5 py-0.5 rounded">
+                                                        <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                                                             {story.issues.length} {story.issues.length === 1 ? 'task' : 'tasks'}
                                                         </span>
                                                     </div>
 
                                                     <div className="flex items-center gap-3 shrink-0">
-                                                        <span className="text-xs font-medium text-gray-400">
+                                                        <span className="text-xs font-medium text-muted-foreground">
                                                             <span className={story.completedPoints === story.totalPoints ? 'text-green-400' : ''}>{story.completedPoints}</span>
                                                             {' '}/ {story.totalPoints} pts
                                                         </span>
                                                         <svg
-                                                            className={`w-4 h-4 text-gray-600 transition-transform duration-200 ${isStoryExpanded ? 'rotate-180' : ''} group-hover:text-gray-400`}
+                                                            className={`w-4 h-4 text-muted-foreground/50 transition-transform duration-200 ${isStoryExpanded ? 'rotate-180' : ''} group-hover:text-muted-foreground`}
                                                             fill="none"
                                                             viewBox="0 0 24 24"
                                                             stroke="currentColor"
@@ -268,44 +271,44 @@ export function EpicBreakdownComponent({ boardId, sprintId, jiraDomain = 'bank-s
 
                                                 {/* Sub-tasks */}
                                                 {isStoryExpanded && (
-                                                    <div className="px-6 py-1 bg-gray-900/80 border-t border-gray-800/50 shadow-inner">
+                                                    <div className="px-6 py-1 bg-background/50 border-t border-border shadow-inner">
                                                         <div className="overflow-x-auto">
                                                             <table className="w-full text-xs">
                                                                 <tbody>
                                                                     {story.issues.map(issue => {
                                                                         const colors = getStatusColors(issue.statusCategory);
                                                                         return (
-                                                                            <tr key={issue.key} className="border-b border-gray-800/50 last:border-0 hover:bg-gray-800/30">
+                                                                            <tr key={issue.key} className="border-b border-border/50 last:border-0 hover:bg-muted/20">
                                                                                 <td className="py-1.5 pr-3 pl-4 w-20">
                                                                                     <a
                                                                                         href={`https://${jiraDomain}/browse/${issue.key}`}
                                                                                         target="_blank"
                                                                                         rel="noopener noreferrer"
-                                                                                        className="text-xs font-mono text-gray-400 hover:text-blue-400 hover:underline transition-colors"
+                                                                                        className="text-xs font-mono text-muted-foreground hover:text-blue-400 hover:underline transition-colors"
                                                                                     >
                                                                                         {issue.key}
                                                                                     </a>
                                                                                 </td>
                                                                                 <td className="py-1.5 pr-3 pl-4 flex-1">
                                                                                     <div className="flex items-center gap-1.5">
-                                                                                        <span className="text-[10px] text-gray-500 bg-gray-800 border border-gray-700 rounded px-1 whitespace-nowrap">
+                                                                                        <span className="text-[10px] text-muted-foreground bg-muted border border-border rounded px-1 whitespace-nowrap">
                                                                                             {issue.issueType}
                                                                                         </span>
-                                                                                        <span className="text-xs text-gray-300 truncate max-w-sm">
+                                                                                        <span className="text-xs text-foreground/70 truncate max-w-sm">
                                                                                             {issue.summary}
                                                                                         </span>
                                                                                     </div>
                                                                                 </td>
                                                                                 <td className="py-1.5 pr-3 w-24 text-center">
-                                                                                    <span className={`text-[9px] px-1.5 py-0.5 rounded-full border bg-gradient-to-r ${colors.bg} ${colors.text} ${colors.border} whitespace-nowrap`}>
+                                                                                    <span className={`text-[9px] px-1.5 py-0.5 rounded-full border ${colors.bg} ${colors.text} ${colors.border} whitespace-nowrap`}>
                                                                                         {issue.status}
                                                                                     </span>
                                                                                 </td>
-                                                                                <td className="py-1.5 pr-3 w-16 text-right font-medium text-gray-300">
+                                                                                <td className="py-1.5 pr-3 w-16 text-right font-medium text-foreground/70">
                                                                                     {issue.storyPoints || '-'}
                                                                                 </td>
                                                                                 <td className="py-1.5 px-2 w-28 text-right">
-                                                                                    <span className="text-[10px] text-gray-500 truncate inline-block max-w-[100px]">
+                                                                                    <span className="text-[10px] text-muted-foreground truncate inline-block max-w-[100px]">
                                                                                         {issue.assignee || 'Unassigned'}
                                                                                     </span>
                                                                                 </td>

@@ -12,7 +12,7 @@ export default function CollapsibleSection({ title, defaultOpen = true, children
     const [isOpen, setIsOpen] = useState(defaultOpen);
 
     return (
-        <div className="bg-gray-900/40 border border-gray-800 rounded-2xl overflow-hidden backdrop-blur-sm transition-all duration-300">
+        <div className="bg-muted/20 border border-border rounded-2xl overflow-hidden backdrop-blur-sm transition-all duration-300">
             <button
                 onClick={() => setIsOpen(!isOpen)}
                 className="w-full flex items-center justify-between p-3 sm:p-4 md:p-6 text-left hover:bg-muted/50 transition-colors focus:outline-none"

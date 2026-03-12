@@ -25,7 +25,7 @@ function formatDuration(hours: number | null): string {
  * Get color for MTD/MTT/MTTD metric card
  */
 function getTimeColor(hours: number | null, thresholds: [number, number]): string {
-    if (hours === null) return 'text-gray-500';
+    if (hours === null) return 'text-muted-foreground';
     if (hours <= thresholds[0]) return 'text-green-400';
     if (hours <= thresholds[1]) return 'text-yellow-400';
     return 'text-red-400';
@@ -316,7 +316,7 @@ export default function MetricsPage() {
             {/* Selectors */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 hide-on-print">
                 <div>
-                    <label className="block text-sm font-semibold text-gray-300 mb-3">
+                    <label className="block text-sm font-semibold text-muted-foreground mb-3">
                         Select Board
                     </label>
                     <BoardSelector
@@ -325,7 +325,7 @@ export default function MetricsPage() {
                     />
                 </div>
                 <div>
-                    <label className="block text-sm font-semibold text-gray-300 mb-3">
+                    <label className="block text-sm font-semibold text-muted-foreground mb-3">
                         Select Sprint
                     </label>
                     <SprintSelector
@@ -341,12 +341,13 @@ export default function MetricsPage() {
             {(aiSummary || aiError) && (
                 <div className="mb-8 p-6 bg-muted/50 border border-border rounded-xl shadow-sm relative animate-fadeIn">
                     <h3 className="text-lg font-bold text-foreground flex items-center gap-2 mb-4">
-                        <span className="text-xl">✨</span> Executive Analytics Report
+                        <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" /></svg> Executive Analytics Report
                     </h3>
 
                     {aiError ? (
                         <div className="text-red-400 text-sm flex gap-2 items-center">
-                            ⚠️ {aiError}
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                            {aiError}
                             <button onClick={() => generateAiSummary()} className="ml-2 px-2 py-1 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 rounded transition-colors hide-on-print">Retry</button>
                         </div>
                     ) : (
@@ -378,8 +379,8 @@ export default function MetricsPage() {
             {loading && (
                 <div className="text-center py-20">
                     <div className="w-12 h-12 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mx-auto mb-4" />
-                    <p className="text-gray-400">Loading metrics data...</p>
-                    <p className="text-xs text-gray-500 mt-1">Fetching issue changelogs for time analysis</p>
+                    <p className="text-muted-foreground">Loading metrics data...</p>
+                    <p className="text-xs text-muted-foreground mt-1">Fetching issue changelogs for time analysis</p>
                 </div>
             )}
 
@@ -438,10 +439,10 @@ export default function MetricsPage() {
             {/* Empty State */}
             {!metricsData && !boardMetricsData && !loading && !error && !selectedBoardId && (
                 <div className="text-center py-20">
-                    <div className="w-16 h-16 bg-gray-700/30 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <span className="text-3xl">📈</span>
+                    <div className="w-16 h-16 bg-muted/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg className="w-8 h-8 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>
                     </div>
-                    <p className="text-gray-400">Select a board to view 2026 metrics</p>
+                    <p className="text-muted-foreground">Select a board to view 2026 metrics</p>
                 </div>
             )}
         </main>
@@ -460,7 +461,7 @@ function BoardYearlyTrendChart({ data }: { data: any }) {
     }));
 
     return (
-        <div className="p-6 bg-gray-800/30 border border-gray-700/50 rounded-xl">
+        <div className="p-6 bg-muted/30 border border-border rounded-xl">
             <div className="mb-6">
                 <h3 className="text-lg font-bold text-foreground">2026 Delivery Timeline</h3>
                 <p className="text-sm text-muted-foreground">Mean Time to Deliver & Done across all sprints</p>
@@ -538,7 +539,7 @@ function TimeMetricsCards({ data }: { data: MetricsData }) {
             value: timeMetrics.meanTimeToDeliver,
             sample: timeMetrics.sampleSize.deliver,
             thresholds: [24, 72] as [number, number],
-            icon: '🚀',
+            icon: <svg className="w-5 h-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>,
             gradient: '',
             border: 'border-border',
         },
@@ -548,7 +549,7 @@ function TimeMetricsCards({ data }: { data: MetricsData }) {
             value: timeMetrics.meanTimeToTest,
             sample: timeMetrics.sampleSize.test,
             thresholds: [48, 120] as [number, number],
-            icon: '🧪',
+            icon: <svg className="w-5 h-5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" /></svg>,
             gradient: '',
             border: 'border-border',
         },
@@ -558,7 +559,7 @@ function TimeMetricsCards({ data }: { data: MetricsData }) {
             value: timeMetrics.meanTimeToDone,
             sample: timeMetrics.sampleSize.done,
             thresholds: [120, 240] as [number, number],
-            icon: '✅',
+            icon: <svg className="w-5 h-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
             gradient: '',
             border: 'border-border',
         },
@@ -608,36 +609,37 @@ function MemberTimeMetricsTable({ data }: { data: MetricsData }) {
     const { memberTimeMetrics } = data;
 
     return (
-        <div className="bg-gray-800/30 rounded-xl border border-gray-700/50 overflow-hidden">
-            <div className="p-4 border-b border-gray-700/50 bg-gray-900/40">
-                <h3 className="text-base font-semibold text-gray-300 flex items-center gap-2">
-                    👥 Team Delivery Performance
+        <div className="bg-muted/30 rounded-xl border border-border overflow-hidden">
+            <div className="p-4 border-b border-border bg-muted/20">
+                <h3 className="text-base font-semibold text-muted-foreground flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg>
+                    Team Delivery Performance
                 </h3>
-                <p className="text-sm text-gray-500 mt-1">Mean Time to Deliver and Done per team member based on story/subtask completions.</p>
+                <p className="text-sm text-muted-foreground mt-1">Mean Time to Deliver and Done per team member based on story/subtask completions.</p>
             </div>
             <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                     <thead>
-                        <tr className="bg-gray-800/50 text-xs uppercase text-gray-500 tracking-wider">
+                        <tr className="bg-muted/30 text-xs uppercase text-muted-foreground tracking-wider">
                             <th className="p-3 pl-4 font-medium">Team Member</th>
                             <th className="p-3 font-medium text-center">Mean Time to Deliver (MTD)</th>
-                            <th className="p-3 font-medium text-center border-l border-gray-700/30">Mean Time to Done (MTTC)</th>
-                            <th className="p-3 font-medium text-center border-l border-gray-700/30">Sample Size</th>
+                            <th className="p-3 font-medium text-center border-l border-border">Mean Time to Done (MTTC)</th>
+                            <th className="p-3 font-medium text-center border-l border-border">Sample Size</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-700/30 text-sm text-gray-300 bg-gray-900/20">
+                    <tbody className="divide-y divide-border text-sm text-foreground/70 bg-background/30">
                         {memberTimeMetrics.map((member) => (
-                            <tr key={member.accountId} className="hover:bg-gray-800/30 transition-colors">
+                            <tr key={member.accountId} className="hover:bg-muted/20 transition-colors">
                                 <td className="p-3 pl-4">
                                     <div className="flex items-center gap-2.5">
                                         {member.avatarUrl ? (
                                             <img src={member.avatarUrl} alt={member.displayName} className="w-6 h-6 rounded-full" />
                                         ) : (
-                                            <div className="w-7 h-7 rounded-full bg-gray-700 flex items-center justify-center text-xs uppercase">
+                                            <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-xs uppercase">
                                                 {member.displayName.slice(0, 2)}
                                             </div>
                                         )}
-                                        <span className="font-semibold text-gray-200">{member.displayName}</span>
+                                        <span className="font-semibold text-foreground">{member.displayName}</span>
                                     </div>
                                 </td>
                                 <td className="p-3 text-center">
@@ -646,19 +648,19 @@ function MemberTimeMetricsTable({ data }: { data: MetricsData }) {
                                             {formatDuration(member.meanTimeToDeliver)}
                                         </span>
                                     ) : (
-                                        <span className="text-gray-600">—</span>
+                                        <span className="text-muted-foreground/50">—</span>
                                     )}
                                 </td>
-                                <td className="p-3 text-center border-l border-gray-700/30">
+                                <td className="p-3 text-center border-l border-border">
                                     {member.meanTimeToDone !== null ? (
                                         <span className={`font-mono font-bold text-base ${getTimeColor(member.meanTimeToDone, [120, 240])}`}>
                                             {formatDuration(member.meanTimeToDone)}
                                         </span>
                                     ) : (
-                                        <span className="text-gray-600">—</span>
+                                        <span className="text-muted-foreground/50">—</span>
                                     )}
                                 </td>
-                                <td className="p-3 text-center border-l border-gray-700/30 text-gray-500">
+                                <td className="p-3 text-center border-l border-border text-muted-foreground">
                                     {member.sampleSize.done} done / {member.sampleSize.deliver} delivered
                                 </td>
                             </tr>
@@ -724,9 +726,9 @@ function WeeklyIssueChart({ data }: { data: MetricsData }) {
     }));
 
     return (
-        <div className="bg-gray-800/30 rounded-xl p-6 border border-gray-700/30">
-            <h3 className="text-sm font-semibold text-gray-400 mb-1">Issue Count by Type</h3>
-            <p className="text-xs text-gray-500 mb-4">Story, Task, and Test issues per week</p>
+        <div className="bg-muted/30 rounded-xl p-6 border border-border">
+            <h3 className="text-sm font-semibold text-muted-foreground mb-1">Issue Count by Type</h3>
+            <p className="text-xs text-muted-foreground mb-4">Story, Task, and Test issues per week</p>
             <ResponsiveContainer width="100%" height={320}>
                 <BarChart data={chartData} barCategoryGap="20%">
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
@@ -770,9 +772,9 @@ function CompletionRateChart({ data }: { data: MetricsData }) {
     }));
 
     return (
-        <div className="bg-gray-800/30 rounded-xl p-6 border border-gray-700/30">
-            <h3 className="text-sm font-semibold text-gray-400 mb-1">Completion Rate</h3>
-            <p className="text-xs text-gray-500 mb-4">Percentage of issues completed per week</p>
+        <div className="bg-muted/30 rounded-xl p-6 border border-border">
+            <h3 className="text-sm font-semibold text-muted-foreground mb-1">Completion Rate</h3>
+            <p className="text-xs text-muted-foreground mb-4">Percentage of issues completed per week</p>
             <ResponsiveContainer width="100%" height={320}>
                 <LineChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />

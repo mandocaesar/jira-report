@@ -39,7 +39,7 @@ export default function LoginPage() {
     return (
         <div className="min-h-screen bg-background flex items-center justify-center p-4">
             <div className="relative z-10 w-full max-w-md">
-                <div className="bg-gray-900/80 backdrop-blur-xl rounded-2xl border border-border p-8 shadow-2xl">
+                <div className="bg-background/80 backdrop-blur-xl rounded-2xl border border-border p-8 shadow-2xl">
                     {/* Logo */}
                     <div className="flex justify-center mb-8">
                         <div className="w-16 h-16 bg-foreground rounded-xl flex items-center justify-center">
@@ -58,7 +58,7 @@ export default function LoginPage() {
 
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div>
-                            <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
+                            <label htmlFor="password" className="block text-sm font-medium text-muted-foreground mb-2">
                                 Password
                             </label>
                             <input
@@ -66,7 +66,7 @@ export default function LoginPage() {
                                 id="password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="w-full px-4 py-3 bg-muted border border-border rounded-xl text-foreground placeholder-gray-500 focus:outline-none focus:border-foreground focus:ring-2 focus:ring-foreground/20 transition-all"
+                                className="w-full px-4 py-3 bg-muted border border-border rounded-xl text-foreground placeholder-muted-foreground focus:outline-none focus:border-foreground focus:ring-2 focus:ring-foreground/20 transition-all"
                                 placeholder="Enter password"
                                 required
                                 autoFocus
@@ -99,7 +99,7 @@ export default function LoginPage() {
                     </form>
                 </div>
 
-                <p className="text-center text-gray-600 text-xs mt-6">
+                <p className="text-center text-muted-foreground text-xs mt-6">
                     Protected dashboard • Cookie-based session
                 </p>
             </div>

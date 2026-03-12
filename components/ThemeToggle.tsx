@@ -17,7 +17,7 @@ export function ThemeToggle({ collapsed = false }: ThemeToggleProps) {
 
     if (!mounted) {
         return (
-            <button className="w-full flex items-center justify-start gap-3 px-3 py-2 rounded-lg text-gray-400 opacity-50 cursor-not-allowed">
+            <button className="w-full flex items-center justify-start gap-3 px-3 py-2 rounded-lg text-muted-foreground opacity-50 cursor-not-allowed">
                 <div className="w-5 h-5" />
                 {!collapsed && <span className="text-sm font-medium">Theme</span>}
             </button>

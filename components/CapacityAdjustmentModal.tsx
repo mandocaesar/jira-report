@@ -27,14 +27,14 @@ interface CapacityAdjustmentModalProps {
 }
 
 const REASONS = [
-    { value: 'annual-leave', label: '🏖️ Annual Leave', capacityDefault: 0 },
-    { value: 'sick-leave', label: '🏥 Sick Leave', capacityDefault: 0 },
-    { value: 'training', label: '📚 Training', capacityDefault: 50 },
-    { value: 'onboarding', label: '🚀 Onboarding (New Hire)', capacityDefault: 25 },
-    { value: 'part-time', label: '⏰ Part-Time', capacityDefault: 50 },
-    { value: 'support-rotation', label: '🔧 Support Rotation', capacityDefault: 50 },
-    { value: 'meetings', label: '📅 Heavy Meeting Load', capacityDefault: 75 },
-    { value: 'other', label: '📝 Other', capacityDefault: 100 },
+    { value: 'annual-leave', label: 'Annual Leave', capacityDefault: 0 },
+    { value: 'sick-leave', label: 'Sick Leave', capacityDefault: 0 },
+    { value: 'training', label: 'Training', capacityDefault: 50 },
+    { value: 'onboarding', label: 'Onboarding (New Hire)', capacityDefault: 25 },
+    { value: 'part-time', label: 'Part-Time', capacityDefault: 50 },
+    { value: 'support-rotation', label: 'Support Rotation', capacityDefault: 50 },
+    { value: 'meetings', label: 'Heavy Meeting Load', capacityDefault: 75 },
+    { value: 'other', label: 'Other', capacityDefault: 100 },
 ];
 
 export default function CapacityAdjustmentModal({
@@ -135,17 +135,17 @@ export default function CapacityAdjustmentModal({
 
             {/* Modal */}
             <div className="flex min-h-full items-center justify-center p-4">
-                <div className="relative w-full max-w-lg bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl">
+                <div className="relative w-full max-w-lg bg-background border border-border rounded-2xl shadow-2xl">
                     {/* Header */}
-                    <div className="flex items-center justify-between p-6 border-b border-gray-700">
-                        <h2 className="text-xl font-bold text-white">
-                            {adjustment ? '✏️ Edit Capacity Adjustment' : '➕ Add Capacity Adjustment'}
+                    <div className="flex items-center justify-between p-6 border-b border-border">
+                        <h2 className="text-xl font-bold text-foreground">
+                            {adjustment ? 'Edit Capacity Adjustment' : 'Add Capacity Adjustment'}
                         </h2>
                         <button
                             onClick={onClose}
-                            className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+                            className="p-2 hover:bg-muted rounded-lg transition-colors"
                         >
-                            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                             </svg>
                         </button>
@@ -162,13 +162,13 @@ export default function CapacityAdjustmentModal({
 
                         {/* Engineer Selection */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-2">
+                            <label className="block text-sm font-medium text-muted-foreground mb-2">
                                 Engineer
                             </label>
                             <select
                                 value={engineerId}
                                 onChange={(e) => setEngineerId(e.target.value)}
-                                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                className="w-full px-4 py-3 bg-muted border border-border rounded-xl text-foreground focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                                 disabled={!!adjustment}
                             >
                                 <option value="">Select an engineer...</option>
@@ -182,13 +182,13 @@ export default function CapacityAdjustmentModal({
 
                         {/* Reason Selection */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-2">
+                            <label className="block text-sm font-medium text-muted-foreground mb-2">
                                 Reason
                             </label>
                             <select
                                 value={reason}
                                 onChange={(e) => handleReasonChange(e.target.value)}
-                                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                className="w-full px-4 py-3 bg-muted border border-border rounded-xl text-foreground focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                             >
                                 {REASONS.map((r) => (
                                     <option key={r.value} value={r.value}>
@@ -201,25 +201,25 @@ export default function CapacityAdjustmentModal({
                         {/* Date Range */}
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-2">
+                                <label className="block text-sm font-medium text-muted-foreground mb-2">
                                     Start Date
                                 </label>
                                 <input
                                     type="date"
                                     value={startDate}
                                     onChange={(e) => setStartDate(e.target.value)}
-                                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                    className="w-full px-4 py-3 bg-muted border border-border rounded-xl text-foreground focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-300 mb-2">
+                                <label className="block text-sm font-medium text-muted-foreground mb-2">
                                     End Date
                                 </label>
                                 <input
                                     type="date"
                                     value={endDate}
                                     onChange={(e) => setEndDate(e.target.value)}
-                                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                    className="w-full px-4 py-3 bg-muted border border-border rounded-xl text-foreground focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                                 />
                             </div>
                         </div>
@@ -227,7 +227,7 @@ export default function CapacityAdjustmentModal({
                         {/* Capacity Slider */}
                         <div>
                             <div className="flex items-center justify-between mb-2">
-                                <label className="text-sm font-medium text-gray-300">
+                                <label className="text-sm font-medium text-muted-foreground">
                                     Capacity
                                 </label>
                                 <span className={`text-lg font-bold ${capacityPercentage === 0 ? 'text-red-400' :
@@ -245,9 +245,9 @@ export default function CapacityAdjustmentModal({
                                 step="5"
                                 value={capacityPercentage}
                                 onChange={(e) => setCapacityPercentage(parseInt(e.target.value))}
-                                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                                className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-blue-500"
                             />
-                            <div className="flex justify-between text-xs text-gray-500 mt-1">
+                            <div className="flex justify-between text-xs text-muted-foreground mt-1">
                                 <span>0% (Off)</span>
                                 <span>50%</span>
                                 <span>100% (Full)</span>
@@ -256,7 +256,7 @@ export default function CapacityAdjustmentModal({
 
                         {/* Notes */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-2">
+                            <label className="block text-sm font-medium text-muted-foreground mb-2">
                                 Notes (optional)
                             </label>
                             <textarea
@@ -264,7 +264,7 @@ export default function CapacityAdjustmentModal({
                                 onChange={(e) => setNotes(e.target.value)}
                                 rows={2}
                                 placeholder="Add any additional notes..."
-                                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
+                                className="w-full px-4 py-3 bg-muted border border-border rounded-xl text-foreground placeholder-muted-foreground focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
                             />
                         </div>
 
@@ -273,7 +273,7 @@ export default function CapacityAdjustmentModal({
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="flex-1 px-4 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium rounded-xl transition-colors"
+                                className="flex-1 px-4 py-3 bg-muted hover:bg-muted/80 text-muted-foreground font-medium rounded-xl transition-colors"
                             >
                                 Cancel
                             </button>

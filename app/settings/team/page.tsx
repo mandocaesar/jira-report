@@ -295,12 +295,12 @@ export default function TeamManagementPage() {
 
     return (
         <div className="min-h-screen overflow-x-hidden">
-            <header className="border-b border-border bg-gray-900/50 backdrop-blur-xl">
+            <header className="border-b border-border bg-background/50 backdrop-blur-xl">
                 <div className="px-3 sm:px-4 md:px-6 py-4 md:py-8">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                         <div className="flex items-center gap-4">
                             <div className="w-12 h-12 bg-foreground rounded-xl flex items-center justify-center">
-                                <span className="text-2xl">👥</span>
+                                <svg className="w-6 h-6 text-background" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg>
                             </div>
                             <div>
                                 <h1 className="text-3xl font-bold text-foreground">
@@ -314,14 +314,14 @@ export default function TeamManagementPage() {
                                 onClick={() => { setShowSync(!showSync); setSyncResult(null); setSyncError(null); }}
                                 className="px-4 py-2 text-sm bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 rounded-lg hover:bg-cyan-500/30 transition-all"
                             >
-                                🔄 Sync from Jira
+                                Sync from Jira
                             </button>
                             <button
                                 onClick={handleSeed}
                                 disabled={seeding}
                                 className="px-4 py-2 text-sm bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-lg hover:bg-amber-500/30 disabled:opacity-50 transition-all"
                             >
-                                {seeding ? '⏳ Importing...' : '📥 Seed from Config'}
+                                {seeding ? 'Importing...' : 'Seed from Config'}
                             </button>
                             <button
                                 onClick={() => setShowNewTeam(true)}
@@ -350,20 +350,20 @@ export default function TeamManagementPage() {
 
                 {/* Sync from Jira Panel */}
                 {showSync && (
-                    <div className="p-6 bg-gray-800/50 border border-cyan-500/30 rounded-2xl space-y-4">
+                    <div className="p-6 bg-muted/30 border border-cyan-500/30 rounded-2xl space-y-4">
                         <div className="flex items-center justify-between">
-                            <h3 className="text-lg font-semibold text-white flex items-center gap-2">🔄 Sync Team from Jira Sprint</h3>
-                            <button onClick={() => { setShowSync(false); setSyncResult(null); }} className="text-gray-400 hover:text-white">✕</button>
+                            <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">Sync Team from Jira Sprint</h3>
+                            <button onClick={() => { setShowSync(false); setSyncResult(null); }} className="text-muted-foreground hover:text-foreground">✕</button>
                         </div>
-                        <p className="text-sm text-gray-400">Select a board to compare its latest sprint assignees with your team roster.</p>
+                        <p className="text-sm text-muted-foreground">Select a board to compare its latest sprint assignees with your team roster.</p>
 
                         <div className="flex gap-3 items-end">
                             <div className="flex-1">
-                                <label className="block text-xs text-gray-400 mb-1">Board</label>
+                                <label className="block text-xs text-muted-foreground mb-1">Board</label>
                                 <select
                                     value={syncBoardId}
                                     onChange={(e) => { setSyncBoardId(e.target.value); setSyncResult(null); }}
-                                    className="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-xl text-white focus:outline-none focus:border-cyan-500/50"
+                                    className="w-full px-4 py-3 bg-muted border border-border rounded-xl text-foreground focus:outline-none focus:border-cyan-500/50"
                                 >
                                     <option value="">Select a board...</option>
                                     {boards.map(b => <option key={b.id} value={b.id}>{b.name} (#{b.id})</option>)}
@@ -374,7 +374,7 @@ export default function TeamManagementPage() {
                                 disabled={!syncBoardId || syncing}
                                 className="px-5 py-3 bg-cyan-500 text-white rounded-xl hover:bg-cyan-600 disabled:opacity-50 transition-all"
                             >
-                                {syncing ? '⏳ Checking...' : '🔍 Preview Sync'}
+                                {syncing ? 'Checking...' : 'Preview Sync'}
                             </button>
                         </div>
 
@@ -404,14 +404,14 @@ export default function TeamManagementPage() {
                                 {/* Members to Add */}
                                 {syncResult.toAdd.length > 0 && (
                                     <div className="bg-cyan-900/10 border border-cyan-500/20 rounded-xl p-4">
-                                        <h4 className="text-sm font-semibold text-cyan-300 mb-2">➕ New members to add to {syncResult.teamName}</h4>
+                                        <h4 className="text-sm font-semibold text-cyan-300 mb-2">New members to add to {syncResult.teamName}</h4>
                                         <div className="space-y-1">
                                             {syncResult.toAdd.map(m => (
                                                 <div key={m.accountId} className="flex items-center gap-3 py-1.5 px-3 bg-cyan-500/5 rounded text-sm">
                                                     <span className="text-cyan-300">•</span>
-                                                    <span className="text-white">{m.displayName || m.name}</span>
-                                                    <span className="text-gray-500 text-xs">{m.email || 'no email'}</span>
-                                                    <span className="text-xs text-gray-500 ml-auto font-mono">{m.accountId.slice(0, 20)}...</span>
+                                                    <span className="text-foreground">{m.displayName || m.name}</span>
+                                                    <span className="text-muted-foreground text-xs">{m.email || 'no email'}</span>
+                                                    <span className="text-xs text-muted-foreground ml-auto font-mono">{m.accountId.slice(0, 20)}...</span>
                                                 </div>
                                             ))}
                                         </div>
@@ -421,15 +421,15 @@ export default function TeamManagementPage() {
                                 {/* Members missing from sprint (flagged, not removed) */}
                                 {syncResult.missingFromSprint.length > 0 && (
                                     <div className="bg-amber-900/10 border border-amber-500/20 rounded-xl p-4">
-                                        <h4 className="text-sm font-semibold text-amber-300 mb-1">⚠️ Roster members with no issues in this sprint</h4>
-                                        <p className="text-xs text-gray-500 mb-2">These members won&apos;t be removed — they may be on leave or unassigned.</p>
+                                        <h4 className="text-sm font-semibold text-amber-300 mb-1">Roster members with no issues in this sprint</h4>
+                                        <p className="text-xs text-muted-foreground mb-2">These members won&apos;t be removed — they may be on leave or unassigned.</p>
                                         <div className="space-y-1">
                                             {syncResult.missingFromSprint.map(m => (
                                                 <div key={m.accountId} className="flex items-center gap-3 py-1.5 px-3 bg-amber-500/5 rounded text-sm">
                                                     <span className="text-amber-300">•</span>
-                                                    <span className="text-white">{m.name}</span>
+                                                    <span className="text-foreground">{m.name}</span>
                                                     <span className={`text-xs px-1.5 py-0.5 rounded ${m.role === 'qa' ? 'bg-indigo-500/20 text-indigo-300' : 'bg-blue-500/20 text-blue-300'}`}>{m.role}</span>
-                                                    <span className="text-gray-500 text-xs">{m.title}</span>
+                                                    <span className="text-muted-foreground text-xs">{m.title}</span>
                                                 </div>
                                             ))}
                                         </div>
@@ -444,9 +444,9 @@ export default function TeamManagementPage() {
                                             disabled={applying}
                                             className="px-5 py-2 bg-foreground text-background rounded-lg hover:bg-foreground/90 disabled:opacity-50 transition-all font-semibold"
                                         >
-                                            {applying ? '⏳ Adding...' : `✓ Add ${syncResult.toAdd.length} Member${syncResult.toAdd.length > 1 ? 's' : ''}`}
+                                            {applying ? 'Adding...' : `Add ${syncResult.toAdd.length} Member${syncResult.toAdd.length > 1 ? 's' : ''}`}
                                         </button>
-                                        <button onClick={() => setSyncResult(null)} className="px-5 py-2 text-gray-400 border border-gray-700 rounded-lg hover:text-white transition-all">
+                                        <button onClick={() => setSyncResult(null)} className="px-5 py-2 text-muted-foreground border border-border rounded-lg hover:text-foreground transition-all">
                                             Cancel
                                         </button>
                                     </div>
@@ -455,7 +455,7 @@ export default function TeamManagementPage() {
                                 {syncResult.toAdd.length === 0 && (
                                     <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-xl text-center">
                                         <p className="text-green-400 font-semibold">✓ Team roster is in sync with Jira!</p>
-                                        <p className="text-xs text-gray-400 mt-1">All {syncResult.matched.length} sprint assignees are in the roster.</p>
+                                        <p className="text-xs text-muted-foreground mt-1">All {syncResult.matched.length} sprint assignees are in the roster.</p>
                                     </div>
                                 )}
                             </div>
@@ -465,7 +465,7 @@ export default function TeamManagementPage() {
 
                 {/* New Team Form */}
                 {showNewTeam && (
-                    <div className="p-6 bg-gray-800/50 border border-border rounded-2xl space-y-4">
+                    <div className="p-6 bg-muted/30 border border-border rounded-2xl space-y-4">
                         <h3 className="text-lg font-semibold text-foreground">Create New Team</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <input
@@ -473,21 +473,21 @@ export default function TeamManagementPage() {
                                 placeholder="Team Name"
                                 value={newTeamName}
                                 onChange={(e) => setNewTeamName(e.target.value)}
-                                className="px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-blue-500/50"
+                                className="px-4 py-3 bg-muted border border-border rounded-xl text-foreground placeholder-muted-foreground focus:outline-none focus:border-blue-500/50"
                             />
                             <input
                                 type="number"
                                 placeholder="Jira Board ID"
                                 value={newTeamBoardId}
                                 onChange={(e) => setNewTeamBoardId(e.target.value)}
-                                className="px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-blue-500/50"
+                                className="px-4 py-3 bg-muted border border-border rounded-xl text-foreground placeholder-muted-foreground focus:outline-none focus:border-blue-500/50"
                             />
                         </div>
                         <div className="flex gap-3">
                             <button onClick={handleCreateTeam} className="px-5 py-2 bg-foreground text-background rounded-lg hover:bg-foreground/90 transition-all">
                                 Create
                             </button>
-                            <button onClick={() => setShowNewTeam(false)} className="px-5 py-2 text-gray-400 border border-gray-700 rounded-lg hover:text-white hover:border-gray-500 transition-all">
+                            <button onClick={() => setShowNewTeam(false)} className="px-5 py-2 text-muted-foreground border border-border rounded-lg hover:text-foreground hover:border-muted-foreground transition-all">
                                 Cancel
                             </button>
                         </div>
@@ -505,21 +505,21 @@ export default function TeamManagementPage() {
                 {!loading && teams.length === 0 && (
                     <div className="flex flex-col items-center justify-center py-20">
                         <div className="w-24 h-24 bg-muted rounded-2xl flex items-center justify-center mb-6">
-                            <span className="text-5xl">👥</span>
+                            <svg className="w-12 h-12 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg>
                         </div>
                         <h3 className="text-xl font-semibold text-foreground mb-2">No Teams Yet</h3>
-                        <p className="text-gray-400 mb-6">Click &quot;Seed from Config&quot; to import your existing team data, or create a new team.</p>
+                        <p className="text-muted-foreground mb-6">Click &quot;Seed from Config&quot; to import your existing team data, or create a new team.</p>
                     </div>
                 )}
 
                 {/* Teams List */}
                 {!loading && teams.map((team) => (
-                    <div key={team.id} className="bg-gray-800/30 border border-gray-700 rounded-2xl backdrop-blur-sm overflow-hidden">
+                    <div key={team.id} className="bg-muted/30 border border-border rounded-2xl backdrop-blur-sm overflow-hidden">
                         {/* Team Header */}
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700/50 bg-gray-800/20">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/20">
                             <div>
-                                <h2 className="text-xl font-bold text-white">{team.name}</h2>
-                                <p className="text-sm text-gray-400">Board ID: {team.boardId} · {team.members.length} members</p>
+                                <h2 className="text-xl font-bold text-foreground">{team.name}</h2>
+                                <p className="text-sm text-muted-foreground">Board ID: {team.boardId} · {team.members.length} members</p>
                             </div>
                             <div className="flex gap-2">
                                 <button
@@ -533,7 +533,7 @@ export default function TeamManagementPage() {
                                     }}
                                     className="px-3 py-1.5 text-sm bg-blue-500/20 text-blue-300 border border-blue-500/30 rounded-lg hover:bg-blue-500/30 transition-all"
                                 >
-                                    ⚙️ Settings
+                                    Settings
                                 </button>
                                 <button
                                     onClick={() => { setAddingMemberTeamId(addingMemberTeamId === team.id ? null : team.id); setNewMember({ accountId: '', name: '', email: '', role: 'engineer', title: 'Associate' }); }}
@@ -545,7 +545,7 @@ export default function TeamManagementPage() {
                                     onClick={() => handleDeleteTeam(team.id, team.name)}
                                     className="px-3 py-1.5 text-sm bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition-all"
                                 >
-                                    🗑️ Delete
+                                    Delete
                                 </button>
                             </div>
                         </div>
@@ -555,15 +555,15 @@ export default function TeamManagementPage() {
                             <div className="px-6 py-4 bg-blue-900/10 border-b border-blue-500/20 space-y-3">
                                 <h4 className="text-sm font-semibold text-blue-300">Automated Scheduled Reports</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    <div className="flex items-center gap-3 bg-gray-900/50 p-3 rounded-lg border border-gray-700">
+                                    <div className="flex items-center gap-3 bg-muted/30 p-3 rounded-lg border border-border">
                                         <input
                                             type="checkbox"
                                             id={`schedule-enabled-${team.id}`}
                                             checked={editTeamSettings.isSchedulingEnabled}
                                             onChange={(e) => setEditTeamSettings(p => ({ ...p, isSchedulingEnabled: e.target.checked }))}
-                                            className="w-4 h-4 rounded text-blue-500 focus:ring-blue-500 focus:ring-offset-gray-900 bg-gray-700 border-gray-600"
+                                            className="w-4 h-4 rounded text-blue-500 focus:ring-blue-500 focus:ring-offset-background bg-muted border-border"
                                         />
-                                        <label htmlFor={`schedule-enabled-${team.id}`} className="text-sm text-gray-300 cursor-pointer">
+                                        <label htmlFor={`schedule-enabled-${team.id}`} className="text-sm text-muted-foreground cursor-pointer">
                                             Enable Scheduled Sprint Reporting
                                         </label>
                                     </div>
@@ -572,12 +572,12 @@ export default function TeamManagementPage() {
                                         placeholder="Email Group / Recipients (comma separated)"
                                         value={editTeamSettings.reportEmailGroup}
                                         onChange={(e) => setEditTeamSettings(p => ({ ...p, reportEmailGroup: e.target.value }))}
-                                        className="px-3 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-blue-500/50 w-full"
+                                        className="px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm placeholder-muted-foreground focus:outline-none focus:border-blue-500/50 w-full"
                                     />
                                 </div>
                                 <div className="flex gap-2 pt-2">
                                     <button onClick={() => handleUpdateTeamSettings(team.id)} className="px-4 py-1.5 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all">Save Settings</button>
-                                    <button onClick={() => setEditingTeamSettingsId(null)} className="px-4 py-1.5 text-sm text-gray-400 border border-gray-700 rounded-lg hover:text-white transition-all">Cancel</button>
+                                    <button onClick={() => setEditingTeamSettingsId(null)} className="px-4 py-1.5 text-sm text-muted-foreground border border-border rounded-lg hover:text-foreground transition-all">Cancel</button>
                                 </div>
                             </div>
                         )}
@@ -590,31 +590,31 @@ export default function TeamManagementPage() {
                                     <input
                                         type="text" placeholder="Jira Account ID" value={newMember.accountId}
                                         onChange={(e) => setNewMember(p => ({ ...p, accountId: e.target.value }))}
-                                        className="px-3 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-blue-500/50"
+                                        className="px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm placeholder-muted-foreground focus:outline-none focus:border-blue-500/50"
                                     />
                                     <input
                                         type="text" placeholder="Name" value={newMember.name}
                                         onChange={(e) => setNewMember(p => ({ ...p, name: e.target.value }))}
-                                        className="px-3 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-blue-500/50"
+                                        className="px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm placeholder-muted-foreground focus:outline-none focus:border-blue-500/50"
                                     />
                                     <input
                                         type="email" placeholder="Email" value={newMember.email}
                                         onChange={(e) => setNewMember(p => ({ ...p, email: e.target.value }))}
-                                        className="px-3 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-blue-500/50"
+                                        className="px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm placeholder-muted-foreground focus:outline-none focus:border-blue-500/50"
                                     />
                                     <select value={newMember.role} onChange={(e) => setNewMember(p => ({ ...p, role: e.target.value }))}
-                                        className="px-3 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500/50">
+                                        className="px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm focus:outline-none focus:border-blue-500/50">
                                         <option value="engineer">Engineer</option>
                                         <option value="qa">QA</option>
                                     </select>
                                     <select value={newMember.title} onChange={(e) => setNewMember(p => ({ ...p, title: e.target.value }))}
-                                        className="px-3 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500/50">
+                                        className="px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm focus:outline-none focus:border-blue-500/50">
                                         {titleOptions.map(t => <option key={t} value={t}>{t}</option>)}
                                     </select>
                                 </div>
                                 <div className="flex gap-2">
                                     <button onClick={() => handleAddMember(team.id)} className="px-4 py-1.5 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all">Add</button>
-                                    <button onClick={() => setAddingMemberTeamId(null)} className="px-4 py-1.5 text-sm text-gray-400 border border-gray-700 rounded-lg hover:text-white transition-all">Cancel</button>
+                                    <button onClick={() => setAddingMemberTeamId(null)} className="px-4 py-1.5 text-sm text-muted-foreground border border-border rounded-lg hover:text-foreground transition-all">Cancel</button>
                                 </div>
                             </div>
                         )}
@@ -623,62 +623,62 @@ export default function TeamManagementPage() {
                         <div className="overflow-x-auto">
                             <table className="w-full">
                                 <thead>
-                                    <tr className="border-b border-gray-700/50">
-                                        <th className="text-left py-3 px-6 text-xs font-semibold text-gray-400 uppercase">Name</th>
-                                        <th className="text-left py-3 px-4 text-xs font-semibold text-gray-400 uppercase">Email</th>
-                                        <th className="text-left py-3 px-4 text-xs font-semibold text-gray-400 uppercase">Role</th>
-                                        <th className="text-left py-3 px-4 text-xs font-semibold text-gray-400 uppercase">Title</th>
-                                        <th className="text-right py-3 px-6 text-xs font-semibold text-gray-400 uppercase">Actions</th>
+                                    <tr className="border-b border-border">
+                                        <th className="text-left py-3 px-6 text-xs font-semibold text-muted-foreground uppercase">Name</th>
+                                        <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase">Email</th>
+                                        <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase">Role</th>
+                                        <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase">Title</th>
+                                        <th className="text-right py-3 px-6 text-xs font-semibold text-muted-foreground uppercase">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {team.members.map((member) => (
-                                        <tr key={member.id} className="border-b border-gray-700/30 hover:bg-gray-700/10 transition-colors">
+                                        <tr key={member.id} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
                                             {editingMemberId === member.id ? (
                                                 <>
-                                                    <td className="py-2 px-6"><input type="text" value={editMember.name} onChange={(e) => setEditMember(p => ({ ...p, name: e.target.value }))} className="w-full px-2 py-1 bg-gray-900 border border-gray-600 rounded text-white text-sm" /></td>
-                                                    <td className="py-2 px-4"><input type="email" value={editMember.email} onChange={(e) => setEditMember(p => ({ ...p, email: e.target.value }))} className="w-full px-2 py-1 bg-gray-900 border border-gray-600 rounded text-white text-sm" /></td>
+                                                    <td className="py-2 px-6"><input type="text" value={editMember.name} onChange={(e) => setEditMember(p => ({ ...p, name: e.target.value }))} className="w-full px-2 py-1 bg-muted border border-border rounded text-foreground text-sm" /></td>
+                                                    <td className="py-2 px-4"><input type="email" value={editMember.email} onChange={(e) => setEditMember(p => ({ ...p, email: e.target.value }))} className="w-full px-2 py-1 bg-muted border border-border rounded text-foreground text-sm" /></td>
                                                     <td className="py-2 px-4">
-                                                        <select value={editMember.role} onChange={(e) => setEditMember(p => ({ ...p, role: e.target.value }))} className="px-2 py-1 bg-gray-900 border border-gray-600 rounded text-white text-sm">
+                                                        <select value={editMember.role} onChange={(e) => setEditMember(p => ({ ...p, role: e.target.value }))} className="px-2 py-1 bg-muted border border-border rounded text-foreground text-sm">
                                                             <option value="engineer">Engineer</option>
                                                             <option value="qa">QA</option>
                                                         </select>
                                                     </td>
                                                     <td className="py-2 px-4">
-                                                        <select value={editMember.title} onChange={(e) => setEditMember(p => ({ ...p, title: e.target.value }))} className="px-2 py-1 bg-gray-900 border border-gray-600 rounded text-white text-sm">
+                                                        <select value={editMember.title} onChange={(e) => setEditMember(p => ({ ...p, title: e.target.value }))} className="px-2 py-1 bg-muted border border-border rounded text-foreground text-sm">
                                                             {titleOptions.map(t => <option key={t} value={t}>{t}</option>)}
                                                         </select>
                                                     </td>
                                                     <td className="py-2 px-6 text-right">
                                                         <button onClick={() => handleUpdateMember(member.id)} className="text-green-400 hover:text-green-300 text-sm mr-2">✓ Save</button>
-                                                        <button onClick={() => setEditingMemberId(null)} className="text-gray-400 hover:text-gray-300 text-sm">✕</button>
+                                                        <button onClick={() => setEditingMemberId(null)} className="text-muted-foreground hover:text-foreground text-sm">✕</button>
                                                     </td>
                                                 </>
                                             ) : (
                                                 <>
                                                     <td className="py-3 px-6">
                                                         <div className="flex items-center gap-2">
-                                                            <span className="text-lg">{member.role === 'qa' ? '🧪' : '💻'}</span>
-                                                            <span className="text-white">{member.name}</span>
+                                                            <span className="w-5 h-5 rounded bg-muted flex items-center justify-center text-[10px] text-muted-foreground font-semibold">{member.role === 'qa' ? 'Q' : 'E'}</span>
+                                                            <span className="text-foreground">{member.name}</span>
                                                         </div>
                                                     </td>
-                                                    <td className="py-3 px-4 text-gray-400 text-sm">{member.email}</td>
+                                                    <td className="py-3 px-4 text-muted-foreground text-sm">{member.email}</td>
                                                     <td className="py-3 px-4">
                                                         <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${member.role === 'engineer' ? 'bg-blue-500/20 text-blue-400' : 'bg-indigo-500/20 text-indigo-400'}`}>
                                                             {member.role === 'engineer' ? 'Engineer' : 'QA'}
                                                         </span>
                                                     </td>
-                                                    <td className="py-3 px-4 text-gray-300 text-sm">{member.title}</td>
+                                                    <td className="py-3 px-4 text-foreground/70 text-sm">{member.title}</td>
                                                     <td className="py-3 px-6 text-right space-x-2">
-                                                        <button onClick={() => startEditMember(member)} className="text-blue-400 hover:text-blue-300 text-sm">✏️</button>
-                                                        <button onClick={() => handleDeleteMember(member.id, member.name)} className="text-red-400 hover:text-red-300 text-sm">🗑️</button>
+                                                        <button onClick={() => startEditMember(member)} className="text-blue-400 hover:text-blue-300 text-sm">Edit</button>
+                                                        <button onClick={() => handleDeleteMember(member.id, member.name)} className="text-red-400 hover:text-red-300 text-sm">Delete</button>
                                                     </td>
                                                 </>
                                             )}
                                         </tr>
                                     ))}
                                     {team.members.length === 0 && (
-                                        <tr><td colSpan={5} className="py-8 text-center text-gray-500">No members yet</td></tr>
+                                        <tr><td colSpan={5} className="py-8 text-center text-muted-foreground">No members yet</td></tr>
                                     )}
                                 </tbody>
                             </table>
