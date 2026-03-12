@@ -263,6 +263,14 @@
   border-color: var(--color-border, rgba(255, 255, 255, 0.1));
 }
 
+/* Disable all transitions during theme switch to prevent stutter */
+html.disable-transitions,
+html.disable-transitions *,
+html.disable-transitions *::before,
+html.disable-transitions *::after {
+  transition-duration: 0s !important;
+}
+
 body {
   background: var(--color-background);
   color: var(--color-foreground);

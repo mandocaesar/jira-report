@@ -301,7 +301,7 @@ export default function Home() {
                     <p className="text-blue-300/60">No engineers assigned</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-3">
                     {sprintData.userUtilizations
                       .filter(u => u.role !== 'qa')
                       .map((utilization) => (
@@ -332,7 +332,7 @@ export default function Home() {
                     <p className="text-indigo-300/60">No QA assigned</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-3">
                     {sprintData.userUtilizations
                       .filter(u => u.role === 'qa')
                       .map((utilization) => (

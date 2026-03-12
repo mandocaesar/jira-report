@@ -13,13 +13,13 @@ function ScopeChangeGroup({ groupKey, group, jiraDomain }: {
     return (
         <>
             <tr
-                className="bg-orange-500/10 border-b border-orange-500/20 cursor-pointer hover:bg-orange-500/15 transition-colors select-none"
+                className="border-b border-orange-500/20 cursor-pointer hover:bg-orange-500/10 transition-colors select-none"
                 onClick={() => setCollapsed(!collapsed)}
             >
                 <td colSpan={4} className="px-4 py-2">
                     <div className="flex items-center gap-2">
                         <svg
-                            className={`w-3 h-3 text-orange-400 transition-transform duration-200 ${collapsed ? '' : 'rotate-90'}`}
+                            className={`w-3 h-3 text-orange-500 transition-transform duration-200 ${collapsed ? '' : 'rotate-90'}`}
                             fill="none" viewBox="0 0 24 24" stroke="currentColor"
                         >
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -28,13 +28,13 @@ function ScopeChangeGroup({ groupKey, group, jiraDomain }: {
                             href={jiraDomain ? `https://${jiraDomain}/browse/${groupKey}` : '#'}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-xs font-bold text-orange-300 hover:text-orange-200 transition-colors"
+                            className="text-xs font-bold text-orange-500 hover:text-orange-400 transition-colors"
                             onClick={(e) => e.stopPropagation()}
                         >
                             {groupKey}
                         </a>
                         <span className="text-[10px] text-muted-foreground line-clamp-1">{group.summary}</span>
-                        <span className="text-[10px] px-1.5 py-0.5 ml-auto bg-orange-500/20 rounded-md text-orange-200 shrink-0">
+                        <span className="text-[10px] px-1.5 py-0.5 ml-auto bg-orange-500/20 rounded-md text-orange-500 font-medium shrink-0">
                             {group.changes.length} change{group.changes.length > 1 ? 's' : ''}
                         </span>
                     </div>
@@ -48,11 +48,11 @@ function ScopeChangeGroup({ groupKey, group, jiraDomain }: {
                                 href={jiraDomain ? `https://${jiraDomain}/browse/${change.issueKey}` : '#'}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="text-xs font-medium text-orange-300 hover:text-orange-200 transition-colors"
+                                className="text-xs font-medium text-orange-500 hover:text-orange-400 transition-colors"
                             >
                                 {change.issueKey}
                             </a>
-                            <span className="text-[10px] text-orange-400/80 mt-0.5">{change.issueType}</span>
+                            <span className="text-[10px] text-orange-400 mt-0.5">{change.issueType}</span>
                             <span className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5">{change.summary}</span>
                         </div>
                     </td>
@@ -248,8 +248,8 @@ export default function SprintReport({ report, jiraDomain }: SprintReportProps) 
                                                     <div className="text-xs font-medium text-foreground">{member.user.displayName}</div>
                                                     <div className="flex items-center gap-1">
                                                         <span className={`text-[9px] px-1 py-0.5 rounded ${member.role === 'qa'
-                                                            ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
-                                                            : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                                                            ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30'
+                                                            : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
                                                             }`}>
                                                             {member.role.toUpperCase()}
                                                         </span>
@@ -308,8 +308,8 @@ export default function SprintReport({ report, jiraDomain }: SprintReportProps) 
                             <svg className="w-4 h-4 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                             </svg>
-                            <h3 className="text-xs font-semibold text-orange-400">Scope Changes During Sprint</h3>
-                            <span className="text-[10px] bg-orange-500/20 text-orange-300 px-2 py-0.5 rounded-full border border-orange-500/30">
+                            <h3 className="text-xs font-semibold text-orange-500">Scope Changes During Sprint</h3>
+                            <span className="text-[10px] bg-orange-500/20 text-orange-500 font-medium px-2 py-0.5 rounded-full border border-orange-500/30">
                                 {scopeChanges.length} events
                             </span>
                         </div>
@@ -317,7 +317,7 @@ export default function SprintReport({ report, jiraDomain }: SprintReportProps) 
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead>
-                                <tr className="border-b border-orange-500/20 text-[10px] text-orange-300/70 uppercase tracking-wider bg-orange-500/5">
+                                <tr className="border-b border-orange-500/20 text-[10px] text-orange-500/70 uppercase tracking-wider bg-orange-500/5">
                                     <th className="px-4 py-2 font-medium">Issue</th>
                                     <th className="px-3 py-2 font-medium">Type</th>
                                     <th className="px-3 py-2 font-medium">Date</th>

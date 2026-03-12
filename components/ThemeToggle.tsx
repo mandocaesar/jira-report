@@ -25,7 +25,14 @@ export function ThemeToggle({ collapsed = false }: ThemeToggleProps) {
     }
 
     const toggleTheme = () => {
+        document.documentElement.classList.add('disable-transitions');
         setTheme(theme === "dark" ? "light" : "dark");
+        // Re-enable transitions after the paint
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                document.documentElement.classList.remove('disable-transitions');
+            });
+        });
     };
 
     return (
