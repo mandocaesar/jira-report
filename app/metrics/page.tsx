@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import BoardSelector from '@/components/BoardSelector';
 import SprintSelector from '@/components/SprintSelector';
 import { MetricsData } from '@/types';
@@ -39,11 +39,115 @@ export default function MetricsPage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    // AI Summary State
+    const [aiSummary, setAiSummary] = useState<string | null>(null);
+    const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+    const [aiError, setAiError] = useState<string | null>(null);
+
+    const aggregateMetrics = useMemo(() => {
+        if (!boardMetricsData || !boardMetricsData.sprintMetrics) return null;
+
+        const allSprints = boardMetricsData.sprintMetrics;
+        if (allSprints.length === 0) return null;
+
+        let totalStory = 0, totalTask = 0, totalTest = 0, totalDone = 0;
+        let deliverSum = 0, testSum = 0, doneSum = 0;
+        let deliverCount = 0, testCount = 0, doneCount = 0;
+
+        const memberAggMap = new Map<string, any>();
+
+        allSprints.forEach((sm: any) => {
+            totalStory += sm.totals?.storyCount || 0;
+            totalTask += sm.totals?.taskCount || 0;
+            totalTest += sm.totals?.testCount || 0;
+            totalDone += sm.totals?.doneCount || 0;
+
+            if (sm.timeMetrics?.meanTimeToDeliver != null) {
+                deliverSum += sm.timeMetrics.meanTimeToDeliver * (sm.timeMetrics.sampleSize?.deliver || 1);
+                deliverCount += (sm.timeMetrics.sampleSize?.deliver || 1);
+            }
+            if (sm.timeMetrics?.meanTimeToTest != null) {
+                testSum += sm.timeMetrics.meanTimeToTest * (sm.timeMetrics.sampleSize?.test || 1);
+                testCount += (sm.timeMetrics.sampleSize?.test || 1);
+            }
+            if (sm.timeMetrics?.meanTimeToDone != null) {
+                doneSum += sm.timeMetrics.meanTimeToDone * (sm.timeMetrics.sampleSize?.done || 1);
+                doneCount += (sm.timeMetrics.sampleSize?.done || 1);
+            }
+
+            if (sm.memberTimeMetrics) {
+                sm.memberTimeMetrics.forEach((m: any) => {
+                    if (!memberAggMap.has(m.accountId)) {
+                        memberAggMap.set(m.accountId, {
+                            ...m,
+                            deliverSum: 0,
+                            deliverCount: 0,
+                            doneSum: 0,
+                            doneCount: 0
+                        });
+                    }
+                    const agg = memberAggMap.get(m.accountId);
+                    if (m.meanTimeToDeliver != null) {
+                        agg.deliverSum += m.meanTimeToDeliver * (m.sampleSize?.deliver || 1);
+                        agg.deliverCount += (m.sampleSize?.deliver || 1);
+                    }
+                    if (m.meanTimeToDone != null) {
+                        agg.doneSum += m.meanTimeToDone * (m.sampleSize?.done || 1);
+                        agg.doneCount += (m.sampleSize?.done || 1);
+                    }
+                });
+            }
+        });
+
+        const totalCount = totalStory + totalTask + totalTest;
+
+        const memberTimeMetrics = Array.from(memberAggMap.values())
+            .map(m => ({
+                accountId: m.accountId,
+                displayName: m.displayName,
+                avatarUrl: m.avatarUrl,
+                meanTimeToDeliver: m.deliverCount > 0 ? m.deliverSum / m.deliverCount : null,
+                meanTimeToDone: m.doneCount > 0 ? m.doneSum / m.doneCount : null,
+                sampleSize: {
+                    deliver: m.deliverCount,
+                    done: m.doneCount
+                }
+            }))
+            .filter(m => m.sampleSize.deliver > 0 || m.sampleSize.done > 0)
+            .sort((a, b) => b.sampleSize.done - a.sampleSize.done);
+
+        return {
+            sprint: allSprints[0].sprint, // Dummy
+            weeklyMetrics: [], // Not applicable for YTD cards directly easily
+            timeMetrics: {
+                meanTimeToDeliver: deliverCount > 0 ? deliverSum / deliverCount : null,
+                meanTimeToTest: testCount > 0 ? testSum / testCount : null,
+                meanTimeToDone: doneCount > 0 ? doneSum / doneCount : null,
+                sampleSize: {
+                    deliver: deliverCount,
+                    test: testCount,
+                    done: doneCount
+                }
+            },
+            memberTimeMetrics,
+            totals: {
+                storyCount: totalStory,
+                taskCount: totalTask,
+                testCount: totalTest,
+                totalCount,
+                doneCount: totalDone,
+                completionRate: totalCount > 0 ? (totalDone / totalCount) * 100 : 0
+            }
+        };
+    }, [boardMetricsData]);
+
     const handleBoardChange = async (boardId: number | null) => {
         setSelectedBoardId(boardId);
         setSelectedSprintId(null);
         setMetricsData(null);
         setBoardMetricsData(null);
+        setAiSummary(null);
+        setAiError(null);
 
         if (!boardId) return;
 
@@ -54,6 +158,7 @@ export default function MetricsPage() {
             const data = await res.json();
             if (!data.success) throw new Error(data.error || 'Failed to load board metrics');
             setBoardMetricsData(data.data);
+            generateAiSummary(null, data.data);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to load board metrics');
         } finally {
@@ -63,6 +168,8 @@ export default function MetricsPage() {
 
     const handleSprintChange = async (sprintId: number | null) => {
         setSelectedSprintId(sprintId);
+        setAiSummary(null);
+        setAiError(null);
 
         if (!sprintId) {
             setMetricsData(null);
@@ -84,6 +191,7 @@ export default function MetricsPage() {
             }
 
             setMetricsData(data.data);
+            generateAiSummary(data.data, boardMetricsData);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to load metrics');
             setMetricsData(null);
@@ -92,18 +200,121 @@ export default function MetricsPage() {
         }
     };
 
+    const generateAiSummary = async (sprintData: any = null, boardData: any = null) => {
+        const useSprintId = selectedSprintId;
+        const currentSprintMetrics = sprintData || metricsData;
+        const currentBoardMetrics = boardData || boardMetricsData;
+
+        if (!currentSprintMetrics && !currentBoardMetrics) return;
+        setIsGeneratingAI(true);
+        setAiError(null);
+
+        try {
+            const body = useSprintId
+                ? { type: 'sprint', sprintMetrics: currentSprintMetrics }
+                : { type: 'board', boardMetrics: currentBoardMetrics };
+
+            const response = await fetch('/api/ai-metrics-summary', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to generate summary');
+            }
+
+            setAiSummary(data.summary);
+        } catch (err) {
+            setAiError(err instanceof Error ? err.message : 'An error occurred');
+        } finally {
+            setIsGeneratingAI(false);
+        }
+    };
+
+    const handleDownloadMetrics = () => {
+        let csvContent = '';
+        let filename = 'Metrics_Report.csv';
+
+        if (metricsData && selectedSprintId) {
+            // Sprint Level Export
+            filename = `Sprint_${selectedSprintId}_Metrics.csv`;
+            const lines: string[] = [];
+
+            // Totals
+            lines.push('Sprint Data,Value');
+            lines.push(`Total Issues,${metricsData.totals.totalCount}`);
+            lines.push(`Completion Rate,${metricsData.totals.completionRate.toFixed(1)}%`);
+            lines.push(`Done Count,${metricsData.totals.doneCount}`);
+            lines.push('');
+
+            // Speed Metrics
+            lines.push('Delivery Speed (Hours),Value,Sample Size');
+            lines.push(`Mean Time to Deliver,${metricsData.timeMetrics.meanTimeToDeliver?.toFixed(1) || 'N/A'},${metricsData.timeMetrics.sampleSize.deliver}`);
+            lines.push(`Mean Time to Test,${metricsData.timeMetrics.meanTimeToTest?.toFixed(1) || 'N/A'},${metricsData.timeMetrics.sampleSize.test}`);
+            lines.push(`Mean Time to Done,${metricsData.timeMetrics.meanTimeToDone?.toFixed(1) || 'N/A'},${metricsData.timeMetrics.sampleSize.done}`);
+            lines.push('');
+
+            // Member Delivery Speed
+            if (metricsData.memberTimeMetrics && metricsData.memberTimeMetrics.length > 0) {
+                lines.push('Per-Member Delivery Speed,MTD (Hours),Done (Hours),Sample Size (Done)');
+                metricsData.memberTimeMetrics.forEach(m => {
+                    lines.push(`"${m.displayName}",${m.meanTimeToDeliver?.toFixed(1) || 'N/A'},${m.meanTimeToDone?.toFixed(1) || 'N/A'},${m.sampleSize.done}`);
+                });
+                lines.push('');
+            }
+
+            // Weekly Breakdown
+            lines.push('Week,Story,Task,Test,Done,Total,Completion %');
+            metricsData.weeklyMetrics.forEach(w => {
+                lines.push(`"${w.weekLabel}",${w.storyCount},${w.taskCount},${w.testCount},${w.doneCount},${w.totalCount},${w.completionRate.toFixed(1)}%`);
+            });
+
+            csvContent = lines.join('\n');
+
+        } else if (boardMetricsData && !selectedSprintId) {
+            // Board Level Export
+            filename = `Board_${selectedBoardId}_YoY_Metrics.csv`;
+            const lines: string[] = [];
+
+            lines.push('Sprint Name,Mean Time to Deliver (h),Mean Time to Done (h)');
+            boardMetricsData.sprintMetrics.forEach((sm: any) => {
+                const mttd = sm.meanTimeToDeliver ? sm.meanTimeToDeliver.toFixed(1) : 'N/A';
+                const mttc = sm.meanTimeToDone ? sm.meanTimeToDone.toFixed(1) : 'N/A';
+                lines.push(`"${sm.sprint.name}",${mttd},${mttc}`);
+            });
+
+            csvContent = lines.join('\n');
+        } else {
+            return; // Nothing to export
+        }
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
     return (
         <main className="px-3 sm:px-4 md:px-6 py-4 md:py-8 max-w-full">
             {/* Page Header */}
-            <div className="mb-8">
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-purple-400 bg-clip-text text-transparent">
-                    Metrics Dashboard
-                </h1>
-                <p className="text-gray-400 mt-2">Track issue flow, completion rates, and delivery speed</p>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                <div>
+                    <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 via-indigo-400 to-blue-400 bg-clip-text text-transparent">
+                        Metrics Dashboard
+                    </h1>
+                    <p className="text-gray-400 mt-2">Track issue flow, completion rates, and delivery speed</p>
+                </div>
             </div>
 
             {/* Selectors */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 hide-on-print">
                 <BoardSelector
                     selectedBoardId={selectedBoardId}
                     onBoardChange={handleBoardChange}
@@ -113,14 +324,52 @@ export default function MetricsPage() {
                         boardId={selectedBoardId}
                         selectedSprintId={selectedSprintId}
                         onSprintChange={handleSprintChange}
+                        allowAllSprints={true}
                     />
                 )}
             </div>
 
+            {/* AI Summary Section */}
+            {(aiSummary || aiError) && (
+                <div className="mb-8 p-6 bg-gradient-to-br from-indigo-900/20 to-blue-900/20 border border-indigo-500/30 rounded-xl shadow-sm relative animate-fadeIn">
+                    <h3 className="text-lg font-bold text-indigo-300 flex items-center gap-2 mb-4">
+                        <span className="text-xl">✨</span> Executive Analytics Report
+                    </h3>
+
+                    {aiError ? (
+                        <div className="text-red-400 text-sm flex gap-2 items-center">
+                            ⚠️ {aiError}
+                            <button onClick={() => generateAiSummary()} className="ml-2 px-2 py-1 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 rounded transition-colors hide-on-print">Retry</button>
+                        </div>
+                    ) : (
+                        <div className="text-sm text-gray-200 space-y-4 leading-relaxed">
+                            {aiSummary?.split('\n').filter(line => line.trim()).map((line, i) => {
+                                if (line.startsWith('**Trend Highlights**') || line.startsWith('**Speed Highlights**') || line.startsWith('**Flow & Completion**')) {
+                                    return (
+                                        <h4 key={i} className="text-sm font-bold text-indigo-200 tracking-wide uppercase mt-6 mb-2 first:mt-0 border-b border-indigo-500/20 pb-1 inline-block">
+                                            {line.replace(/\*\*/g, '')}
+                                        </h4>
+                                    );
+                                }
+                                const isListItem = line.startsWith('-') || line.startsWith('*');
+                                const cleanLine = line.replace(/^\*?\*?[\-\*]\s+/, '').replace(/\*\*([^*]+)\*\*/g, '<strong class="text-indigo-300 font-bold">$1</strong>');
+
+                                return (
+                                    <div key={i} className={`flex gap-3 items-start ${!isListItem ? 'ml-4' : ''}`}>
+                                        {isListItem && <span className="text-indigo-400 mt-[5px] flex-shrink-0 text-xs">•</span>}
+                                        <span dangerouslySetInnerHTML={{ __html: cleanLine }} className="font-medium" />
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            )}
+
             {/* Loading */}
             {loading && (
                 <div className="text-center py-20">
-                    <div className="w-12 h-12 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin mx-auto mb-4" />
+                    <div className="w-12 h-12 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mx-auto mb-4" />
                     <p className="text-gray-400">Loading metrics data...</p>
                     <p className="text-xs text-gray-500 mt-1">Fetching issue changelogs for time analysis</p>
                 </div>
@@ -139,6 +388,11 @@ export default function MetricsPage() {
                     {/* Time Metrics Summary Cards */}
                     <TimeMetricsCards data={metricsData} />
 
+                    {/* Per-Member Delivery Speed */}
+                    {metricsData.memberTimeMetrics && metricsData.memberTimeMetrics.length > 0 && (
+                        <MemberTimeMetricsTable data={metricsData} />
+                    )}
+
                     {/* Issue Totals Cards */}
                     <IssueTotalsCards data={metricsData} />
 
@@ -153,6 +407,22 @@ export default function MetricsPage() {
             {/* Board YoY Metrics Content */}
             {boardMetricsData && !selectedSprintId && !loading && (
                 <div className="space-y-8 animate-fadeIn">
+                    {aggregateMetrics && (
+                        <>
+                            {/* Year-to-Date Time Metrics Summary Cards */}
+                            <TimeMetricsCards data={aggregateMetrics as MetricsData} />
+
+                            {/* Year-to-Date Per-Member Delivery Speed */}
+                            {aggregateMetrics.memberTimeMetrics && aggregateMetrics.memberTimeMetrics.length > 0 && (
+                                <MemberTimeMetricsTable data={aggregateMetrics as MetricsData} />
+                            )}
+
+                            {/* Year-to-Date Issue Totals Cards */}
+                            <IssueTotalsCards data={aggregateMetrics as MetricsData} />
+                        </>
+                    )}
+
+                    {/* Timeline Trend Line */}
                     <BoardYearlyTrendChart data={boardMetricsData} />
                 </div>
             )}
@@ -271,8 +541,8 @@ function TimeMetricsCards({ data }: { data: MetricsData }) {
             sample: timeMetrics.sampleSize.test,
             thresholds: [48, 120] as [number, number],
             icon: '🧪',
-            gradient: 'from-pink-500/10 to-purple-500/10',
-            border: 'border-pink-500/20',
+            gradient: 'from-indigo-500/10 to-blue-500/10',
+            border: 'border-indigo-500/20',
         },
         {
             label: 'Mean Time to Done',
@@ -289,7 +559,7 @@ function TimeMetricsCards({ data }: { data: MetricsData }) {
     return (
         <div>
             <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl flex items-center justify-center">
                     <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
@@ -324,6 +594,75 @@ function TimeMetricsCards({ data }: { data: MetricsData }) {
 }
 
 /**
+ * Per-Member Time Metrics Table
+ */
+function MemberTimeMetricsTable({ data }: { data: MetricsData }) {
+    const { memberTimeMetrics } = data;
+
+    return (
+        <div className="bg-gray-800/30 rounded-xl border border-gray-700/50 overflow-hidden">
+            <div className="p-4 border-b border-gray-700/50 bg-gray-900/40">
+                <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
+                    👥 Team Delivery Performance
+                </h3>
+                <p className="text-xs text-gray-500 mt-1">Mean Time to Deliver and Done per team member based on story/subtask completions.</p>
+            </div>
+            <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                    <thead>
+                        <tr className="bg-gray-800/50 text-[10px] uppercase text-gray-500 tracking-wider">
+                            <th className="p-3 pl-4 font-medium">Team Member</th>
+                            <th className="p-3 font-medium text-center">Mean Time to Deliver (MTD)</th>
+                            <th className="p-3 font-medium text-center border-l border-gray-700/30">Mean Time to Done (MTTC)</th>
+                            <th className="p-3 font-medium text-center border-l border-gray-700/30">Sample Size</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-700/30 text-xs text-gray-300 bg-gray-900/20">
+                        {memberTimeMetrics.map((member) => (
+                            <tr key={member.accountId} className="hover:bg-gray-800/30 transition-colors">
+                                <td className="p-3 pl-4">
+                                    <div className="flex items-center gap-2.5">
+                                        {member.avatarUrl ? (
+                                            <img src={member.avatarUrl} alt={member.displayName} className="w-6 h-6 rounded-full" />
+                                        ) : (
+                                            <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center text-[10px] uppercase">
+                                                {member.displayName.slice(0, 2)}
+                                            </div>
+                                        )}
+                                        <span className="font-semibold text-gray-200">{member.displayName}</span>
+                                    </div>
+                                </td>
+                                <td className="p-3 text-center">
+                                    {member.meanTimeToDeliver !== null ? (
+                                        <span className={`font-mono font-bold ${getTimeColor(member.meanTimeToDeliver, [24, 72])}`}>
+                                            {formatDuration(member.meanTimeToDeliver)}
+                                        </span>
+                                    ) : (
+                                        <span className="text-gray-600">—</span>
+                                    )}
+                                </td>
+                                <td className="p-3 text-center border-l border-gray-700/30">
+                                    {member.meanTimeToDone !== null ? (
+                                        <span className={`font-mono font-bold ${getTimeColor(member.meanTimeToDone, [120, 240])}`}>
+                                            {formatDuration(member.meanTimeToDone)}
+                                        </span>
+                                    ) : (
+                                        <span className="text-gray-600">—</span>
+                                    )}
+                                </td>
+                                <td className="p-3 text-center border-l border-gray-700/30 text-gray-500">
+                                    {member.sampleSize.done} done / {member.sampleSize.deliver} delivered
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+}
+
+/**
  * Issue Totals Cards
  */
 function IssueTotalsCards({ data }: { data: MetricsData }) {
@@ -343,14 +682,14 @@ function IssueTotalsCards({ data }: { data: MetricsData }) {
                 </div>
                 <div className="text-xs text-gray-400">Stories</div>
             </div>
-            <div className="text-center p-5 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-xl border border-purple-500/20">
-                <div className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent mb-1">
+            <div className="text-center p-5 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 rounded-xl border border-blue-500/20">
+                <div className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent mb-1">
                     {totals.taskCount}
                 </div>
                 <div className="text-xs text-gray-400">Tasks</div>
             </div>
-            <div className="text-center p-5 bg-gradient-to-br from-pink-500/10 to-rose-500/10 rounded-xl border border-pink-500/20">
-                <div className="text-3xl font-bold bg-gradient-to-r from-pink-400 to-rose-400 bg-clip-text text-transparent mb-1">
+            <div className="text-center p-5 bg-gradient-to-br from-indigo-500/10 to-rose-500/10 rounded-xl border border-indigo-500/20">
+                <div className="text-3xl font-bold bg-gradient-to-r from-indigo-400 to-rose-400 bg-clip-text text-transparent mb-1">
                     {totals.testCount}
                 </div>
                 <div className="text-xs text-gray-400">Tests</div>

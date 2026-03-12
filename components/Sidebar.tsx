@@ -111,7 +111,7 @@ export default function Sidebar({ children }: SidebarProps) {
                 <div className="h-16 flex items-center justify-between px-4 border-b border-border">
                     {!collapsed && (
                         <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center text-white font-bold">
+                            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center text-white font-bold">
                                 J
                             </div>
                             <div>
@@ -167,7 +167,7 @@ export default function Sidebar({ children }: SidebarProps) {
                                             key={item.href}
                                             href={item.href}
                                             className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group relative ${isActive
-                                                ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white'
+                                                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white'
                                                 : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                                                 }`}
                                             title={collapsed ? item.name : ''}

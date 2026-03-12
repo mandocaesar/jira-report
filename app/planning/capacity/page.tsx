@@ -180,7 +180,7 @@ export default function CapacityPlanningPage() {
     return (
         <div className="min-h-screen overflow-x-hidden">
             {/* Header */}
-            <header className="border-b border-purple-500/20 bg-gray-900/50 backdrop-blur-xl sticky top-0 z-40">
+            <header className="border-b border-blue-500/20 bg-gray-900/50 backdrop-blur-xl sticky top-0 z-40">
                 <div className="px-3 sm:px-4 md:px-6 py-4 md:py-6">
                     <div className="flex items-center justify-between">
                         <div>
@@ -193,7 +193,7 @@ export default function CapacityPlanningPage() {
                                     setEditingAdjustment(null);
                                     setModalOpen(true);
                                 }}
-                                className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-medium rounded-xl transition-all flex items-center gap-2"
+                                className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-medium rounded-xl transition-all flex items-center gap-2"
                             >
                                 <span className="text-lg">➕</span>
                                 Add Adjustment
@@ -218,7 +218,7 @@ export default function CapacityPlanningPage() {
                 {/* Loading State */}
                 {loading && (
                     <div className="flex items-center justify-center py-20">
-                        <div className="w-16 h-16 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin"></div>
+                        <div className="w-16 h-16 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
                     </div>
                 )}
 
@@ -233,8 +233,8 @@ export default function CapacityPlanningPage() {
                 {forecastData && !loading && (
                     <div className="space-y-8">
                         {/* Summary */}
-                        <div className="p-6 bg-gradient-to-br from-purple-900/30 to-pink-900/30 border border-purple-500/30 rounded-2xl backdrop-blur-sm">
-                            <h2 className="text-lg font-semibold text-purple-300 mb-4">📊 {forecastData.teamName} - Sprint Forecast</h2>
+                        <div className="p-6 bg-gradient-to-br from-blue-900/30 to-indigo-900/30 border border-blue-500/30 rounded-2xl backdrop-blur-sm">
+                            <h2 className="text-lg font-semibold text-blue-300 mb-4">📊 {forecastData.teamName} - Sprint Forecast</h2>
                             <p className="text-gray-400 text-sm">
                                 Showing {forecastData.sprints.length} upcoming sprints with capacity projections
                             </p>
@@ -252,7 +252,7 @@ export default function CapacityPlanningPage() {
                                     {adjustments.map((adj) => (
                                         <div
                                             key={adj.id}
-                                            className="bg-gray-900/50 border border-gray-700 rounded-xl p-4 hover:border-purple-500/30 transition-all group"
+                                            className="bg-gray-900/50 border border-gray-700 rounded-xl p-4 hover:border-blue-500/30 transition-all group"
                                         >
                                             <div className="flex items-start justify-between mb-2">
                                                 <div className="font-medium text-white">{adj.engineerName}</div>
@@ -302,12 +302,12 @@ export default function CapacityPlanningPage() {
                             {forecastData.sprints.map((sprint, index) => (
                                 <div
                                     key={sprint.sprintId}
-                                    className={`bg-gray-800/30 border rounded-2xl p-6 backdrop-blur-sm transition-all ${index === 0 ? 'border-purple-500/50 ring-1 ring-purple-500/20' : 'border-gray-700 hover:border-purple-500/30'
+                                    className={`bg-gray-800/30 border rounded-2xl p-6 backdrop-blur-sm transition-all ${index === 0 ? 'border-blue-500/50 ring-1 ring-blue-500/20' : 'border-gray-700 hover:border-blue-500/30'
                                         }`}
                                 >
                                     {/* Sprint Badge for Current */}
                                     {index === 0 && (
-                                        <div className="inline-block px-3 py-1 bg-purple-500/20 text-purple-300 text-xs font-semibold rounded-full mb-3">
+                                        <div className="inline-block px-3 py-1 bg-blue-500/20 text-blue-300 text-xs font-semibold rounded-full mb-3">
                                             Current / Next Sprint
                                         </div>
                                     )}
@@ -332,7 +332,7 @@ export default function CapacityPlanningPage() {
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                                         <div className="bg-gray-900/50 rounded-xl p-4">
                                             <div className="text-xs text-gray-500 mb-1">Available Mandays</div>
-                                            <div className="text-2xl font-bold text-purple-400">{sprint.capacity.totalManDays}</div>
+                                            <div className="text-2xl font-bold text-blue-400">{sprint.capacity.totalManDays}</div>
                                             <div className="text-xs text-gray-500 mt-1">= Story Points</div>
                                         </div>
                                         <div className="bg-gray-900/50 rounded-xl p-4">
@@ -350,14 +350,14 @@ export default function CapacityPlanningPage() {
 
                                     {/* Holidays info */}
                                     {sprint.holidays && sprint.holidays.length > 0 && (
-                                        <div className="mb-4 pt-3 border-t border-purple-500/20">
-                                            <div className="text-sm font-semibold text-purple-300 mb-2 flex items-center gap-2">
+                                        <div className="mb-4 pt-3 border-t border-blue-500/20">
+                                            <div className="text-sm font-semibold text-blue-300 mb-2 flex items-center gap-2">
                                                 <span>🏖️</span> Public Holidays:
                                             </div>
                                             <div className="flex flex-wrap gap-2">
                                                 {sprint.holidays.map((holiday, idx) => (
-                                                    <div key={idx} className="flex items-center gap-1.5 bg-purple-500/10 border border-purple-500/30 rounded-lg px-2.5 py-1.5 text-xs">
-                                                        <span className="text-purple-400 font-medium">{formatDate(holiday.date)}</span>
+                                                    <div key={idx} className="flex items-center gap-1.5 bg-blue-500/10 border border-blue-500/30 rounded-lg px-2.5 py-1.5 text-xs">
+                                                        <span className="text-blue-400 font-medium">{formatDate(holiday.date)}</span>
                                                         <span className="text-gray-400">—</span>
                                                         <span className="text-gray-300 max-w-[150px] truncate" title={holiday.name}>{holiday.name}</span>
                                                     </div>

@@ -35,7 +35,7 @@ export default function UserUtilizationCard({ utilization }: UserUtilizationCard
     const displayPercent = Math.min(utilizationPercent, 150); // Cap display at 150%
 
     // Role badge color
-    const roleColor = role === 'qa' ? 'bg-pink-500/20 text-pink-300 border-pink-500/30' : 'bg-blue-500/20 text-blue-300 border-blue-500/30';
+    const roleColor = role === 'qa' ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' : 'bg-blue-500/20 text-blue-300 border-blue-500/30';
 
     return (
         <div
@@ -60,7 +60,7 @@ export default function UserUtilizationCard({ utilization }: UserUtilizationCard
                                     className="object-cover"
                                 />
                             ) : (
-                                <div className="w-full h-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm">
+                                <div className="w-full h-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm">
                                     {user.displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                                 </div>
                             )}

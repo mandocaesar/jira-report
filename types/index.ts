@@ -241,10 +241,23 @@ export interface TimeMetrics {
   };
 }
 
+export interface MemberTimeMetrics {
+  accountId: string;
+  displayName: string;
+  avatarUrl: string;
+  meanTimeToDeliver: number | null;
+  meanTimeToDone: number | null;
+  sampleSize: {
+    deliver: number;
+    done: number;
+  };
+}
+
 export interface MetricsData {
   sprint: Sprint;
   weeklyMetrics: WeeklyMetrics[];
   timeMetrics: TimeMetrics;
+  memberTimeMetrics: MemberTimeMetrics[];
   totals: {
     storyCount: number;
     taskCount: number;
@@ -280,9 +293,5 @@ export interface WorklogReportData {
 export interface BoardMetricsData {
   boardId: number;
   year: number;
-  sprintMetrics: Array<{
-    sprint: Sprint;
-    meanTimeToDeliver: number | null;
-    meanTimeToDone: number | null;
-  }>;
+  sprintMetrics: MetricsData[];
 }

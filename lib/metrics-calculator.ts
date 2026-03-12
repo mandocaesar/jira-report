@@ -229,6 +229,38 @@ export function calculateMetrics(sprint: Sprint, issues: JiraIssue[]): MetricsDa
     const testTimes: number[] = [];
     const doneTimes: number[] = [];
 
+    interface MemberAgg {
+        accountId: string;
+        displayName: string;
+        avatarUrl: string;
+        deliverTimes: number[];
+        doneTimes: number[];
+    }
+    const memberMap = new Map<string, MemberAgg>();
+
+    function trackMemberTime(issue: JiraIssue, metric: 'deliver' | 'done', hours: number) {
+        if (!issue.fields.assignee) return;
+        const assignee = issue.fields.assignee;
+        const accountId = assignee.accountId;
+        if (!accountId) return;
+
+        if (!memberMap.has(accountId)) {
+            // Jira User object can have varied structures for avatar
+            const avatarUrl = (assignee as any).avatarUrls?.['48x48'] || '';
+            memberMap.set(accountId, {
+                accountId,
+                displayName: assignee.displayName || 'Unknown',
+                avatarUrl,
+                deliverTimes: [],
+                doneTimes: []
+            });
+        }
+
+        const member = memberMap.get(accountId)!;
+        if (metric === 'deliver') member.deliverTimes.push(hours);
+        if (metric === 'done') member.doneTimes.push(hours);
+    }
+
     // Totals
     let totalStory = 0, totalTask = 0, totalTest = 0, totalDone = 0;
 
@@ -264,7 +296,7 @@ export function calculateMetrics(sprint: Sprint, issues: JiraIssue[]): MetricsDa
         }
     }
 
-    // Isolate MTTD and MTTT entirely to Story-type issues
+    // Isolate MTD (Mean Time to Deliver) entirely to Story-type issues
     const storyIssues = issues.filter(issue =>
         !issue.fields.issuetype.subtask &&
         issue.fields.issuetype.name.toLowerCase().includes('story')
@@ -272,7 +304,6 @@ export function calculateMetrics(sprint: Sprint, issues: JiraIssue[]): MetricsDa
 
     for (const issue of storyIssues) {
         const firstInProgress = findFirstInProgressTime(issue);
-        const firstTest = findFirstTestTime(issue);
 
         const createdDate = new Date(issue.fields.created);
         const sprintStartDate = new Date(sprint.startDate);
@@ -281,12 +312,30 @@ export function calculateMetrics(sprint: Sprint, issues: JiraIssue[]): MetricsDa
         // MTD: baseline → first In Progress
         if (firstInProgress) {
             const hours = hoursBetween(baselineDate, firstInProgress);
-            if (hours >= 0) deliverTimes.push(hours);
+            if (hours >= 0) {
+                deliverTimes.push(hours);
+                trackMemberTime(issue, 'deliver', hours);
+            }
         }
+    }
 
-        // MTT: first In Progress → first Test/QA status
-        if (firstInProgress && firstTest && firstTest > firstInProgress) {
-            const hours = hoursBetween(firstInProgress, firstTest);
+    // Isolate MTTT (Mean Time To Test) exclusively to 'test' and 'qa-test' issues
+    const testIssuesList = issues.filter(issue => {
+        const typeName = issue.fields.issuetype.name.toLowerCase();
+        return typeName.includes('test') || typeName.includes('qa-test');
+    });
+
+    for (const issue of testIssuesList) {
+        const doneTime = findDoneTime(issue);
+        const isDone = issue.fields.status?.statusCategory?.name === 'Done';
+
+        if (isDone && doneTime) {
+            const createdDate = new Date(issue.fields.created);
+            const sprintStartDate = new Date(sprint.startDate);
+            const baselineDate = sprintStartDate > createdDate ? sprintStartDate : createdDate;
+
+            // MTTT: baseline → Done for test issues
+            const hours = hoursBetween(baselineDate, doneTime);
             if (hours >= 0) testTimes.push(hours);
         }
     }
@@ -309,7 +358,10 @@ export function calculateMetrics(sprint: Sprint, issues: JiraIssue[]): MetricsDa
 
             // MTTD: baseline → Done
             const hours = hoursBetween(baselineDate, doneTime);
-            if (hours >= 0) doneTimes.push(hours);
+            if (hours >= 0) {
+                doneTimes.push(hours);
+                trackMemberTime(issue, 'done', hours);
+            }
         }
     }
 
@@ -334,12 +386,26 @@ export function calculateMetrics(sprint: Sprint, issues: JiraIssue[]): MetricsDa
         },
     };
 
+    const memberTimeMetrics = Array.from(memberMap.values()).map(m => ({
+        accountId: m.accountId,
+        displayName: m.displayName,
+        avatarUrl: m.avatarUrl,
+        meanTimeToDeliver: mean(m.deliverTimes),
+        meanTimeToDone: mean(m.doneTimes),
+        sampleSize: {
+            deliver: m.deliverTimes.length,
+            done: m.doneTimes.length
+        }
+    })).filter(m => m.sampleSize.deliver > 0 || m.sampleSize.done > 0)
+        .sort((a, b) => b.sampleSize.done - a.sampleSize.done);
+
     const totalCount = totalStory + totalTask + totalTest;
 
     return {
         sprint,
         weeklyMetrics: weeklyData,
         timeMetrics,
+        memberTimeMetrics,
         totals: {
             storyCount: totalStory,
             taskCount: totalTask,

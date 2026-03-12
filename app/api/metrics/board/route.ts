@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createJiraClient } from '@/lib/jira-client';
 import { calculateMetrics } from '@/lib/metrics-calculator';
-import { BoardMetricsData } from '@/types';
+import { BoardMetricsData, MetricsData } from '@/types';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -37,7 +37,7 @@ export async function GET(request: Request) {
 
         // 3. To avoid overwhelming Jira API rate limits, fetch issues in small batches
         // We'll process them sequentially or in small parallel chunks. Let's do parallel 3 at a time.
-        const sprintMetricsData: BoardMetricsData['sprintMetrics'] = [];
+        const sprintMetricsData: MetricsData[] = [];
 
         const chunkSize = 3;
         for (let i = 0; i < yearSprints.length; i += chunkSize) {
@@ -46,24 +46,14 @@ export async function GET(request: Request) {
             const chunkPromises = chunk.map(async (sprint) => {
                 try {
                     const issues = await client.getSprintIssuesWithChangelog(sprint.id, bId);
-                    const metrics = calculateMetrics(sprint, issues);
-
-                    return {
-                        sprint,
-                        meanTimeToDeliver: metrics.timeMetrics.meanTimeToDeliver,
-                        meanTimeToDone: metrics.timeMetrics.meanTimeToDone
-                    };
+                    return calculateMetrics(sprint, issues);
                 } catch (err) {
                     console.error(`Failed to calculate metrics for sprint ${sprint.id}:`, err);
-                    return {
-                        sprint,
-                        meanTimeToDeliver: null,
-                        meanTimeToDone: null
-                    };
+                    return null;
                 }
             });
 
-            const results = await Promise.all(chunkPromises);
+            const results = (await Promise.all(chunkPromises)).filter(Boolean) as MetricsData[];
             sprintMetricsData.push(...results);
         }
 

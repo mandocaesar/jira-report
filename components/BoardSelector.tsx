@@ -45,7 +45,7 @@ export default function BoardSelector({ onBoardChange, selectedBoardId }: BoardS
     if (loading) {
         return (
             <div className="animate-pulse">
-                <div className="h-12 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-xl"></div>
+                <div className="h-12 bg-gradient-to-r from-blue-500/20 to-blue-500/20 rounded-xl"></div>
             </div>
         );
     }
@@ -68,7 +68,7 @@ export default function BoardSelector({ onBoardChange, selectedBoardId }: BoardS
             <select
                 value={selectedBoardId || ''}
                 onChange={(e) => onBoardChange(e.target.value ? parseInt(e.target.value) : null)}
-                className="w-full px-5 py-3 bg-gradient-to-br from-blue-800/50 to-purple-900/50 
+                className="w-full px-5 py-3 bg-gradient-to-br from-blue-800/50 to-blue-900/50 
                    border border-blue-500/30 rounded-xl text-white
                    hover:border-blue-500/50 transition-all duration-300
                    focus:outline-none focus:ring-2 focus:ring-blue-500/50

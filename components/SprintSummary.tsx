@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { SprintSummary, SprintReportData } from '@/types';
 
 interface SprintSummaryProps {
@@ -15,25 +15,79 @@ export default function SprintSummaryComponent({ summary, reportData, onAiSummar
     const [aiSummary, setAiSummary] = useState<string | null>(null);
     const [isGeneratingAI, setIsGeneratingAI] = useState(false);
     const [aiError, setAiError] = useState<string | null>(null);
+    const [epicBreakdowns, setEpicBreakdowns] = useState<any[]>([]);
+
+    useEffect(() => {
+        if (sprint.originBoardId) {
+            fetch(`/api/epic-breakdown?sprintId=${sprint.id}&boardId=${sprint.originBoardId}`)
+                .then(res => res.json())
+                .then(data => {
+                    const breakdowns = data.epicBreakdowns || [];
+                    setEpicBreakdowns(breakdowns);
+                    if (!aiSummary && !isGeneratingAI && !aiError) {
+                        // Tricky: we need the breakdowns to be passed or accessed correctly.
+                        // We will call the function explicitly after setting it, but relying on state in same tick is bad.
+                    }
+                })
+                .catch(console.error);
+        }
+    }, [sprint.id, sprint.originBoardId]);
+
+    useEffect(() => {
+        if (epicBreakdowns.length > 0 && !aiSummary && !isGeneratingAI && !aiError) {
+            generateAiSummary();
+        }
+    }, [epicBreakdowns, aiSummary, isGeneratingAI, aiError]);
+
+    const handleDownloadCSV = () => {
+        const rows = [
+            ['Member Name', 'Role', 'Title', 'Available Days', 'Completed Points', 'Utilization %'],
+        ];
+
+        [...userUtilizations].sort((a, b) => {
+            if (a.role !== b.role) return a.role === 'engineer' ? -1 : 1;
+            return a.user.displayName.localeCompare(b.user.displayName);
+        }).forEach(u => {
+            rows.push([
+                u.user.displayName,
+                u.role.toUpperCase(),
+                u.title || '',
+                (u.workingDays - u.leaveDays).toString(),
+                u.storyPoints.toString(),
+                u.utilizationPercent.toFixed(1) + '%'
+            ]);
+        });
+
+        if (epicBreakdowns.length > 0) {
+            rows.push([]);
+            rows.push(['Epic Key', 'Epic Name', 'Total Points', 'Completed Points', 'Completion %']);
+            epicBreakdowns.forEach(e => {
+                rows.push([
+                    e.epicKey,
+                    e.epicName,
+                    e.totalPoints.toString(),
+                    e.completedPoints.toString(),
+                    e.completionPercent.toFixed(1) + '%'
+                ]);
+            });
+        }
+
+        const csvContent = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Sprint_Metrics_${sprint.name.replace(/ /g, '_')}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
 
     const generateAiSummary = async () => {
         setIsGeneratingAI(true);
         setAiError(null);
         try {
-            // First, fetch the epic breakdown for deeper sprint insights
-            let epicBreakdowns = [];
-            if (sprint.originBoardId) {
-                try {
-                    const epicRes = await fetch(`/api/epic-breakdown?sprintId=${sprint.id}&boardId=${sprint.originBoardId}`);
-                    if (epicRes.ok) {
-                        const epicData = await epicRes.json();
-                        epicBreakdowns = epicData.epicBreakdowns || [];
-                    }
-                } catch (e) {
-                    console.error("Failed to fetch epic breakdown for AI", e);
-                }
-            }
-
             // Now send it all to the AI
             const response = await fetch('/api/ai-summary', {
                 method: 'POST',
@@ -125,7 +179,7 @@ export default function SprintSummaryComponent({ summary, reportData, onAiSummar
     const hasScopeChanges = Object.keys(scopeChangesByType).length > 0;
 
     return (
-        <div className="bg-gradient-to-br from-purple-900/30 to-pink-900/30">
+        <div className="bg-gradient-to-br from-blue-900/30 to-indigo-900/30">
             {/* Row 1: Key Metrics + Sprint Timeline */}
             <div className="grid grid-cols-2 md:grid-cols-6 gap-2 p-2">
                 {/* Total Story Points */}
@@ -137,10 +191,10 @@ export default function SprintSummaryComponent({ summary, reportData, onAiSummar
                 </div>
 
                 {/* Sprint Timeline (merged with Working Days) */}
-                <div className="col-span-2 md:col-span-3 py-2 px-3 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-lg border border-purple-500/20" title="Working days = weekdays in the sprint period, excluding national holidays. Progress bar shows calendar position through the sprint.">
+                <div className="col-span-2 md:col-span-3 py-2 px-3 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 rounded-lg border border-blue-500/20" title="Working days = weekdays in the sprint period, excluding national holidays. Progress bar shows calendar position through the sprint.">
                     <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                         <div className="flex items-center gap-2">
-                            <span className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent leading-tight">
+                            <span className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent leading-tight">
                                 {totalWorkingDays}
                             </span>
                             <span className="text-xs text-gray-400">working days</span>
@@ -167,7 +221,7 @@ export default function SprintSummaryComponent({ summary, reportData, onAiSummar
                     {/* Progress bar */}
                     <div className="relative h-2 bg-gray-700/50 rounded-full overflow-hidden mb-1.5">
                         <div
-                            className="absolute inset-y-0 left-0 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full transition-all duration-500"
+                            className="absolute inset-y-0 left-0 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-500"
                             style={{ width: `${progressPercent}%` }}
                         />
                         {/* Today marker */}
@@ -183,17 +237,17 @@ export default function SprintSummaryComponent({ summary, reportData, onAiSummar
                     <div className="flex flex-wrap items-center justify-between gap-1 mt-1.5">
                         <span className="text-[11px] text-gray-500">{formatDate(sprint.startDate)}</span>
                         <div className="flex items-center gap-3 text-[11px]">
-                            <span className="text-purple-400 font-medium">{daysElapsed} elapsed</span>
+                            <span className="text-blue-400 font-medium">{daysElapsed} elapsed</span>
                             <span className="text-gray-600">•</span>
-                            <span className="text-pink-400 font-medium">{daysRemaining} remaining</span>
+                            <span className="text-indigo-400 font-medium">{daysRemaining} remaining</span>
                         </div>
                         <span className="text-[11px] text-gray-500">{formatDate(sprint.endDate)}</span>
                     </div>
 
                     {/* Holidays tooltip */}
                     {summary.holidays && summary.holidays.length > 0 && (
-                        <div className="mt-1.5 bg-black/20 rounded p-1 border border-purple-500/20">
-                            <div className="text-[8px] text-purple-300 font-medium mb-0.5">
+                        <div className="mt-1.5 bg-black/20 rounded p-1 border border-blue-500/20">
+                            <div className="text-[8px] text-blue-300 font-medium mb-0.5">
                                 🏖️ {summary.holidays.length} holiday{summary.holidays.length > 1 ? 's' : ''} excluded
                             </div>
                             <div className="flex flex-wrap gap-x-2 gap-y-0">
@@ -376,10 +430,10 @@ export default function SprintSummaryComponent({ summary, reportData, onAiSummar
                 </div>
 
                 {/* QA Stats */}
-                <div className="bg-gradient-to-br from-pink-500/10 to-rose-500/10 rounded-lg px-3 py-2 border border-pink-500/20" title="QA breakdown">
+                <div className="bg-gradient-to-br from-indigo-500/10 to-rose-500/10 rounded-lg px-3 py-2 border border-indigo-500/20" title="QA breakdown">
                     <div className="flex items-center gap-4">
-                        <h3 className="text-sm font-bold text-pink-400 flex items-center gap-1.5 shrink-0">
-                            <span className="w-2 h-2 rounded-full bg-pink-400"></span>
+                        <h3 className="text-sm font-bold text-indigo-400 flex items-center gap-1.5 shrink-0">
+                            <span className="w-2 h-2 rounded-full bg-indigo-400"></span>
                             QA ({summary.qaStats?.count || 0})
                         </h3>
                         <div className="flex items-center gap-5">
@@ -396,7 +450,7 @@ export default function SprintSummaryComponent({ summary, reportData, onAiSummar
                             </div>
                             <div>
                                 <span className="text-[11px] text-gray-400">Util </span>
-                                <span className="text-base font-bold text-pink-300">
+                                <span className="text-base font-bold text-indigo-300">
                                     {(summary.qaStats?.mandays > 0 ? (summary.qaStats.storyPoints / summary.qaStats.mandays * 100) : 0).toFixed(0)}%
                                 </span>
                             </div>
@@ -419,12 +473,51 @@ export default function SprintSummaryComponent({ summary, reportData, onAiSummar
                 </div>
             </div>
 
-            {/* Row 4: AI Summary */}
+
+
+            {/* Row 5: Epic Progress Trackers */}
+            {epicBreakdowns.length > 0 && (
+                <div className="px-2 pb-2">
+                    <div className="bg-gray-800/30 rounded-lg border border-gray-700/30 p-3">
+                        <h3 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5 mb-3 cursor-help" title="Top epics heavily worked on during this sprint based on story points completed vs total currently in the epic.">
+                            🎯 Active Epic Progress
+                        </h3>
+                        <div className="flex flex-col gap-2.5">
+                            {epicBreakdowns.slice(0, 5).map((epic, i) => (
+                                <div key={i} className="bg-gray-900/40 p-2.5 rounded border border-gray-700/40 flex flex-col md:flex-row md:items-center gap-2">
+                                    <div className="flex-1 min-w-[200px]">
+                                        <div className="flex items-center gap-1.5 mb-1">
+                                            <span className="text-[10px] bg-blue-500/20 text-blue-300 px-1 rounded whitespace-nowrap">{epic.epicKey}</span>
+                                            <span className="text-xs font-semibold text-gray-200 line-clamp-1">{epic.epicName}</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-3 shrink-0">
+                                        <span className="text-[11px] font-medium text-gray-400 shrink-0 w-[55px] text-right">
+                                            <span className="text-white font-bold">{epic.completedPoints}</span> / {epic.totalPoints}
+                                        </span>
+                                        <div className="w-24 md:w-32 h-1.5 bg-gray-700/50 rounded-full overflow-hidden">
+                                            <div
+                                                className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-700"
+                                                style={{ width: `${epic.completionPercent}%` }}
+                                            />
+                                        </div>
+                                        <span className="text-[10px] text-blue-400 w-8 text-right font-medium">
+                                            {epic.completionPercent.toFixed(0)}%
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Row 6: AI Summary */}
             <div className="px-2 pb-2">
                 {!aiSummary && !isGeneratingAI && (
                     <button
                         onClick={generateAiSummary}
-                        className="w-full py-1.5 bg-gradient-to-r from-purple-500/10 to-indigo-500/10 hover:from-purple-500/20 hover:to-indigo-500/20 border border-purple-500/20 rounded-lg flex items-center justify-center gap-2 text-purple-300 text-xs font-semibold transition-all shadow-sm"
+                        className="w-full py-1.5 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 hover:from-blue-500/20 hover:to-indigo-500/20 border border-blue-500/20 rounded-lg flex items-center justify-center gap-2 text-blue-300 text-xs font-semibold transition-all shadow-sm"
                     >
                         ✨ Generate AI Summary
                     </button>
@@ -432,7 +525,7 @@ export default function SprintSummaryComponent({ summary, reportData, onAiSummar
 
                 {isGeneratingAI && (
                     <div className="w-full py-3 bg-gray-800/30 border border-gray-700/30 rounded-lg flex items-center justify-center gap-2 text-gray-400 text-xs animate-pulse">
-                        <svg className="animate-spin h-3.5 w-3.5 text-purple-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <svg className="animate-spin h-3.5 w-3.5 text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
@@ -447,50 +540,79 @@ export default function SprintSummaryComponent({ summary, reportData, onAiSummar
                     </div>
                 )}
 
-                {aiSummary && (
-                    <div className="bg-gradient-to-br from-purple-900/20 to-indigo-900/10 rounded-lg p-3 border border-purple-500/30 relative shadow-sm">
-                        <div className="absolute top-3 right-3 flex gap-2">
-                            <button
-                                onClick={generateAiSummary}
-                                className="text-[9px] px-2 py-1 bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/20 text-purple-300 rounded transition-colors"
-                            >
-                                🔄 Regenerate
-                            </button>
-                        </div>
-                        <h3 className="text-base font-bold text-purple-300 flex items-center gap-2 mb-4">
-                            <span className="text-lg">✨</span> AI Executive Summary
-                        </h3>
-                        <div className="text-sm text-gray-100 space-y-3 leading-relaxed">
-                            {aiSummary.split('\n').filter(line => line.trim()).map((line, i) => {
-                                // Specific handling for section headers generated by the prompt
-                                if (line.startsWith('**Key Highlights**') || line.startsWith('**Key Areas of Concern**')) {
-                                    const headerText = line.replace(/\*\*/g, '');
+                {aiSummary && (() => {
+                    // Parse into sections
+                    const sectionConfig: Record<string, { icon: string; color: string; borderColor: string; bgColor: string }> = {
+                        'Sprint Delivery': { icon: '🚀', color: 'text-blue-300', borderColor: 'border-blue-500/30', bgColor: 'from-blue-900/20 to-blue-800/10' },
+                        'Top Contributors & Quick Wins': { icon: '🏆', color: 'text-amber-300', borderColor: 'border-amber-500/30', bgColor: 'from-amber-900/20 to-yellow-800/10' },
+                        'Epic Summary': { icon: '🎯', color: 'text-emerald-300', borderColor: 'border-emerald-500/30', bgColor: 'from-emerald-900/20 to-green-800/10' },
+                        'Key Areas of Concern': { icon: '⚠️', color: 'text-red-300', borderColor: 'border-red-500/30', bgColor: 'from-red-900/20 to-red-800/10' },
+                    };
+
+                    const sections: { title: string; lines: string[] }[] = [];
+                    let currentSection: { title: string; lines: string[] } | null = null;
+
+                    aiSummary.split('\n').filter((line: string) => line.trim()).forEach((line: string) => {
+                        const headerMatch = line.match(/^\*\*(.+?)\*\*$/);
+                        if (headerMatch && sectionConfig[headerMatch[1]]) {
+                            currentSection = { title: headerMatch[1], lines: [] };
+                            sections.push(currentSection);
+                        } else if (currentSection) {
+                            currentSection.lines.push(line);
+                        }
+                    });
+
+                    return (
+                        <div className="bg-gray-900/30 rounded-lg p-3 border border-gray-700/30 relative shadow-sm">
+                            <div className="absolute top-3 right-3 flex gap-2">
+                                <button
+                                    onClick={generateAiSummary}
+                                    className="text-[9px] px-2 py-1 bg-blue-500/15 hover:bg-blue-500/25 border border-blue-500/20 text-blue-300 rounded transition-colors"
+                                >
+                                    🔄 Regenerate
+                                </button>
+                            </div>
+                            <h3 className="text-base font-bold text-blue-300 flex items-center gap-2 mb-4">
+                                <span className="text-lg">✨</span> AI Executive Summary
+                            </h3>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {sections.map((section, si) => {
+                                    const config = sectionConfig[section.title] || { icon: '📋', color: 'text-gray-300', borderColor: 'border-gray-500/30', bgColor: 'from-gray-900/20 to-gray-800/10' };
                                     return (
-                                        <div key={i} className="mt-5 mb-2 first:mt-0">
-                                            <h4 className="text-sm font-bold text-purple-200 tracking-wide uppercase">{headerText}</h4>
+                                        <div key={si} className={`bg-gradient-to-br ${config.bgColor} rounded-lg p-3 border ${config.borderColor}`}>
+                                            <h4 className={`text-xs font-bold ${config.color} uppercase tracking-wider flex items-center gap-1.5 mb-2.5 pb-1.5 border-b ${config.borderColor}`}>
+                                                <span className="text-sm">{config.icon}</span>
+                                                {section.title}
+                                            </h4>
+                                            <div className="space-y-1.5">
+                                                {section.lines.map((line, li) => {
+                                                    const isListItem = line.startsWith('-') || line.startsWith('*');
+                                                    const cleanLine = line
+                                                        .replace(/^\*?\*?[\-\*]\s+/, '')
+                                                        .replace(/\*\*([^*]+)\*\*/g, '<strong class="text-white font-bold">$1</strong>');
+                                                    return (
+                                                        <div key={li} className={`flex gap-2 items-start ${!isListItem ? 'ml-3' : ''}`}>
+                                                            {isListItem && <span className={`${config.color} mt-[5px] flex-shrink-0 text-[8px]`}>●</span>}
+                                                            <span dangerouslySetInnerHTML={{ __html: cleanLine }} className="text-[12px] text-gray-200 leading-relaxed" />
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
                                         </div>
                                     );
-                                }
+                                })}
+                            </div>
 
-                                // Bold parsing for markdown list items
-                                const isListItem = line.startsWith('-') || line.startsWith('*');
-                                const cleanLine = line.replace(/^\*?\*?[\-\*]\s+/, '').replace(/\*\*([^*]+)\*\*/g, '<strong class="text-white font-bold">$1</strong>');
-
-                                return (
-                                    <div key={i} className={`flex gap-3 items-start ${!isListItem ? 'ml-4' : ''}`}>
-                                        {isListItem && <span className="text-purple-400 mt-[7px] flex-shrink-0 text-xs">•</span>}
-                                        <span dangerouslySetInnerHTML={{ __html: cleanLine }} className="font-medium text-[13px]" />
-                                    </div>
-                                );
-                            })}
+                            <div className="mt-4 pt-2 border-t border-gray-700/30 text-[10px] text-gray-500 flex items-center justify-between">
+                                <span className="flex items-center gap-1">Powered by <strong>Gemini 2.5 Flash</strong></span>
+                                <span>AI can make mistakes. Verify important data.</span>
+                            </div>
                         </div>
-                        <div className="mt-6 pt-3 border-t border-purple-500/10 text-[10px] text-gray-500 flex items-center justify-between">
-                            <span className="flex items-center gap-1">Powered by <strong>Gemini 2.5 Flash-Lite</strong></span>
-                            <span>AI can make mistakes. Verify important data.</span>
-                        </div>
-                    </div>
-                )}
+                    );
+                })()}
             </div>
         </div >
     );
 }
+

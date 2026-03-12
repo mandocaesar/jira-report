@@ -8,57 +8,62 @@ export async function POST(req: Request) {
 
         const prompt = `
 You are an expert Agile Scrum Master analyzing a sprint report. 
-Please generate an executive-level summary of the sprint's performance based on the specific data provided.
+Generate an executive-level summary organized into exactly these 4 sections.
 
-The output MUST follow this STRICT markdown format, with exactly these headings. Do not include introductory or concluding remarks. Just output the content exactly as formatted below.
+IMPORTANT FORMATTING RULES:
+- Use EXACTLY these 4 section headings, each on its own line with ** markers.
+- Under each heading, use bullet points starting with "- ".
+- Be specific with numbers, names, and percentages from the data.
+- Do NOT add introductory or concluding remarks. Just the 4 sections.
 
-**Key Highlights**
-- **Sprint Goal & Delivery**: [Assess overall story point completion rate and delivery momentum based on the overall completion percentage]
-- **Top Contributors**: [Highlight 1-3 top performing engineers/QA based on completed points and utilization percentage]
-- **Quick Wins**: [Highlight any fast turnarounds or notable positive momentum]
+**Sprint Delivery**
+- Summarize overall story point completion rate (X of Y points completed = Z%)
+- Assess delivery momentum and velocity compared to capacity
+- Call out the status distribution (how many in Done vs In Progress vs To Do)
+- Note any backlog risk if significant points remain undone
+
+**Top Contributors & Quick Wins**
+- Highlight the top 2-3 performing team members by completed points and utilization %, mentioning their names and roles
+- Note any standout fast turnarounds or positive momentum
+- Call out any QA members who excelled
 
 **Epic Summary**
-[For EVERY Epic heavily worked on this sprint, create a brief bullet point stating its name, completion percentage, points completed/total, and a 1-sentence analytical observation about its specific progress. Keep it dense and analytical.]
+- For EVERY epic worked on this sprint, create a bullet point with: Epic name, completion % (X/Y points), and a brief analytical observation about progress
+- Flag any epics at 0% or very low progress as stalled
+- Highlight epics nearing completion as wins
 
 **Key Areas of Concern**
-- **Backlog & Risk**: [Analyze the status distribution—how many points were left in To Do vs In Progress. E.g. "A critical X% of points remained in To Do..."]
-- **Capacity & Utilization**: [Call out specific team members who were significantly over-utilized (e.g. >100%) or under-utilized, referencing exact percentages and roles]
-- **Stalled Items**: [Highlight exactly which epics or areas struggled to move forward, referencing 0% progress or low completion rates]
-
-Use a professional but analytical tone. Be specific with numbers, names, and percentages provided in the data.
+- Call out specific team members who were significantly over-utilized (>110%) or under-utilized (<70%), referencing exact percentages and roles
+- Identify any bottlenecks or stalled work items
+- Note capacity risks or workload imbalances across the team
 
 ---
-Here is the Sprint Data to analyze:
+Sprint Data:
 
-**Sprint Info:**
-- Name: ${summary.sprint.name}
-- Total Points: ${summary.totalStoryPoints}
-- Total Working Days: ${summary.totalWorkingDays}
+Sprint: ${summary.sprint.name}
+Total Points: ${summary.totalStoryPoints} | Working Days: ${summary.totalWorkingDays}
+Completed: ${reportData?.completedPoints || 0} (${reportData?.completionPercent || 0}%)
+Status Groups: ${JSON.stringify(reportData?.statusGroups || [])}
 
-**Overall Delivery (Report Data):**
-- Completed Points: ${reportData?.completedPoints || 0} (${reportData?.completionPercent || 0}%)
-- Status Groups (Backlog vs In Progress vs Done): 
-${JSON.stringify(reportData?.statusGroups || [])}
-
-**Team Utilization (Members):**
+Team Members:
 ${JSON.stringify(
             summary.userUtilizations.map((u: any) => ({
                 name: u.user.displayName,
                 role: u.role,
-                utilizationPercent: u.utilizationPercent,
-                completedPoints: u.storyPoints,
-                assignedDays: u.workingDays - u.leaveDays
+                utilization: u.utilizationPercent.toFixed(0) + '%',
+                points: u.storyPoints,
+                days: u.workingDays - u.leaveDays
             }))
         )}
 
-**Epic Breakdown (Progress):**
+Epics:
 ${JSON.stringify(
             (epicBreakdowns || []).map((e: any) => ({
                 key: e.epicKey,
                 name: e.epicName,
-                totalPoints: e.totalPoints,
-                completedPoints: e.completedPoints,
-                completionPercent: e.completionPercent
+                total: e.totalPoints,
+                done: e.completedPoints,
+                pct: e.completionPercent.toFixed(0) + '%'
             }))
         )}
 `;

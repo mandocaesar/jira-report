@@ -110,10 +110,10 @@ const statusColors: Record<string, { bg: string; border: string; text: string; b
 };
 
 const defaultColors = {
-    bg: 'from-purple-500/10 to-pink-500/10',
-    border: 'border-purple-500/20',
-    text: 'text-purple-400',
-    bar: 'from-purple-500 to-pink-500',
+    bg: 'from-blue-500/10 to-indigo-500/10',
+    border: 'border-blue-500/20',
+    text: 'text-blue-400',
+    bar: 'from-blue-500 to-indigo-500',
 };
 
 function getStatusColors(category: string) {
@@ -160,7 +160,7 @@ export default function SprintReport({ report, jiraDomain }: SprintReportProps) 
                 </div>
 
                 {/* Completion % */}
-                <div className="text-center py-2.5 px-3 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-lg border border-purple-500/20">
+                <div className="text-center py-2.5 px-3 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 rounded-lg border border-blue-500/20">
                     <div className={`text-2xl font-bold leading-tight ${getCompletionColor(completionPercent)}`}>
                         {completionPercent.toFixed(1)}%
                     </div>
@@ -240,7 +240,7 @@ export default function SprintReport({ report, jiraDomain }: SprintReportProps) 
                                                         className="w-6 h-6 rounded-full ring-2 ring-gray-700"
                                                     />
                                                 ) : (
-                                                    <div className="w-6 h-6 rounded-full ring-2 ring-gray-700 bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-bold text-[10px]">
+                                                    <div className="w-6 h-6 rounded-full ring-2 ring-gray-700 bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-[10px]">
                                                         {member.user.displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                                                     </div>
                                                 )}
@@ -248,7 +248,7 @@ export default function SprintReport({ report, jiraDomain }: SprintReportProps) 
                                                     <div className="text-xs font-medium text-white">{member.user.displayName}</div>
                                                     <div className="flex items-center gap-1">
                                                         <span className={`text-[9px] px-1 py-0.5 rounded ${member.role === 'qa'
-                                                            ? 'bg-pink-500/20 text-pink-300 border border-pink-500/30'
+                                                            ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
                                                             : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
                                                             }`}>
                                                             {member.role.toUpperCase()}

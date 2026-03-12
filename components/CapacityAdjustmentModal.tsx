@@ -168,7 +168,7 @@ export default function CapacityAdjustmentModal({
                             <select
                                 value={engineerId}
                                 onChange={(e) => setEngineerId(e.target.value)}
-                                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                                 disabled={!!adjustment}
                             >
                                 <option value="">Select an engineer...</option>
@@ -188,7 +188,7 @@ export default function CapacityAdjustmentModal({
                             <select
                                 value={reason}
                                 onChange={(e) => handleReasonChange(e.target.value)}
-                                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                             >
                                 {REASONS.map((r) => (
                                     <option key={r.value} value={r.value}>
@@ -208,7 +208,7 @@ export default function CapacityAdjustmentModal({
                                     type="date"
                                     value={startDate}
                                     onChange={(e) => setStartDate(e.target.value)}
-                                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                                 />
                             </div>
                             <div>
@@ -219,7 +219,7 @@ export default function CapacityAdjustmentModal({
                                     type="date"
                                     value={endDate}
                                     onChange={(e) => setEndDate(e.target.value)}
-                                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                                 />
                             </div>
                         </div>
@@ -245,7 +245,7 @@ export default function CapacityAdjustmentModal({
                                 step="5"
                                 value={capacityPercentage}
                                 onChange={(e) => setCapacityPercentage(parseInt(e.target.value))}
-                                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
                             />
                             <div className="flex justify-between text-xs text-gray-500 mt-1">
                                 <span>0% (Off)</span>
@@ -264,7 +264,7 @@ export default function CapacityAdjustmentModal({
                                 onChange={(e) => setNotes(e.target.value)}
                                 rows={2}
                                 placeholder="Add any additional notes..."
-                                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all resize-none"
+                                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
                             />
                         </div>
 
@@ -280,7 +280,7 @@ export default function CapacityAdjustmentModal({
                             <button
                                 type="submit"
                                 disabled={saving}
-                                className="flex-1 px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-medium rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-medium rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {saving ? (
                                     <span className="flex items-center justify-center gap-2">

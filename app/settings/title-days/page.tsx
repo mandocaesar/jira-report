@@ -81,15 +81,15 @@ export default function TitleDaysPage() {
         !== JSON.stringify(originalEntries.map(e => ({ t: e.title, d: e.availableDays })));
 
     return (
-        <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-gray-900 via-purple-900/20 to-gray-900">
-            <header className="border-b border-purple-500/20 bg-gray-900/50 backdrop-blur-xl">
+        <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-gray-900 via-blue-900/20 to-gray-900">
+            <header className="border-b border-blue-500/20 bg-gray-900/50 backdrop-blur-xl">
                 <div className="px-3 sm:px-4 md:px-6 py-4 md:py-8">
                     <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
+                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl flex items-center justify-center">
                             <span className="text-2xl">⏱️</span>
                         </div>
                         <div>
-                            <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-purple-400 bg-clip-text text-transparent">
+                            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 via-indigo-400 to-blue-400 bg-clip-text text-transparent">
                                 Title Available Days
                             </h1>
                             <p className="text-gray-400 text-sm">Configure available sprint days per title level</p>
@@ -112,7 +112,7 @@ export default function TitleDaysPage() {
 
                 {loading ? (
                     <div className="flex items-center justify-center py-20">
-                        <div className="w-16 h-16 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin"></div>
+                        <div className="w-16 h-16 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
                     </div>
                 ) : (
                     <>
@@ -149,7 +149,7 @@ export default function TitleDaysPage() {
                                                 min="0"
                                                 value={entry.availableDays}
                                                 onChange={(e) => updateDays(entry.title, parseInt(e.target.value) || 0)}
-                                                className="w-16 px-2 py-1 text-center bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500"
+                                                className="w-16 px-2 py-1 text-center bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
                                             />
                                             <span className="text-sm text-gray-400 w-12">days</span>
                                             <button
@@ -181,14 +181,14 @@ export default function TitleDaysPage() {
                                     placeholder="Title name (e.g., Senior Engineer)"
                                     value={newTitle}
                                     onChange={(e) => setNewTitle(e.target.value)}
-                                    className="flex-1 px-4 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-purple-500/50"
+                                    className="flex-1 px-4 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-blue-500/50"
                                 />
                                 <input
                                     type="number"
                                     min="0"
                                     value={newDays}
                                     onChange={(e) => setNewDays(parseInt(e.target.value) || 0)}
-                                    className="w-20 px-3 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white text-sm text-center focus:outline-none focus:border-purple-500/50"
+                                    className="w-20 px-3 py-2 bg-gray-900/50 border border-gray-700 rounded-lg text-white text-sm text-center focus:outline-none focus:border-blue-500/50"
                                 />
                                 <button
                                     onClick={addEntry}
@@ -203,7 +203,7 @@ export default function TitleDaysPage() {
                             <button
                                 onClick={handleSave}
                                 disabled={saving || !hasChanges}
-                                className="px-8 py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold rounded-xl hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center gap-2"
+                                className="px-8 py-4 bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center gap-2"
                             >
                                 {saving ? (
                                     <><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> Saving...</>

@@ -57,10 +57,10 @@ const statusColors: Record<string, { bg: string; border: string; text: string; b
 };
 
 const defaultColors = {
-    bg: 'from-purple-500/10 to-pink-500/10',
-    border: 'border-purple-500/20',
-    text: 'text-purple-400',
-    bar: 'from-purple-500 to-pink-500',
+    bg: 'from-blue-500/10 to-indigo-500/10',
+    border: 'border-blue-500/20',
+    text: 'text-blue-400',
+    bar: 'from-blue-500 to-indigo-500',
 };
 
 function getStatusColors(category: string) {
@@ -139,7 +139,7 @@ export function EpicBreakdownComponent({ boardId, sprintId, jiraDomain = 'bank-s
     if (loading) {
         return (
             <div className="flex flex-col items-center justify-center p-12 mt-8 space-y-4 text-gray-400 bg-gray-800/20 rounded-xl border border-gray-700/20 animate-pulse">
-                <div className="w-12 h-12 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin"></div>
+                <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
                 <p>Analyzing epics and calculating metrics...</p>
             </div>
         );
@@ -160,7 +160,7 @@ export function EpicBreakdownComponent({ boardId, sprintId, jiraDomain = 'bank-s
     return (
         <div className="mt-8 space-y-6">
             <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/20">
+                <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-blue-500 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
                     <span className="text-xl">📦</span>
                 </div>
                 <div>
@@ -230,7 +230,7 @@ export function EpicBreakdownComponent({ boardId, sprintId, jiraDomain = 'bank-s
                                                     onClick={(e) => toggleStory(story.key, e)}
                                                 >
                                                     <div className="flex items-center gap-2 min-w-0 flex-1 pl-2">
-                                                        <div className={`w-1.5 h-1.5 rounded-full ${isStandalone ? 'bg-gray-500' : 'bg-purple-500'}`}></div>
+                                                        <div className={`w-1.5 h-1.5 rounded-full ${isStandalone ? 'bg-gray-500' : 'bg-blue-500'}`}></div>
                                                         {!isStandalone && (
                                                             <a
                                                                 href={`https://${jiraDomain}/browse/${story.key}`}
@@ -281,7 +281,7 @@ export function EpicBreakdownComponent({ boardId, sprintId, jiraDomain = 'bank-s
                                                                                         href={`https://${jiraDomain}/browse/${issue.key}`}
                                                                                         target="_blank"
                                                                                         rel="noopener noreferrer"
-                                                                                        className="text-xs font-mono text-gray-400 hover:text-purple-400 hover:underline transition-colors"
+                                                                                        className="text-xs font-mono text-gray-400 hover:text-blue-400 hover:underline transition-colors"
                                                                                     >
                                                                                         {issue.key}
                                                                                     </a>

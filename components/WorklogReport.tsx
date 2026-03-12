@@ -132,7 +132,7 @@ export default function WorklogReport({ boardId, sprintId }: WorklogReportProps)
                                             <span className="font-medium text-gray-200 truncate" title={member.displayName}>
                                                 {member.displayName}
                                             </span>
-                                            <span className={`text-[10px] uppercase font-bold tracking-wider ${member.role === 'qa' ? 'text-pink-400' : 'text-blue-400'
+                                            <span className={`text-[10px] uppercase font-bold tracking-wider ${member.role === 'qa' ? 'text-indigo-400' : 'text-blue-400'
                                                 }`}>
                                                 {member.role}
                                             </span>
