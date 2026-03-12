@@ -135,20 +135,20 @@ export default function Home() {
     <div className="min-h-screen overflow-x-hidden">
 
       {/* Header */}
-      <header className="border-b border-blue-500/20 bg-gray-900/50 backdrop-blur-xl sticky top-0 z-40">
+      <header className="border-b border-border bg-gray-900/50 backdrop-blur-xl sticky top-0 z-40">
         <div className="px-4 py-4">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl flex items-center justify-center shrink-0">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-10 h-10 bg-foreground rounded-xl flex items-center justify-center shrink-0">
+                <svg className="w-6 h-6 text-background" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
               </div>
               <div className="min-w-0">
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 via-indigo-400 to-blue-400 bg-clip-text text-transparent truncate">
+                <h1 className="text-2xl font-bold text-foreground truncate">
                   Jira Sprint Report
                 </h1>
-                <p className="text-gray-400 text-xs truncate">Track team utilization and sprint metrics</p>
+                <p className="text-muted-foreground text-xs truncate">Track team utilization and sprint metrics</p>
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
@@ -207,7 +207,7 @@ export default function Home() {
                   await fetch('/api/auth/logout', { method: 'POST' });
                   window.location.href = '/login';
                 }}
-                className="px-4 py-2 text-sm text-gray-400 hover:text-white border border-gray-700 hover:border-blue-500/50 rounded-lg transition-all duration-200 flex items-center gap-2"
+                className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground border border-border hover:border-foreground/50 rounded-lg transition-all duration-200 flex items-center gap-2"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -248,9 +248,9 @@ export default function Home() {
         {loading && (
           <div className="flex items-center justify-center py-20">
             <div className="relative">
-              <div className="w-16 h-16 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
+              <div className="w-16 h-16 border-4 border-muted border-t-foreground rounded-full animate-spin"></div>
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-full animate-pulse"></div>
+                <div className="w-8 h-8 bg-foreground rounded-full animate-pulse"></div>
               </div>
             </div>
           </div>
@@ -378,13 +378,13 @@ export default function Home() {
         {/* Empty State */}
         {!selectedSprintId && !loading && (
           <div className="flex flex-col items-center justify-center py-20 print:hidden">
-            <div className="w-24 h-24 bg-gradient-to-br from-blue-500/20 to-indigo-500/20 rounded-2xl flex items-center justify-center mb-6 border border-blue-500/20">
-              <svg className="w-12 h-12 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-24 h-24 bg-muted rounded-2xl flex items-center justify-center mb-6 border border-border">
+              <svg className="w-12 h-12 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
               </svg>
             </div>
-            <h3 className="text-xl font-semibold text-white mb-2">Select a Sprint to Begin</h3>
-            <p className="text-gray-400 text-center max-w-md">
+            <h3 className="text-xl font-semibold text-foreground mb-2">Select a Sprint to Begin</h3>
+            <p className="text-muted-foreground text-center max-w-md">
               Choose a sprint from the dropdown above to view team utilization metrics and sprint analytics
             </p>
           </div>
@@ -392,8 +392,8 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-blue-500/20 bg-gray-900/50 backdrop-blur-xl mt-20">
-        <div className="px-3 sm:px-4 md:px-6 py-6 text-center text-sm text-gray-500">
+      <footer className="border-t border-border bg-gray-900/50 backdrop-blur-xl mt-20">
+        <div className="px-3 sm:px-4 md:px-6 py-6 text-center text-sm text-muted-foreground">
           <p>Powered by Jira API and Indonesian Holiday API</p>
         </div>
       </footer>

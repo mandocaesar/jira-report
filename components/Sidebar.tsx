@@ -8,7 +8,7 @@ import { ThemeToggle } from './ThemeToggle';
 interface NavItem {
     name: string;
     href: string;
-    icon: string;
+    icon: React.ReactNode;
     description?: string;
 }
 
@@ -17,6 +17,52 @@ interface NavSection {
     items: NavItem[];
 }
 
+const IconSprintOverview = () => (
+    <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
+        <rect x="3" y="12" width="4" height="9" rx="1" />
+        <rect x="10" y="7" width="4" height="14" rx="1" />
+        <rect x="17" y="3" width="4" height="18" rx="1" />
+    </svg>
+);
+
+const IconCapacity = () => (
+    <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
+        <path d="M12 2L2 7l10 5 10-5-10-5z" strokeLinejoin="round" />
+        <path d="M2 17l10 5 10-5" strokeLinejoin="round" />
+        <path d="M2 12l10 5 10-5" strokeLinejoin="round" />
+    </svg>
+);
+
+const IconTeam = () => (
+    <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
+        <circle cx="9" cy="7" r="3" />
+        <path d="M3 21v-2a5 5 0 0 1 5-5h2a5 5 0 0 1 5 5v2" strokeLinejoin="round" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" strokeLinecap="round" />
+        <path d="M21 21v-2a4 4 0 0 0-3-3.85" strokeLinecap="round" />
+    </svg>
+);
+
+const IconLeave = () => (
+    <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
+        <rect x="3" y="4" width="18" height="18" rx="2" />
+        <path d="M16 2v4M8 2v4M3 10h18" strokeLinecap="round" />
+        <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01" strokeLinecap="round" strokeWidth={2.5} />
+    </svg>
+);
+
+const IconTitleDays = () => (
+    <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 6v6l4 2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+);
+
+const IconMetrics = () => (
+    <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+);
+
 const navigation: NavSection[] = [
     {
         title: 'Dashboard',
@@ -24,7 +70,7 @@ const navigation: NavSection[] = [
             {
                 name: 'Sprint Overview',
                 href: '/',
-                icon: '📊',
+                icon: <IconSprintOverview />,
                 description: 'View sprint progress and metrics',
             },
         ],
@@ -35,7 +81,7 @@ const navigation: NavSection[] = [
             {
                 name: 'Capacity Planning',
                 href: '/planning/capacity',
-                icon: '📊',
+                icon: <IconCapacity />,
                 description: 'Forecast sprint capacity',
             },
         ],
@@ -46,19 +92,19 @@ const navigation: NavSection[] = [
             {
                 name: 'Team Members',
                 href: '/settings/team',
-                icon: '👥',
+                icon: <IconTeam />,
                 description: 'Manage team roster',
             },
             {
                 name: 'Sprint Leave',
                 href: '/settings/leave',
-                icon: '📅',
+                icon: <IconLeave />,
                 description: 'Plan leave per sprint',
             },
             {
                 name: 'Title Days',
                 href: '/settings/title-days',
-                icon: '⏱️',
+                icon: <IconTitleDays />,
                 description: 'Available days per title',
             },
         ],
@@ -69,7 +115,7 @@ const navigation: NavSection[] = [
             {
                 name: 'Metrics Dashboard',
                 href: '/metrics',
-                icon: '📈',
+                icon: <IconMetrics />,
                 description: 'Historical performance',
             },
         ],
@@ -111,8 +157,12 @@ export default function Sidebar({ children }: SidebarProps) {
                 <div className="h-16 flex items-center justify-between px-4 border-b border-border">
                     {!collapsed && (
                         <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center text-white font-bold">
-                                J
+                            <div className="w-8 h-8 bg-foreground/10 border border-border rounded-lg flex items-center justify-center">
+                                <svg className="w-4 h-4 text-foreground" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                    <rect x="3" y="12" width="3" height="8" rx="0.5" />
+                                    <rect x="10.5" y="7" width="3" height="13" rx="0.5" />
+                                    <rect x="18" y="3" width="3" height="17" rx="0.5" />
+                                </svg>
                             </div>
                             <div>
                                 <h1 className="text-sm font-bold text-foreground">Jira Sprint</h1>
@@ -167,12 +217,12 @@ export default function Sidebar({ children }: SidebarProps) {
                                             key={item.href}
                                             href={item.href}
                                             className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group relative ${isActive
-                                                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white'
+                                                ? 'bg-foreground text-background'
                                                 : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                                                 }`}
                                             title={collapsed ? item.name : ''}
                                         >
-                                            <span className="text-xl flex-shrink-0">{item.icon}</span>
+                                            <span className="flex-shrink-0">{item.icon}</span>
                                             {!collapsed && (
                                                 <div className="flex-1 min-w-0">
                                                     <div className="text-sm font-medium truncate">{item.name}</div>

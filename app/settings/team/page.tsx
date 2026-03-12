@@ -294,19 +294,19 @@ export default function TeamManagementPage() {
     const titleOptions = ['Tech Lead', 'EM', 'Sec Head', 'Associate', 'QA'];
 
     return (
-        <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-gray-900 via-blue-900/20 to-gray-900">
-            <header className="border-b border-blue-500/20 bg-gray-900/50 backdrop-blur-xl">
+        <div className="min-h-screen overflow-x-hidden">
+            <header className="border-b border-border bg-gray-900/50 backdrop-blur-xl">
                 <div className="px-3 sm:px-4 md:px-6 py-4 md:py-8">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                         <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl flex items-center justify-center">
+                            <div className="w-12 h-12 bg-foreground rounded-xl flex items-center justify-center">
                                 <span className="text-2xl">👥</span>
                             </div>
                             <div>
-                                <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 via-indigo-400 to-blue-400 bg-clip-text text-transparent">
+                                <h1 className="text-3xl font-bold text-foreground">
                                     Team Management
                                 </h1>
-                                <p className="text-gray-400 text-sm">Add, edit, and remove teams and members</p>
+                                <p className="text-muted-foreground text-sm">Add, edit, and remove teams and members</p>
                             </div>
                         </div>
                         <div className="flex flex-wrap gap-2">
@@ -325,7 +325,7 @@ export default function TeamManagementPage() {
                             </button>
                             <button
                                 onClick={() => setShowNewTeam(true)}
-                                className="px-4 py-2 text-sm bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg hover:from-blue-600 hover:to-indigo-600 transition-all"
+                                className="px-4 py-2 text-sm bg-foreground text-background rounded-lg hover:bg-foreground/90 transition-all"
                             >
                                 + New Team
                             </button>
@@ -442,7 +442,7 @@ export default function TeamManagementPage() {
                                         <button
                                             onClick={handleApplySync}
                                             disabled={applying}
-                                            className="px-5 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-lg hover:from-cyan-600 hover:to-blue-600 disabled:opacity-50 transition-all font-semibold"
+                                            className="px-5 py-2 bg-foreground text-background rounded-lg hover:bg-foreground/90 disabled:opacity-50 transition-all font-semibold"
                                         >
                                             {applying ? '⏳ Adding...' : `✓ Add ${syncResult.toAdd.length} Member${syncResult.toAdd.length > 1 ? 's' : ''}`}
                                         </button>
@@ -465,8 +465,8 @@ export default function TeamManagementPage() {
 
                 {/* New Team Form */}
                 {showNewTeam && (
-                    <div className="p-6 bg-gray-800/50 border border-blue-500/30 rounded-2xl space-y-4">
-                        <h3 className="text-lg font-semibold text-white">Create New Team</h3>
+                    <div className="p-6 bg-gray-800/50 border border-border rounded-2xl space-y-4">
+                        <h3 className="text-lg font-semibold text-foreground">Create New Team</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <input
                                 type="text"
@@ -484,7 +484,7 @@ export default function TeamManagementPage() {
                             />
                         </div>
                         <div className="flex gap-3">
-                            <button onClick={handleCreateTeam} className="px-5 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg hover:from-blue-600 hover:to-indigo-600 transition-all">
+                            <button onClick={handleCreateTeam} className="px-5 py-2 bg-foreground text-background rounded-lg hover:bg-foreground/90 transition-all">
                                 Create
                             </button>
                             <button onClick={() => setShowNewTeam(false)} className="px-5 py-2 text-gray-400 border border-gray-700 rounded-lg hover:text-white hover:border-gray-500 transition-all">
@@ -497,17 +497,17 @@ export default function TeamManagementPage() {
                 {/* Loading */}
                 {loading && (
                     <div className="flex items-center justify-center py-20">
-                        <div className="w-16 h-16 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
+                        <div className="w-16 h-16 border-4 border-muted border-t-foreground rounded-full animate-spin"></div>
                     </div>
                 )}
 
                 {/* Empty state */}
                 {!loading && teams.length === 0 && (
                     <div className="flex flex-col items-center justify-center py-20">
-                        <div className="w-24 h-24 bg-gradient-to-br from-blue-500/20 to-indigo-500/20 rounded-2xl flex items-center justify-center mb-6">
+                        <div className="w-24 h-24 bg-muted rounded-2xl flex items-center justify-center mb-6">
                             <span className="text-5xl">👥</span>
                         </div>
-                        <h3 className="text-xl font-semibold text-white mb-2">No Teams Yet</h3>
+                        <h3 className="text-xl font-semibold text-foreground mb-2">No Teams Yet</h3>
                         <p className="text-gray-400 mb-6">Click &quot;Seed from Config&quot; to import your existing team data, or create a new team.</p>
                     </div>
                 )}

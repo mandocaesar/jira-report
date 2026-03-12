@@ -81,18 +81,18 @@ export default function TitleDaysPage() {
         !== JSON.stringify(originalEntries.map(e => ({ t: e.title, d: e.availableDays })));
 
     return (
-        <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-gray-900 via-blue-900/20 to-gray-900">
-            <header className="border-b border-blue-500/20 bg-gray-900/50 backdrop-blur-xl">
+        <div className="min-h-screen overflow-x-hidden">
+            <header className="border-b border-border bg-gray-900/50 backdrop-blur-xl">
                 <div className="px-3 sm:px-4 md:px-6 py-4 md:py-8">
                     <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl flex items-center justify-center">
+                        <div className="w-12 h-12 bg-foreground rounded-xl flex items-center justify-center">
                             <span className="text-2xl">⏱️</span>
                         </div>
                         <div>
-                            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 via-indigo-400 to-blue-400 bg-clip-text text-transparent">
+                            <h1 className="text-3xl font-bold text-foreground">
                                 Title Available Days
                             </h1>
-                            <p className="text-gray-400 text-sm">Configure available sprint days per title level</p>
+                            <p className="text-muted-foreground text-sm">Configure available sprint days per title level</p>
                         </div>
                     </div>
                 </div>
@@ -124,7 +124,7 @@ export default function TitleDaysPage() {
                         {/* Entries */}
                         <div className="bg-gray-800/30 border border-gray-700 rounded-2xl overflow-hidden">
                             <div className="px-6 py-4 border-b border-gray-700/50 bg-gray-800/20">
-                                <h2 className="text-lg font-semibold text-white">Title Configuration</h2>
+                                <h2 className="text-lg font-semibold text-foreground">Title Configuration</h2>
                             </div>
 
                             <div className="divide-y divide-gray-700/30">
@@ -203,7 +203,7 @@ export default function TitleDaysPage() {
                             <button
                                 onClick={handleSave}
                                 disabled={saving || !hasChanges}
-                                className="px-8 py-4 bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center gap-2"
+                                className="px-8 py-4 bg-foreground text-background font-semibold rounded-xl hover:bg-foreground/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center gap-2"
                             >
                                 {saving ? (
                                     <><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> Saving...</>

@@ -1,7 +1,7 @@
 'use client';
 
 import { Board } from '@/types';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface BoardSelectorProps {
     onBoardChange: (boardId: number | null) => void;
@@ -12,9 +12,22 @@ export default function BoardSelector({ onBoardChange, selectedBoardId }: BoardS
     const [boards, setBoards] = useState<Board[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [isOpen, setIsOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         fetchBoards();
+    }, []);
+
+    // Close dropdown on outside click
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
     const fetchBoards = async () => {
@@ -29,11 +42,6 @@ export default function BoardSelector({ onBoardChange, selectedBoardId }: BoardS
 
             setBoards(data.data);
 
-            // Auto-select first board if none selected
-            if (data.data.length > 0 && !selectedBoardId) {
-                onBoardChange(data.data[0].id);
-            }
-
             setError(null);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to load boards');
@@ -42,10 +50,17 @@ export default function BoardSelector({ onBoardChange, selectedBoardId }: BoardS
         }
     };
 
+    const selectedBoard = boards.find(b => b.id === selectedBoardId);
+
+    const handleSelect = (boardId: number | null) => {
+        onBoardChange(boardId);
+        setIsOpen(false);
+    };
+
     if (loading) {
         return (
             <div className="animate-pulse">
-                <div className="h-12 bg-gradient-to-r from-blue-500/20 to-blue-500/20 rounded-xl"></div>
+                <div className="h-12 bg-muted rounded-xl"></div>
             </div>
         );
     }
@@ -64,32 +79,83 @@ export default function BoardSelector({ onBoardChange, selectedBoardId }: BoardS
     }
 
     return (
-        <div className="relative">
-            <select
-                value={selectedBoardId || ''}
-                onChange={(e) => onBoardChange(e.target.value ? parseInt(e.target.value) : null)}
-                className="w-full px-5 py-3 bg-gradient-to-br from-blue-800/50 to-blue-900/50 
-                   border border-blue-500/30 rounded-xl text-white
-                   hover:border-blue-500/50 transition-all duration-300
-                   focus:outline-none focus:ring-2 focus:ring-blue-500/50
-                   backdrop-blur-sm cursor-pointer
-                   appearance-none font-medium"
+        <div className="relative" ref={dropdownRef}>
+            {/* Trigger Button */}
+            <button
+                type="button"
+                onClick={() => setIsOpen(!isOpen)}
+                className="w-full px-5 py-3 bg-muted
+                   border border-border rounded-xl text-foreground text-left
+                   hover:border-blue-500/60 transition-all duration-300
+                   focus:outline-none focus:ring-2 focus:ring-blue-500/40
+                   cursor-pointer font-medium
+                   flex items-center justify-between"
             >
-                <option value="" className="bg-gray-900">
-                    Select a board...
-                </option>
-                {boards.map((board) => (
-                    <option key={board.id} value={board.id} className="bg-gray-900">
-                        {board.name}
-                        {board.location?.projectKey && ` (${board.location.projectKey})`}
-                    </option>
-                ))}
-            </select>
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <span className={selectedBoard ? 'text-foreground' : 'text-muted-foreground'}>
+                    {selectedBoard
+                        ? `${selectedBoard.name}${selectedBoard.location?.projectKey ? ` (${selectedBoard.location.projectKey})` : ''}`
+                        : '— Select a board —'}
+                </span>
+                <svg
+                    className={`w-5 h-5 text-muted-foreground transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                >
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
-            </div>
+            </button>
+
+            {/* Dropdown Panel */}
+            {isOpen && (
+                <div className="absolute z-50 w-full mt-2 bg-background border border-border
+                    rounded-xl backdrop-blur-xl shadow-xl
+                    max-h-80 overflow-y-auto
+                    animate-in fade-in slide-in-from-top-2 duration-200">
+
+                    {/* Group Header */}
+                    <div className="px-4 pt-3 pb-1.5 flex items-center gap-2 sticky top-0 bg-background backdrop-blur-xl">
+                        <span className="flex-shrink-0 text-muted-foreground">
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7" />
+                            </svg>
+                        </span>
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                            Boards
+                        </span>
+                        <span className="text-[10px] text-muted-foreground ml-auto">
+                            {boards.length}
+                        </span>
+                    </div>
+
+                    {/* Board Items */}
+                    {boards.map((board) => {
+                        const isSelected = board.id === selectedBoardId;
+                        return (
+                            <button
+                                key={board.id}
+                                type="button"
+                                onClick={() => handleSelect(board.id)}
+                                className={`w-full px-4 py-2.5 flex items-center justify-between text-left
+                                    transition-all duration-150 cursor-pointer
+                                    ${isSelected
+                                        ? 'bg-blue-500/10 border-l-2 border-blue-500'
+                                        : 'border-l-2 border-transparent hover:bg-muted'
+                                    }`}
+                            >
+                                <span className={`text-sm font-medium ${isSelected ? 'text-blue-400' : 'text-foreground'}`}>
+                                    {board.name}
+                                </span>
+                                {board.location?.projectKey && (
+                                    <span className="text-xs text-muted-foreground">
+                                        {board.location.projectKey}
+                                    </span>
+                                )}
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
         </div>
     );
 }

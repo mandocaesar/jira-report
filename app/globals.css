@@ -29,215 +29,234 @@
   --color-app-gray-500: hsl(var(--app-gray-500));
   --color-app-gray-400: hsl(var(--app-gray-400));
 
-  /* Theme-Aware Accent Colors for Text Legsibility */
+  /* Theme-Aware Accent Colors */
   --color-blue-200: var(--t-blue-200);
   --color-blue-300: var(--t-blue-300);
   --color-blue-400: var(--t-blue-400);
+  --color-blue-500: var(--t-blue-500);
 
   --color-green-200: var(--t-green-200);
   --color-green-300: var(--t-green-300);
   --color-green-400: var(--t-green-400);
+  --color-green-500: var(--t-green-500);
 
   --color-red-200: var(--t-red-200);
   --color-red-300: var(--t-red-300);
   --color-red-400: var(--t-red-400);
+  --color-red-500: var(--t-red-500);
 
   --color-indigo-300: var(--t-indigo-300);
+  --color-indigo-400: var(--t-indigo-400);
+  --color-indigo-500: var(--t-indigo-500);
+
+  --color-emerald-300: var(--t-emerald-300);
   --color-emerald-400: var(--t-emerald-400);
+  --color-emerald-500: var(--t-emerald-500);
+
   --color-cyan-400: var(--t-cyan-400);
+  --color-cyan-500: var(--t-cyan-500);
+
+  --color-amber-300: var(--t-amber-300);
   --color-amber-400: var(--t-amber-400);
+  --color-amber-500: var(--t-amber-500);
+
+  --color-orange-400: var(--t-orange-400);
+  --color-orange-500: var(--t-orange-500);
+
+  --color-rose-500: var(--t-rose-500);
+  --color-yellow-500: var(--t-yellow-500);
+  --color-purple-500: var(--t-purple-500);
 }
 
 :root {
-  /* LIGHT MODE (Pastel Color Scheme)
-     We invert the gray scale, so bg-gray-900 becomes white/light, text-white becomes black/dark */
-  --background: 270 100% 98%;
-  /* #faf5ff */
-  --foreground: 270 50% 20%;
-  --muted: 270 80% 95%;
-  --muted-foreground: 270 30% 50%;
-  --border: 270 60% 90%;
+  /* LIGHT MODE — Shadcn/ui Zinc */
+  --background: 0 0% 100%;
+  --foreground: 240 10% 3.9%;
+  --muted: 240 4.8% 95.9%;
+  --muted-foreground: 240 3.8% 46.1%;
+  --border: 240 5.9% 90%;
 
-  /* Theme color overrides for Light Mode */
-  --t-white: #0f172a;
-  /* Invert white text to a deep slate */
+  /* Invert: dark UI text-white → dark text in light mode */
+  --t-white: #18181b;      /* zinc-900 */
   --t-black: #ffffff;
-  /* Invert black to white */
 
-  --t-gray-950: #f8fafc;
-  /* slate-50 Base page bg */
-  --t-gray-900: #ffffff;
-  /* Cards and elevated elements */
-  --t-gray-800: #f1f5f9;
-  /* slate-100 */
-  --t-gray-700: #e2e8f0;
-  /* slate-200 border */
-  --t-gray-600: #cbd5e1;
-  /* slate-300 */
-  --t-gray-500: #94a3b8;
-  /* slate-400 */
-  --t-gray-400: #334155;
-  /* slate-700 text */
-  --t-gray-300: #1e293b;
-  /* slate-800 */
-  --t-gray-200: #0f172a;
-  /* slate-900 */
-  --t-gray-100: #020617;
-  /* slate-950 */
-  --t-gray-50: #000000;
+  /* Zinc scale — light mode needs inverted mapping */
+  --t-gray-950: #fafafa;   /* zinc-50 — page bg */
+  --t-gray-900: #ffffff;   /* white — card surfaces */
+  --t-gray-800: #fafafa;   /* zinc-50 — secondary surfaces */
+  --t-gray-700: #e4e4e7;   /* zinc-200 — inner borders */
+  --t-gray-600: #d4d4d8;   /* zinc-300 — dividers */
+  --t-gray-500: #71717a;   /* zinc-500 — muted text */
+  --t-gray-400: #3f3f46;   /* zinc-700 — body text */
+  --t-gray-300: #27272a;   /* zinc-800 — strong text */
+  --t-gray-200: #18181b;   /* zinc-900 — headings */
+  --t-gray-100: #09090b;   /* zinc-950 */
+  --t-gray-50:  #000000;
 
-  /* Generic Gray Overrides for Light Mode (inverts classic dark gray to light gray/white) */
+  /* Generic surface overrides */
   --app-gray-900: 0 0% 100%;
-  /* Pure white */
-  --app-gray-800: 210 40% 96%;
-  /* Very light gray */
-  --app-gray-500: 215.4 16.3% 46.9%;
-  --app-gray-400: 215 20.2% 65.1%;
+  --app-gray-800: 240 4.8% 95.9%;
+  --app-gray-500: 240 3.8% 46.1%;
+  --app-gray-400: 240 5.3% 26.1%;
 
-  /* Accent Colors Inverted for Light Mode (pastel yet legible) */
-  --t-blue-200: #60a5fa;
-  /* blue-400 */
-  --t-blue-300: #3b82f6;
-  /* blue-500 */
-  --t-blue-400: #2563eb;
-  /* blue-600 */
+  /* Accent colors — readable on white/light surfaces */
+  --t-blue-200: #3b82f6;   /* blue-500 */
+  --t-blue-300: #2563eb;   /* blue-600 */
+  --t-blue-400: #1d4ed8;   /* blue-700 */
+  --t-blue-500: #2563eb;   /* blue-600 */
 
-  --t-green-200: #4ade80;
-  /* green-400 */
-  --t-green-300: #22c55e;
-  /* green-500 */
-  --t-green-400: #16a34a;
-  /* green-600 */
+  --t-green-200: #22c55e;  /* green-500 */
+  --t-green-300: #16a34a;  /* green-600 */
+  --t-green-400: #15803d;  /* green-700 */
+  --t-green-500: #16a34a;  /* green-600 */
 
-  --t-red-200: #f87171;
-  /* red-400 */
-  --t-red-300: #ef4444;
-  /* red-500 */
-  --t-red-400: #dc2626;
-  /* red-600 */
+  --t-red-200: #ef4444;    /* red-500 */
+  --t-red-300: #dc2626;    /* red-600 */
+  --t-red-400: #b91c1c;    /* red-700 */
+  --t-red-500: #dc2626;    /* red-600 */
 
-  --t-indigo-300: #4f46e5;
-  /* indigo-600 */
-  --t-emerald-400: #059669;
-  /* emerald-600 */
-  --t-cyan-400: #0891b2;
-  /* cyan-600 */
-  --t-amber-400: #d97706;
-  /* amber-600 */
+  --t-indigo-300: #4338ca; /* indigo-700 */
+  --t-indigo-400: #4f46e5; /* indigo-600 */
+  --t-indigo-500: #4338ca; /* indigo-700 */
 
-  /* Epic Breakdown Colors - Light Mode */
-  --card-bg: rgba(255, 255, 255, 0.9);
-  --border-color: rgba(226, 232, 240, 0.8);
-  /* slate-200 */
-  --hover-bg: rgba(248, 250, 252, 0.8);
-  /* slate-50 */
-  --row-bg: rgba(241, 245, 249, 0.5);
-  /* slate-100 */
-  --badge-bg: rgba(226, 232, 240, 0.8);
-  --text-primary: #0f172a;
-  /* slate-900 */
-  --text-secondary: #334155;
-  /* slate-700 */
-  --accent-color: #3b82f6;
-  /* blue-500 */
-  --link-color: #2563eb;
-  /* blue-600 */
+  --t-emerald-300: #059669; /* emerald-600 */
+  --t-emerald-400: #047857; /* emerald-700 */
+  --t-emerald-500: #059669; /* emerald-600 */
+
+  --t-cyan-400: #0e7490;   /* cyan-700 */
+  --t-cyan-500: #0891b2;   /* cyan-600 */
+
+  --t-amber-300: #d97706;  /* amber-600 */
+  --t-amber-400: #b45309;  /* amber-700 */
+  --t-amber-500: #d97706;  /* amber-600 */
+
+  --t-orange-400: #ea580c; /* orange-600 */
+  --t-orange-500: #c2410c; /* orange-700 */
+
+  --t-rose-500: #e11d48;   /* rose-600 */
+  --t-yellow-500: #ca8a04; /* yellow-600 */
+  --t-purple-500: #7c3aed; /* purple-600 */
+
+  /* Epic Breakdown */
+  --card-bg: rgba(255, 255, 255, 0.97);
+  --border-color: rgba(228, 228, 231, 0.9);
+  --hover-bg: rgba(244, 244, 245, 0.95);
+  --row-bg: rgba(250, 250, 250, 0.8);
+  --badge-bg: rgba(228, 228, 231, 0.95);
+  --text-primary: #18181b;
+  --text-secondary: #52525b;
+  --accent-color: #2563eb;
+  --link-color: #1d4ed8;
 
   /* Issue Type Colors */
-  --color-story: #10b981;
-  /* emerald-500 */
-  --color-incident: #f43f5e;
-  /* rose-500 */
-  --color-tech: #3b82f6;
-  /* blue-500 */
-  --color-other: #8b5cf6;
-  /* violet-500 */
+  --color-story: #16a34a;
+  --color-incident: #dc2626;
+  --color-tech: #2563eb;
+  --color-other: #7c3aed;
 
-  /* Theme-Aware UI Components */
-  --scrollbar-track: rgba(148, 163, 184, 0.2);
-  /* slate-400 */
-  --scrollbar-thumb-from: rgb(96, 165, 250);
-  --scrollbar-thumb-to: rgb(99, 102, 241);
-  --scrollbar-thumb-hover-from: rgb(59, 130, 246);
-  --scrollbar-thumb-hover-to: rgb(79, 70, 229);
-  --selection-bg: rgba(147, 197, 253, 0.4);
-  --selection-text: #0f172a;
+  /* Scrollbar / Selection */
+  --scrollbar-track: rgba(161, 161, 170, 0.15);
+  --scrollbar-thumb-from: #a1a1aa;
+  --scrollbar-thumb-to: #71717a;
+  --scrollbar-thumb-hover-from: #71717a;
+  --scrollbar-thumb-hover-to: #52525b;
+  --selection-bg: rgba(37, 99, 235, 0.15);
+  --selection-text: #18181b;
 }
 
 .dark {
-  /* DARK MODE */
-  --background: 220 13% 9%;
+  /* DARK MODE — Shadcn/ui Zinc */
+  --background: 240 10% 3.9%;
   --foreground: 0 0% 98%;
-  --muted: 217.2 32.6% 17.5%;
-  --muted-foreground: 215 20.2% 65.1%;
-  --border: 217.2 32.6% 17.5%;
+  --muted: 240 3.7% 15.9%;
+  --muted-foreground: 240 5% 64.9%;
+  --border: 240 3.7% 15.9%;
 
-  /* Theme color overrides for Dark Mode (Restores standard Tailwind hexes) */
   --t-white: #ffffff;
   --t-black: #000000;
 
-  --t-gray-50: #f9fafb;
-  --t-gray-100: #f3f4f6;
-  --t-gray-200: #e5e7eb;
-  --t-gray-300: #d1d5db;
-  --t-gray-400: #9ca3af;
-  --t-gray-500: #6b7280;
-  --t-gray-600: #4b5563;
-  --t-gray-700: #374151;
-  --t-gray-800: #1f2937;
-  --t-gray-900: #111827;
-  --t-gray-950: #030712;
+  /* Zinc scale — standard dark values */
+  --t-gray-50:  #fafafa;   /* zinc-50 */
+  --t-gray-100: #f4f4f5;   /* zinc-100 */
+  --t-gray-200: #e4e4e7;   /* zinc-200 */
+  --t-gray-300: #d4d4d8;   /* zinc-300 */
+  --t-gray-400: #a1a1aa;   /* zinc-400 */
+  --t-gray-500: #71717a;   /* zinc-500 */
+  --t-gray-600: #52525b;   /* zinc-600 */
+  --t-gray-700: #3f3f46;   /* zinc-700 */
+  --t-gray-800: #27272a;   /* zinc-800 */
+  --t-gray-900: #18181b;   /* zinc-900 */
+  --t-gray-950: #09090b;   /* zinc-950 */
 
-  /* Generic Gray Overrides for Dark Mode (maintains original dark UI look) */
-  --app-gray-900: 220 13% 9%;
-  /* Same as background */
-  --app-gray-800: 217 33% 17%;
-  --app-gray-500: 215 20% 65%;
-  --app-gray-400: 215 16% 47%;
+  /* Generic surface overrides */
+  --app-gray-900: 240 10% 3.9%;
+  --app-gray-800: 240 3.7% 15.9%;
+  --app-gray-500: 240 5% 64.9%;
+  --app-gray-400: 240 5.3% 26.1%;
 
-  /* Accent Colors for Dark Mode (Original Tailwind hexes) */
+  /* Accent colors — bright on dark */
   --t-blue-200: #bfdbfe;
   --t-blue-300: #93c5fd;
   --t-blue-400: #60a5fa;
+  --t-blue-500: #3b82f6;
 
   --t-green-200: #bbf7d0;
   --t-green-300: #86efac;
   --t-green-400: #4ade80;
+  --t-green-500: #22c55e;
 
   --t-red-200: #fecaca;
   --t-red-300: #fca5a5;
   --t-red-400: #f87171;
+  --t-red-500: #ef4444;
 
   --t-indigo-300: #a5b4fc;
-  --t-emerald-400: #34d399;
-  --t-cyan-400: #22d3ee;
-  --t-amber-400: #fbbf24;
+  --t-indigo-400: #818cf8;
+  --t-indigo-500: #6366f1;
 
-  /* Epic Breakdown Colors - Dark Mode */
-  --card-bg: rgba(30, 30, 40, 0.8);
-  --border-color: rgba(100, 100, 150, 0.2);
-  --hover-bg: rgba(60, 60, 80, 0.3);
-  --row-bg: rgba(40, 40, 55, 0.5);
-  --badge-bg: rgba(80, 80, 100, 0.5);
-  --text-primary: #f0f0f5;
-  --text-secondary: #8888a0;
-  --accent-color: #8b5cf6;
-  --link-color: #a78bfa;
+  --t-emerald-300: #6ee7b7;
+  --t-emerald-400: #34d399;
+  --t-emerald-500: #10b981;
+
+  --t-cyan-400: #22d3ee;
+  --t-cyan-500: #06b6d4;
+
+  --t-amber-300: #fcd34d;
+  --t-amber-400: #fbbf24;
+  --t-amber-500: #f59e0b;
+
+  --t-orange-400: #fb923c;
+  --t-orange-500: #f97316;
+
+  --t-rose-500: #f43f5e;
+  --t-yellow-500: #eab308;
+  --t-purple-500: #a855f7;
+
+  /* Epic Breakdown Colors */
+  --card-bg: rgba(39, 39, 42, 0.8);
+  --border-color: rgba(63, 63, 70, 0.6);
+  --hover-bg: rgba(63, 63, 70, 0.3);
+  --row-bg: rgba(24, 24, 27, 0.7);
+  --badge-bg: rgba(63, 63, 70, 0.5);
+  --text-primary: #fafafa;
+  --text-secondary: #a1a1aa;
+  --accent-color: #93c5fd;
+  --link-color: #bfdbfe;
 
   /* Issue Type Colors */
-  --color-story: #22c55e;
-  --color-incident: #ef4444;
-  --color-tech: #3b82f6;
-  --color-other: #9ca3af;
+  --color-story: #4ade80;
+  --color-incident: #f87171;
+  --color-tech: #60a5fa;
+  --color-other: #c4b5fd;
 
-  /* Theme-Aware UI Components */
-  --scrollbar-track: rgba(17, 24, 39, 0.5);
-  --scrollbar-thumb-from: rgb(59, 130, 246);
-  --scrollbar-thumb-to: rgb(99, 102, 241);
-  --scrollbar-thumb-hover-from: rgb(37, 99, 235);
-  --scrollbar-thumb-hover-to: rgb(79, 70, 229);
-  --selection-bg: rgba(59, 130, 246, 0.3);
-  --selection-text: white;
+  /* Scrollbar / Selection */
+  --scrollbar-track: rgba(63, 63, 70, 0.3);
+  --scrollbar-thumb-from: #52525b;
+  --scrollbar-thumb-to: #3f3f46;
+  --scrollbar-thumb-hover-from: #71717a;
+  --scrollbar-thumb-hover-to: #52525b;
+  --selection-bg: rgba(96, 165, 250, 0.25);
+  --selection-text: #fafafa;
 }
 
 * {

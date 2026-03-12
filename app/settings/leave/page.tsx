@@ -215,22 +215,22 @@ export default function LeaveManagementPage() {
     const hasChanges = JSON.stringify(leaveData) !== JSON.stringify(originalLeaveData);
 
     return (
-        <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-gray-900 via-blue-900/20 to-gray-900">
+        <div className="min-h-screen overflow-x-hidden">
             {/* Header */}
-            <header className="border-b border-blue-500/20 bg-gray-900/50 backdrop-blur-xl">
+            <header className="border-b border-border bg-gray-900/50 backdrop-blur-xl">
                 <div className="px-3 sm:px-4 md:px-6 py-4 md:py-8">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl flex items-center justify-center">
-                                <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div className="w-12 h-12 bg-foreground rounded-xl flex items-center justify-center">
+                                <svg className="w-7 h-7 text-background" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
                             </div>
                             <div>
-                                <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 via-indigo-400 to-blue-400 bg-clip-text text-transparent">
+                                <h1 className="text-3xl font-bold text-foreground">
                                     Sprint Leave Settings
                                 </h1>
-                                <p className="text-gray-400 text-sm">Manage planned leave per sprint</p>
+                                <p className="text-muted-foreground text-sm">Manage planned leave per sprint</p>
                             </div>
                         </div>
                         <a
@@ -263,7 +263,7 @@ export default function LeaveManagementPage() {
                 {/* Loading State */}
                 {(loading || loadingMembers) && (
                     <div className="flex items-center justify-center py-20">
-                        <div className="w-16 h-16 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
+                        <div className="w-16 h-16 border-4 border-muted border-t-foreground rounded-full animate-spin"></div>
                     </div>
                 )}
 
@@ -349,8 +349,8 @@ export default function LeaveManagementPage() {
                         )}
 
                         {/* Summary */}
-                        <div className="bg-gradient-to-br from-blue-900/30 to-indigo-900/30 border border-blue-500/30 rounded-2xl p-6">
-                            <h2 className="text-lg font-semibold text-blue-300 mb-4">📊 Sprint Summary</h2>
+                        <div className="bg-muted/50 border border-border rounded-2xl p-6">
+                            <h2 className="text-lg font-semibold text-foreground mb-4">📊 Sprint Summary</h2>
                             <div className="grid grid-cols-4 gap-4 text-center">
                                 <div>
                                     <div className="text-2xl font-bold text-white">{totalLeave} days</div>
@@ -376,7 +376,7 @@ export default function LeaveManagementPage() {
                             <button
                                 onClick={handleSave}
                                 disabled={saving || !hasChanges}
-                                className="px-8 py-4 bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center gap-2"
+                                className="px-8 py-4 bg-foreground text-background font-semibold rounded-xl hover:bg-foreground/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center gap-2"
                             >
                                 {saving ? (
                                     <>
@@ -399,12 +399,12 @@ export default function LeaveManagementPage() {
                 {/* Empty State */}
                 {!selectedSprintId && !loading && (
                     <div className="flex flex-col items-center justify-center py-20">
-                        <div className="w-24 h-24 bg-gradient-to-br from-blue-500/20 to-indigo-500/20 rounded-2xl flex items-center justify-center mb-6">
-                            <svg className="w-12 h-12 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div className="w-24 h-24 bg-muted rounded-2xl flex items-center justify-center mb-6">
+                            <svg className="w-12 h-12 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                             </svg>
                         </div>
-                        <h3 className="text-xl font-semibold text-white mb-2">Select Board and Sprint</h3>
+                        <h3 className="text-xl font-semibold text-foreground mb-2">Select Board and Sprint</h3>
                         <p className="text-gray-400 text-center max-w-md">
                             Choose a board and sprint from the dropdowns above to manage leave days
                         </p>

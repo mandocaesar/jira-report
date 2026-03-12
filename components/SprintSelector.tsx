@@ -12,7 +12,7 @@ interface SprintSelectorProps {
 
 interface SprintGroup {
     label: string;
-    icon: string;
+    icon: React.ReactNode;
     color: string;
     bgColor: string;
     borderColor: string;
@@ -97,7 +97,7 @@ export default function SprintSelector({ onSprintChange, selectedSprintId, board
     if (activeSprints.length > 0) {
         groups.push({
             label: 'Active Sprint',
-            icon: '🟢',
+            icon: <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="6" /></svg>,
             color: 'text-green-400',
             bgColor: 'bg-green-500/10',
             borderColor: 'border-green-500/30',
@@ -107,7 +107,7 @@ export default function SprintSelector({ onSprintChange, selectedSprintId, board
     if (futureSprints.length > 0) {
         groups.push({
             label: 'Future Sprints',
-            icon: '📅',
+            icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7" /><path strokeLinecap="round" strokeLinejoin="round" d="M5 5l7 7-7 7" /></svg>,
             color: 'text-blue-400',
             bgColor: 'bg-blue-500/10',
             borderColor: 'border-blue-500/30',
@@ -117,8 +117,8 @@ export default function SprintSelector({ onSprintChange, selectedSprintId, board
     if (pastSprints.length > 0) {
         groups.push({
             label: 'Past Sprints',
-            icon: '📁',
-            color: 'text-gray-400',
+            icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8" /></svg>,
+            color: 'text-muted-foreground',
             bgColor: 'bg-gray-500/10',
             borderColor: 'border-gray-500/30',
             sprints: pastSprints,
@@ -151,23 +151,27 @@ export default function SprintSelector({ onSprintChange, selectedSprintId, board
             {/* Trigger Button */}
             <button
                 type="button"
-                onClick={() => setIsOpen(!isOpen)}
-                className="w-full px-5 py-3 bg-gradient-to-br from-gray-800/50 to-gray-900/50 
-                   border border-blue-500/30 rounded-xl text-white text-left
-                   hover:border-blue-500/50 transition-all duration-300
-                   focus:outline-none focus:ring-2 focus:ring-blue-500/50
-                   backdrop-blur-sm cursor-pointer font-medium
-                   flex items-center justify-between"
+                onClick={() => !boardId ? undefined : setIsOpen(!isOpen)}
+                disabled={!boardId}
+                className={`w-full px-5 py-3 bg-muted
+                   border border-border rounded-xl text-foreground text-left
+                   transition-all duration-300
+                   focus:outline-none focus:ring-2 focus:ring-blue-500/40
+                   font-medium
+                   flex items-center justify-between
+                   ${boardId ? 'hover:border-blue-500/60 cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
             >
-                <span className={selectedSprintId === null && allowAllSprints ? 'text-white font-bold' : selectedSprint ? 'text-white' : 'text-gray-400'}>
-                    {selectedSprintId === null
-                        ? (allowAllSprints ? '🌍 All Sprints (YTD)' : 'Select a sprint...')
-                        : selectedSprint
-                            ? `${selectedSprint.name} — ${formatDateRange(selectedSprint)}`
-                            : 'Select a sprint...'}
+                <span className={selectedSprintId === null && allowAllSprints ? 'text-foreground font-bold' : selectedSprint ? 'text-foreground' : 'text-muted-foreground'}>
+                    {!boardId
+                        ? '— Select a board first —'
+                        : selectedSprintId === null
+                            ? (allowAllSprints ? '🌍 All Sprints (YTD)' : '— Select a sprint —')
+                            : selectedSprint
+                                ? `${selectedSprint.name} — ${formatDateRange(selectedSprint)}`
+                                : '— Select a sprint —'}
                 </span>
                 <svg
-                    className={`w-5 h-5 text-blue-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+                    className={`w-5 h-5 text-muted-foreground transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -178,12 +182,12 @@ export default function SprintSelector({ onSprintChange, selectedSprintId, board
 
             {/* Dropdown Panel */}
             {isOpen && (
-                <div className="absolute z-50 w-full mt-2 bg-gray-900/95 border border-blue-500/30 
-                    rounded-xl backdrop-blur-xl shadow-2xl shadow-blue-500/10 
+                <div className="absolute z-50 w-full mt-2 bg-background border border-border
+                    rounded-xl backdrop-blur-xl shadow-xl
                     max-h-80 overflow-y-auto
                     animate-in fade-in slide-in-from-top-2 duration-200">
                     {groups.length === 0 ? (
-                        <div className="px-5 py-4 text-gray-500 text-sm text-center">
+                        <div className="px-5 py-4 text-muted-foreground text-sm text-center">
                             No sprints available
                         </div>
                     ) : (
@@ -197,11 +201,11 @@ export default function SprintSelector({ onSprintChange, selectedSprintId, board
                                         className={`w-full px-4 py-2.5 flex items-center justify-between text-left
                                             transition-all duration-150 cursor-pointer
                                             ${selectedSprintId === null
-                                                ? 'bg-blue-500/15 border-l-2 border-blue-500'
-                                                : 'border-l-2 border-transparent hover:bg-gray-800/60'
+                                                ? 'bg-blue-500/10 border-l-2 border-blue-500'
+                                                : 'border-l-2 border-transparent hover:bg-muted'
                                             }`}
                                     >
-                                        <span className={`text-sm font-medium ${selectedSprintId === null ? 'text-blue-300' : 'text-white'}`}>
+                                        <span className={`text-sm font-medium ${selectedSprintId === null ? 'text-blue-400' : 'text-foreground'}`}>
                                             🌍 All Sprints (YTD)
                                         </span>
                                     </button>
@@ -212,16 +216,16 @@ export default function SprintSelector({ onSprintChange, selectedSprintId, board
                                 <div key={group.label}>
                                     {/* Group separator */}
                                     {groupIndex > 0 && (
-                                        <div className="mx-3 border-t border-gray-700/50"></div>
+                                        <div className="mx-3 border-t border-border"></div>
                                     )}
 
                                     {/* Group Header */}
-                                    <div className="px-4 pt-3 pb-1.5 flex items-center gap-2 sticky top-0 bg-gray-900/95 backdrop-blur-xl">
-                                        <span className="text-sm">{group.icon}</span>
+                                    <div className="px-4 pt-3 pb-1.5 flex items-center gap-2 sticky top-0 bg-background backdrop-blur-xl">
+                                        <span className={`flex-shrink-0 ${group.color}`}>{group.icon}</span>
                                         <span className={`text-[11px] font-bold uppercase tracking-wider ${group.color}`}>
                                             {group.label}
                                         </span>
-                                        <span className="text-[10px] text-gray-600 ml-auto">
+                                        <span className="text-[10px] text-muted-foreground ml-auto">
                                             {group.sprints.length}
                                         </span>
                                     </div>
@@ -237,14 +241,14 @@ export default function SprintSelector({ onSprintChange, selectedSprintId, board
                                                 className={`w-full px-4 py-2.5 flex items-center justify-between text-left
                                                 transition-all duration-150 cursor-pointer
                                                 ${isSelected
-                                                        ? 'bg-blue-500/15 border-l-2 border-blue-500'
-                                                        : 'border-l-2 border-transparent hover:bg-gray-800/60'
+                                                        ? 'bg-blue-500/10 border-l-2 border-blue-500'
+                                                        : 'border-l-2 border-transparent hover:bg-muted'
                                                     }`}
                                             >
-                                                <span className={`text-sm font-medium ${isSelected ? 'text-blue-300' : 'text-white'}`}>
+                                                <span className={`text-sm font-medium ${isSelected ? 'text-blue-400' : 'text-foreground'}`}>
                                                     {sprint.name}
                                                 </span>
-                                                <span className="text-xs text-gray-500 ml-4 whitespace-nowrap">
+                                                <span className="text-xs text-muted-foreground ml-4 whitespace-nowrap">
                                                     {formatDateRange(sprint)}
                                                 </span>
                                             </button>

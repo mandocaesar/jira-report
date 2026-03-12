@@ -179,12 +179,12 @@ export default function SprintSummaryComponent({ summary, reportData, onAiSummar
     const hasScopeChanges = Object.keys(scopeChangesByType).length > 0;
 
     return (
-        <div className="bg-gradient-to-br from-blue-900/30 to-indigo-900/30">
+        <div className="bg-muted/50">
             {/* Row 1: Key Metrics + Sprint Timeline */}
             <div className="grid grid-cols-2 md:grid-cols-6 gap-2 p-2">
                 {/* Total Story Points */}
                 <div className="text-center py-2 px-2 bg-gradient-to-br from-blue-500/10 to-cyan-500/10 rounded-lg border border-blue-500/20 cursor-help" title="Sum of all sub-task and sub-chore story points assigned in this sprint. Only sub-tasks/sub-chores are counted, not parent stories.">
-                    <div className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent leading-tight pb-1">
+                    <div className="text-4xl font-bold text-foreground leading-tight pb-1">
                         {totalStoryPoints}
                     </div>
                     <div className="text-xs text-gray-400 mt-0.5">Story Points</div>
@@ -194,7 +194,7 @@ export default function SprintSummaryComponent({ summary, reportData, onAiSummar
                 <div className="col-span-2 md:col-span-3 py-2 px-3 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 rounded-lg border border-blue-500/20" title="Working days = weekdays in the sprint period, excluding national holidays. Progress bar shows calendar position through the sprint.">
                     <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                         <div className="flex items-center gap-2">
-                            <span className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent leading-tight">
+                            <span className="text-3xl font-bold text-foreground leading-tight">
                                 {totalWorkingDays}
                             </span>
                             <span className="text-xs text-gray-400">working days</span>
@@ -221,7 +221,7 @@ export default function SprintSummaryComponent({ summary, reportData, onAiSummar
                     {/* Progress bar */}
                     <div className="relative h-2 bg-gray-700/50 rounded-full overflow-hidden mb-1.5">
                         <div
-                            className="absolute inset-y-0 left-0 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-500"
+                            className="absolute inset-y-0 left-0 bg-foreground rounded-full transition-all duration-500"
                             style={{ width: `${progressPercent}%` }}
                         />
                         {/* Today marker */}
@@ -263,7 +263,7 @@ export default function SprintSummaryComponent({ summary, reportData, onAiSummar
 
                 {/* Total Mandays */}
                 <div className="text-center py-2 px-2 bg-gradient-to-br from-green-500/10 to-emerald-500/10 rounded-lg border border-green-500/20 cursor-help flex flex-col justify-center" title="Sum of available days for all roster members, based on their title's configured days minus any manual leave. Mandays = Σ (title available days − leave days) per member.">
-                    <div className="text-3xl font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent leading-tight pb-1">
+                    <div className="text-3xl font-bold text-green-400 leading-tight pb-1">
                         {totalMandays}
                     </div>
                     <div className="flex flex-col items-center justify-center">
@@ -349,7 +349,7 @@ export default function SprintSummaryComponent({ summary, reportData, onAiSummar
                             <h3 className="text-[11px] font-semibold text-orange-400/80 uppercase tracking-wider flex items-center gap-1.5 mb-2">
                                 🔄 Scope Changes
                             </h3>
-                            <div className="text-4xl font-bold bg-gradient-to-r from-orange-400 to-amber-400 bg-clip-text text-transparent leading-tight pb-1">
+                            <div className="text-4xl font-bold text-orange-400 leading-tight pb-1">
                                 {scopeChanges.length}
                             </div>
                             <div className="text-[10px] text-gray-400 uppercase tracking-widest mt-0.5">Total Events</div>
@@ -497,7 +497,7 @@ export default function SprintSummaryComponent({ summary, reportData, onAiSummar
                                         </span>
                                         <div className="w-24 md:w-32 h-1.5 bg-gray-700/50 rounded-full overflow-hidden">
                                             <div
-                                                className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-700"
+                                                className="h-full bg-foreground rounded-full transition-all duration-700"
                                                 style={{ width: `${epic.completionPercent}%` }}
                                             />
                                         </div>
@@ -517,7 +517,7 @@ export default function SprintSummaryComponent({ summary, reportData, onAiSummar
                 {!aiSummary && !isGeneratingAI && (
                     <button
                         onClick={generateAiSummary}
-                        className="w-full py-1.5 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 hover:from-blue-500/20 hover:to-indigo-500/20 border border-blue-500/20 rounded-lg flex items-center justify-center gap-2 text-blue-300 text-xs font-semibold transition-all shadow-sm"
+                        className="w-full py-1.5 bg-muted hover:bg-muted/80 border border-border rounded-lg flex items-center justify-center gap-2 text-foreground text-xs font-semibold transition-all shadow-sm"
                     >
                         ✨ Generate AI Summary
                     </button>

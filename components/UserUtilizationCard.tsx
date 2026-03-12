@@ -44,7 +44,7 @@ export default function UserUtilizationCard({ utilization }: UserUtilizationCard
                   hover:brightness-110 transition-all duration-300 group`}
         >
             {/* Background gradient effect */}
-            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            <div className="absolute inset-0 bg-gradient-to-br from-gray-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
 
             <div className="relative p-4">
                 {/* User Info */}
@@ -60,7 +60,7 @@ export default function UserUtilizationCard({ utilization }: UserUtilizationCard
                                     className="object-cover"
                                 />
                             ) : (
-                                <div className="w-full h-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm">
+                                <div className="w-full h-full bg-foreground flex items-center justify-center text-background font-bold text-sm">
                                     {user.displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                                 </div>
                             )}

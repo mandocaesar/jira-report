@@ -180,12 +180,12 @@ export default function CapacityPlanningPage() {
     return (
         <div className="min-h-screen overflow-x-hidden">
             {/* Header */}
-            <header className="border-b border-blue-500/20 bg-gray-900/50 backdrop-blur-xl sticky top-0 z-40">
+            <header className="border-b border-border bg-gray-900/50 backdrop-blur-xl sticky top-0 z-40">
                 <div className="px-3 sm:px-4 md:px-6 py-4 md:py-6">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h1 className="text-2xl font-bold text-white mb-1">Capacity Planning</h1>
-                            <p className="text-gray-400 text-sm">Forecast sprint capacity and manage engineer availability</p>
+                            <h1 className="text-2xl font-bold text-foreground mb-1">Capacity Planning</h1>
+                            <p className="text-muted-foreground text-sm">Forecast sprint capacity and manage engineer availability</p>
                         </div>
                         {selectedBoardId && (
                             <button
@@ -193,7 +193,7 @@ export default function CapacityPlanningPage() {
                                     setEditingAdjustment(null);
                                     setModalOpen(true);
                                 }}
-                                className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-medium rounded-xl transition-all flex items-center gap-2"
+                                className="px-4 py-2 bg-foreground hover:bg-foreground/90 text-background font-medium rounded-xl transition-all flex items-center gap-2"
                             >
                                 <span className="text-lg">➕</span>
                                 Add Adjustment
@@ -233,8 +233,11 @@ export default function CapacityPlanningPage() {
                 {forecastData && !loading && (
                     <div className="space-y-8">
                         {/* Summary */}
-                        <div className="p-6 bg-gradient-to-br from-blue-900/30 to-indigo-900/30 border border-blue-500/30 rounded-2xl backdrop-blur-sm">
-                            <h2 className="text-lg font-semibold text-blue-300 mb-4">📊 {forecastData.teamName} - Sprint Forecast</h2>
+                        <div className="p-6 bg-muted/50 border border-border rounded-2xl backdrop-blur-sm">
+                            <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24"><rect x="3" y="12" width="4" height="9" rx="1" /><rect x="10" y="7" width="4" height="14" rx="1" /><rect x="17" y="3" width="4" height="18" rx="1" /></svg>
+                                {forecastData.teamName} - Sprint Forecast
+                            </h2>
                             <p className="text-gray-400 text-sm">
                                 Showing {forecastData.sprints.length} upcoming sprints with capacity projections
                             </p>
@@ -244,7 +247,7 @@ export default function CapacityPlanningPage() {
                         {adjustments.length > 0 && (
                             <div className="bg-gray-800/30 border border-gray-700 rounded-2xl p-6">
                                 <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                                    <span>📅</span>
+                                    <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" strokeLinecap="round" /></svg>
                                     Active Capacity Adjustments
                                     <span className="text-sm font-normal text-gray-400">({adjustments.length})</span>
                                 </h3>
@@ -296,7 +299,7 @@ export default function CapacityPlanningPage() {
                         {/* Sprint Timeline */}
                         <div className="space-y-4">
                             <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                                <span>🗓️</span>
+                                <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" strokeLinecap="round" /><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01" strokeLinecap="round" strokeWidth={2.5} /></svg>
                                 Sprint Timeline
                             </h3>
                             {forecastData.sprints.map((sprint, index) => (
@@ -352,7 +355,7 @@ export default function CapacityPlanningPage() {
                                     {sprint.holidays && sprint.holidays.length > 0 && (
                                         <div className="mb-4 pt-3 border-t border-blue-500/20">
                                             <div className="text-sm font-semibold text-blue-300 mb-2 flex items-center gap-2">
-                                                <span>🏖️</span> Public Holidays:
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 6v6l4 2" strokeLinecap="round" strokeLinejoin="round" /></svg> Public Holidays:
                                             </div>
                                             <div className="flex flex-wrap gap-2">
                                                 {sprint.holidays.map((holiday, idx) => (
@@ -370,7 +373,7 @@ export default function CapacityPlanningPage() {
                                     {sprint.leaves && sprint.leaves.length > 0 && (
                                         <div className="mb-4 pt-3 border-t border-blue-500/20">
                                             <div className="text-sm font-semibold text-blue-300 mb-2 flex items-center gap-2">
-                                                <span>📋</span> Team Leave:
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" strokeLinecap="round" /><path d="M16 3.13a4 4 0 0 1 0 7.75" strokeLinecap="round" /></svg> Team Leave:
                                             </div>
                                             <div className="flex flex-wrap gap-2">
                                                 {sprint.leaves.map((leave, idx) => (
@@ -387,7 +390,7 @@ export default function CapacityPlanningPage() {
                                     {sprint.excludedMembers && sprint.excludedMembers.length > 0 && (
                                         <div className="mb-4 pt-3 border-t border-red-500/20">
                                             <div className="text-sm font-semibold text-red-300 mb-2 flex items-center gap-2">
-                                                <span>🚫</span> Excluded from Sprint:
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M18.36 5.64L5.64 18.36" strokeLinecap="round" /></svg> Excluded from Sprint:
                                             </div>
                                             <div className="flex flex-wrap gap-2">
                                                 {sprint.excludedMembers.map((member, idx) => (
@@ -402,7 +405,9 @@ export default function CapacityPlanningPage() {
                                     {/* Capacity Adjustments */}
                                     {sprint.engineers.some(e => !e.excluded && (e.capacity < 100 || e.reason)) && (
                                         <div className="mt-4 pt-4 border-t border-gray-700">
-                                            <div className="text-sm font-semibold text-gray-300 mb-2">⚠️ Capacity Adjustments:</div>
+                                            <div className="text-sm font-semibold text-gray-300 mb-2 flex items-center gap-2">
+                                                <svg className="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
+                                                Capacity Adjustments:</div>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                                 {sprint.engineers
                                                     .filter(e => !e.excluded && (e.capacity < 100 || e.reason))
@@ -438,9 +443,11 @@ export default function CapacityPlanningPage() {
                 {/* Placeholder when no board selected */}
                 {!selectedBoardId && !loading && (
                     <div className="p-12 bg-gray-800/30 border border-gray-700 rounded-2xl text-center">
-                        <div className="text-6xl mb-4">📅</div>
-                        <h3 className="text-xl font-bold text-white mb-2">Select a Board</h3>
-                        <p className="text-gray-400">Choose a board above to view sprint capacity forecast</p>
+                        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-muted flex items-center justify-center">
+                            <svg className="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" strokeLinecap="round" /></svg>
+                        </div>
+                        <h3 className="text-xl font-bold text-foreground mb-2">Select a Board</h3>
+                        <p className="text-muted-foreground">Choose a board above to view sprint capacity forecast</p>
                     </div>
                 )}
             </main>

@@ -1,4 +1,4 @@
-import { google } from '@ai-sdk/google';
+
 import { generateText } from 'ai';
 import { NextResponse } from 'next/server';
 
@@ -66,7 +66,7 @@ ${JSON.stringify(
         }
 
         const { text } = await generateText({
-            model: google('gemini-2.5-flash'),
+            model: process.env.AI_MODEL ?? 'google/gemini-2.5-flash',
             system: 'You are an expert Agile coach assisting a team with flow metrics. Strictly adhere to the requested markdown formatting.',
             prompt: prompt,
         });

@@ -306,33 +306,41 @@ export default function MetricsPage() {
             {/* Page Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                 <div>
-                    <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 via-indigo-400 to-blue-400 bg-clip-text text-transparent">
+                    <h1 className="text-3xl font-bold text-foreground">
                         Metrics Dashboard
                     </h1>
-                    <p className="text-gray-400 mt-2">Track issue flow, completion rates, and delivery speed</p>
+                    <p className="text-muted-foreground mt-2">Track issue flow, completion rates, and delivery speed</p>
                 </div>
             </div>
 
             {/* Selectors */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 hide-on-print">
-                <BoardSelector
-                    selectedBoardId={selectedBoardId}
-                    onBoardChange={handleBoardChange}
-                />
-                {selectedBoardId && (
+                <div>
+                    <label className="block text-sm font-semibold text-gray-300 mb-3">
+                        Select Board
+                    </label>
+                    <BoardSelector
+                        selectedBoardId={selectedBoardId}
+                        onBoardChange={handleBoardChange}
+                    />
+                </div>
+                <div>
+                    <label className="block text-sm font-semibold text-gray-300 mb-3">
+                        Select Sprint
+                    </label>
                     <SprintSelector
                         boardId={selectedBoardId}
                         selectedSprintId={selectedSprintId}
                         onSprintChange={handleSprintChange}
                         allowAllSprints={true}
                     />
-                )}
+                </div>
             </div>
 
             {/* AI Summary Section */}
             {(aiSummary || aiError) && (
-                <div className="mb-8 p-6 bg-gradient-to-br from-indigo-900/20 to-blue-900/20 border border-indigo-500/30 rounded-xl shadow-sm relative animate-fadeIn">
-                    <h3 className="text-lg font-bold text-indigo-300 flex items-center gap-2 mb-4">
+                <div className="mb-8 p-6 bg-muted/50 border border-border rounded-xl shadow-sm relative animate-fadeIn">
+                    <h3 className="text-lg font-bold text-foreground flex items-center gap-2 mb-4">
                         <span className="text-xl">✨</span> Executive Analytics Report
                     </h3>
 
@@ -342,21 +350,21 @@ export default function MetricsPage() {
                             <button onClick={() => generateAiSummary()} className="ml-2 px-2 py-1 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 rounded transition-colors hide-on-print">Retry</button>
                         </div>
                     ) : (
-                        <div className="text-sm text-gray-200 space-y-4 leading-relaxed">
+                        <div className="text-sm text-foreground/80 space-y-4 leading-relaxed">
                             {aiSummary?.split('\n').filter(line => line.trim()).map((line, i) => {
                                 if (line.startsWith('**Trend Highlights**') || line.startsWith('**Speed Highlights**') || line.startsWith('**Flow & Completion**')) {
                                     return (
-                                        <h4 key={i} className="text-sm font-bold text-indigo-200 tracking-wide uppercase mt-6 mb-2 first:mt-0 border-b border-indigo-500/20 pb-1 inline-block">
+                                        <h4 key={i} className="text-sm font-bold text-muted-foreground tracking-wide uppercase mt-6 mb-2 first:mt-0 border-b border-border pb-1 inline-block">
                                             {line.replace(/\*\*/g, '')}
                                         </h4>
                                     );
                                 }
                                 const isListItem = line.startsWith('-') || line.startsWith('*');
-                                const cleanLine = line.replace(/^\*?\*?[\-\*]\s+/, '').replace(/\*\*([^*]+)\*\*/g, '<strong class="text-indigo-300 font-bold">$1</strong>');
+                                const cleanLine = line.replace(/^\*?\*?[\-\*]\s+/, '').replace(/\*\*([^*]+)\*\*/g, '<strong class="text-foreground font-bold">$1</strong>');
 
                                 return (
                                     <div key={i} className={`flex gap-3 items-start ${!isListItem ? 'ml-4' : ''}`}>
-                                        {isListItem && <span className="text-indigo-400 mt-[5px] flex-shrink-0 text-xs">•</span>}
+                                        {isListItem && <span className="text-muted-foreground mt-[5px] flex-shrink-0 text-xs">•</span>}
                                         <span dangerouslySetInnerHTML={{ __html: cleanLine }} className="font-medium" />
                                     </div>
                                 );
@@ -454,8 +462,8 @@ function BoardYearlyTrendChart({ data }: { data: any }) {
     return (
         <div className="p-6 bg-gray-800/30 border border-gray-700/50 rounded-xl">
             <div className="mb-6">
-                <h3 className="text-lg font-bold text-white">2026 Delivery Timeline</h3>
-                <p className="text-sm text-gray-400">Mean Time to Deliver & Done across all sprints</p>
+                <h3 className="text-lg font-bold text-foreground">2026 Delivery Timeline</h3>
+                <p className="text-sm text-muted-foreground">Mean Time to Deliver & Done across all sprints</p>
             </div>
 
             <div className="h-80">
@@ -531,8 +539,8 @@ function TimeMetricsCards({ data }: { data: MetricsData }) {
             sample: timeMetrics.sampleSize.deliver,
             thresholds: [24, 72] as [number, number],
             icon: '🚀',
-            gradient: 'from-blue-500/10 to-cyan-500/10',
-            border: 'border-blue-500/20',
+            gradient: '',
+            border: 'border-border',
         },
         {
             label: 'Mean Time to Test',
@@ -541,8 +549,8 @@ function TimeMetricsCards({ data }: { data: MetricsData }) {
             sample: timeMetrics.sampleSize.test,
             thresholds: [48, 120] as [number, number],
             icon: '🧪',
-            gradient: 'from-indigo-500/10 to-blue-500/10',
-            border: 'border-indigo-500/20',
+            gradient: '',
+            border: 'border-border',
         },
         {
             label: 'Mean Time to Done',
@@ -551,39 +559,39 @@ function TimeMetricsCards({ data }: { data: MetricsData }) {
             sample: timeMetrics.sampleSize.done,
             thresholds: [120, 240] as [number, number],
             icon: '✅',
-            gradient: 'from-green-500/10 to-emerald-500/10',
-            border: 'border-green-500/20',
+            gradient: '',
+            border: 'border-border',
         },
     ];
 
     return (
         <div>
             <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl flex items-center justify-center">
-                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-10 h-10 bg-foreground rounded-xl flex items-center justify-center">
+                    <svg className="w-5 h-5 text-background" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                 </div>
                 <div>
-                    <h2 className="text-xl font-bold text-white">Delivery Speed</h2>
-                    <p className="text-sm text-gray-400">Average time for issue lifecycle stages</p>
+                    <h2 className="text-xl font-bold text-foreground">Delivery Speed</h2>
+                    <p className="text-sm text-muted-foreground">Average time for issue lifecycle stages</p>
                 </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {cards.map((card) => (
-                    <div key={card.label} className={`p-6 bg-gradient-to-br ${card.gradient} rounded-xl border ${card.border}`}>
+                    <div key={card.label} className={`p-6 bg-muted/50 rounded-xl border ${card.border}`}>
                         <div className="flex items-center gap-2 mb-3">
                             <span className="text-xl">{card.icon}</span>
                             <div>
-                                <div className="text-sm font-semibold text-white">{card.label}</div>
-                                <div className="text-[10px] text-gray-500">{card.sublabel}</div>
+                                <div className="text-sm font-semibold text-foreground">{card.label}</div>
+                                <div className="text-[10px] text-muted-foreground">{card.sublabel}</div>
                             </div>
                         </div>
                         <div className={`text-4xl font-bold mb-1 ${getTimeColor(card.value, card.thresholds)}`}>
                             {formatDuration(card.value)}
                         </div>
-                        <div className="text-[10px] text-gray-500">
+                        <div className="text-[10px] text-muted-foreground">
                             Based on {card.sample} issue{card.sample !== 1 ? 's' : ''}
                         </div>
                     </div>
@@ -602,22 +610,22 @@ function MemberTimeMetricsTable({ data }: { data: MetricsData }) {
     return (
         <div className="bg-gray-800/30 rounded-xl border border-gray-700/50 overflow-hidden">
             <div className="p-4 border-b border-gray-700/50 bg-gray-900/40">
-                <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
+                <h3 className="text-base font-semibold text-gray-300 flex items-center gap-2">
                     👥 Team Delivery Performance
                 </h3>
-                <p className="text-xs text-gray-500 mt-1">Mean Time to Deliver and Done per team member based on story/subtask completions.</p>
+                <p className="text-sm text-gray-500 mt-1">Mean Time to Deliver and Done per team member based on story/subtask completions.</p>
             </div>
             <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                     <thead>
-                        <tr className="bg-gray-800/50 text-[10px] uppercase text-gray-500 tracking-wider">
+                        <tr className="bg-gray-800/50 text-xs uppercase text-gray-500 tracking-wider">
                             <th className="p-3 pl-4 font-medium">Team Member</th>
                             <th className="p-3 font-medium text-center">Mean Time to Deliver (MTD)</th>
                             <th className="p-3 font-medium text-center border-l border-gray-700/30">Mean Time to Done (MTTC)</th>
                             <th className="p-3 font-medium text-center border-l border-gray-700/30">Sample Size</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-700/30 text-xs text-gray-300 bg-gray-900/20">
+                    <tbody className="divide-y divide-gray-700/30 text-sm text-gray-300 bg-gray-900/20">
                         {memberTimeMetrics.map((member) => (
                             <tr key={member.accountId} className="hover:bg-gray-800/30 transition-colors">
                                 <td className="p-3 pl-4">
@@ -625,7 +633,7 @@ function MemberTimeMetricsTable({ data }: { data: MetricsData }) {
                                         {member.avatarUrl ? (
                                             <img src={member.avatarUrl} alt={member.displayName} className="w-6 h-6 rounded-full" />
                                         ) : (
-                                            <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center text-[10px] uppercase">
+                                            <div className="w-7 h-7 rounded-full bg-gray-700 flex items-center justify-center text-xs uppercase">
                                                 {member.displayName.slice(0, 2)}
                                             </div>
                                         )}
@@ -634,7 +642,7 @@ function MemberTimeMetricsTable({ data }: { data: MetricsData }) {
                                 </td>
                                 <td className="p-3 text-center">
                                     {member.meanTimeToDeliver !== null ? (
-                                        <span className={`font-mono font-bold ${getTimeColor(member.meanTimeToDeliver, [24, 72])}`}>
+                                        <span className={`font-mono font-bold text-base ${getTimeColor(member.meanTimeToDeliver, [24, 72])}`}>
                                             {formatDuration(member.meanTimeToDeliver)}
                                         </span>
                                     ) : (
@@ -643,7 +651,7 @@ function MemberTimeMetricsTable({ data }: { data: MetricsData }) {
                                 </td>
                                 <td className="p-3 text-center border-l border-gray-700/30">
                                     {member.meanTimeToDone !== null ? (
-                                        <span className={`font-mono font-bold ${getTimeColor(member.meanTimeToDone, [120, 240])}`}>
+                                        <span className={`font-mono font-bold text-base ${getTimeColor(member.meanTimeToDone, [120, 240])}`}>
                                             {formatDuration(member.meanTimeToDone)}
                                         </span>
                                     ) : (
@@ -670,35 +678,35 @@ function IssueTotalsCards({ data }: { data: MetricsData }) {
 
     return (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <div className="text-center p-5 bg-gradient-to-br from-indigo-500/10 to-violet-500/10 rounded-xl border border-indigo-500/20">
-                <div className="text-3xl font-bold bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent mb-1">
+            <div className="text-center p-5 bg-muted/50 rounded-xl border border-border">
+                <div className="text-3xl font-bold text-foreground mb-1">
                     {totals.totalCount}
                 </div>
-                <div className="text-xs text-gray-400">Total Issues</div>
+                <div className="text-xs text-muted-foreground">Total Issues</div>
             </div>
-            <div className="text-center p-5 bg-gradient-to-br from-blue-500/10 to-cyan-500/10 rounded-xl border border-blue-500/20">
-                <div className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent mb-1">
+            <div className="text-center p-5 bg-muted/50 rounded-xl border border-border">
+                <div className="text-3xl font-bold text-blue-400 mb-1">
                     {totals.storyCount}
                 </div>
-                <div className="text-xs text-gray-400">Stories</div>
+                <div className="text-xs text-muted-foreground">Stories</div>
             </div>
-            <div className="text-center p-5 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 rounded-xl border border-blue-500/20">
-                <div className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent mb-1">
+            <div className="text-center p-5 bg-muted/50 rounded-xl border border-border">
+                <div className="text-3xl font-bold text-blue-400 mb-1">
                     {totals.taskCount}
                 </div>
-                <div className="text-xs text-gray-400">Tasks</div>
+                <div className="text-xs text-muted-foreground">Tasks</div>
             </div>
-            <div className="text-center p-5 bg-gradient-to-br from-indigo-500/10 to-rose-500/10 rounded-xl border border-indigo-500/20">
-                <div className="text-3xl font-bold bg-gradient-to-r from-indigo-400 to-rose-400 bg-clip-text text-transparent mb-1">
+            <div className="text-center p-5 bg-muted/50 rounded-xl border border-border">
+                <div className="text-3xl font-bold text-indigo-400 mb-1">
                     {totals.testCount}
                 </div>
-                <div className="text-xs text-gray-400">Tests</div>
+                <div className="text-xs text-muted-foreground">Tests</div>
             </div>
-            <div className="text-center p-5 bg-gradient-to-br from-green-500/10 to-emerald-500/10 rounded-xl border border-green-500/20">
+            <div className="text-center p-5 bg-muted/50 rounded-xl border border-border">
                 <div className={`text-3xl font-bold mb-1 ${totals.completionRate >= 80 ? 'text-green-400' : totals.completionRate >= 60 ? 'text-yellow-400' : 'text-red-400'}`}>
                     {totals.completionRate.toFixed(0)}%
                 </div>
-                <div className="text-xs text-gray-400">Completion Rate</div>
+                <div className="text-xs text-muted-foreground">Completion Rate</div>
             </div>
         </div>
     );

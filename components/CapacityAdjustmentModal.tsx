@@ -280,7 +280,7 @@ export default function CapacityAdjustmentModal({
                             <button
                                 type="submit"
                                 disabled={saving}
-                                className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-medium rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="flex-1 px-4 py-3 bg-foreground hover:bg-foreground/90 text-background font-medium rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {saving ? (
                                     <span className="flex items-center justify-center gap-2">

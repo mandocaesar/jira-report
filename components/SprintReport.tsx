@@ -143,7 +143,7 @@ export default function SprintReport({ report, jiraDomain }: SprintReportProps) 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                 {/* Total Points */}
                 <div className="text-center py-2.5 px-3 bg-gradient-to-br from-indigo-500/10 to-violet-500/10 rounded-lg border border-indigo-500/20">
-                    <div className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent leading-tight">
+                    <div className="text-2xl font-bold text-foreground leading-tight">
                         {totalPoints}
                     </div>
                     <div className="text-[10px] text-gray-400 mt-0.5">Total Points</div>
@@ -152,7 +152,7 @@ export default function SprintReport({ report, jiraDomain }: SprintReportProps) 
 
                 {/* Completed */}
                 <div className="text-center py-2.5 px-3 bg-gradient-to-br from-green-500/10 to-emerald-500/10 rounded-lg border border-green-500/20">
-                    <div className="text-2xl font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent leading-tight">
+                    <div className="text-2xl font-bold text-green-400 leading-tight">
                         {completedPoints}
                     </div>
                     <div className="text-[10px] text-gray-400 mt-0.5">Completed</div>
@@ -240,7 +240,7 @@ export default function SprintReport({ report, jiraDomain }: SprintReportProps) 
                                                         className="w-6 h-6 rounded-full ring-2 ring-gray-700"
                                                     />
                                                 ) : (
-                                                    <div className="w-6 h-6 rounded-full ring-2 ring-gray-700 bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-[10px]">
+                                                    <div className="w-6 h-6 rounded-full ring-2 ring-gray-700 bg-foreground flex items-center justify-center text-background font-bold text-[10px]">
                                                         {member.user.displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                                                     </div>
                                                 )}

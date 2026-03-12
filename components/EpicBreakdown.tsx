@@ -160,12 +160,12 @@ export function EpicBreakdownComponent({ boardId, sprintId, jiraDomain = 'bank-s
     return (
         <div className="mt-8 space-y-6">
             <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-blue-500 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+                <div className="w-10 h-10 bg-foreground rounded-xl flex items-center justify-center">
                     <span className="text-xl">📦</span>
                 </div>
                 <div>
-                    <h2 className="text-xl font-bold text-white tracking-tight">Epic Breakdown</h2>
-                    <p className="text-sm text-gray-400 font-medium">Grouped by Epic and Parent Story</p>
+                    <h2 className="text-xl font-bold text-foreground tracking-tight">Epic Breakdown</h2>
+                    <p className="text-sm text-muted-foreground font-medium">Grouped by Epic and Parent Story</p>
                 </div>
             </div>
 

@@ -9,7 +9,7 @@ import SprintReportPDF from '@/components/SprintReportPDF';
 import teamRoster from '@/config/team-roster.json';
 import { prisma, isDatabaseAvailable } from '@/lib/db';
 import { WorklogReportData } from '@/types';
-import { google } from '@ai-sdk/google';
+
 import { generateText } from 'ai';
 
 // GET: Automated scheduler (protected by CRON_SECRET)
@@ -282,7 +282,7 @@ ${JSON.stringify(
 `;
 
         const { text } = await generateText({
-            model: google('gemini-2.5-flash'),
+            model: process.env.AI_MODEL ?? 'google/gemini-2.5-flash',
             system: 'You are an expert Agile coach assisting a team with their sprint review. Strictly adhere to formatting requested.',
             prompt: prompt,
         });

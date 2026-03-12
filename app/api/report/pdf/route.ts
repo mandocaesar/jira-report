@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { google } from '@ai-sdk/google';
+
 import { generateText } from 'ai';
 import { renderToBuffer } from '@react-pdf/renderer';
 import React from 'react';
@@ -296,7 +296,7 @@ ${JSON.stringify(
 `;
 
                 const { text } = await generateText({
-                    model: google('gemini-2.5-flash-lite'),
+                    model: process.env.AI_MODEL ?? 'google/gemini-2.5-flash-lite',
                     system: 'You are an expert Agile coach assisting a team with their sprint review. Strictly adhere to formatting requested.',
                     prompt: prompt,
                 });
