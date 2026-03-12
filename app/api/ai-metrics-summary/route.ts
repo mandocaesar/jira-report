@@ -1,7 +1,7 @@
 
 import { generateText } from 'ai';
 import { NextResponse } from 'next/server';
-import prisma from '@/lib/db';
+import { prisma } from '@/lib/db';
 
 export async function POST(req: Request) {
     try {
@@ -14,7 +14,7 @@ export async function POST(req: Request) {
 
         // Check cache first
         try {
-            const cached = await prisma.aiSummaryCache.findUnique({
+            const cached = await prisma?.aiSummaryCache.findUnique({
                 where: { type_sprintId_boardId: { type: cacheType, sprintId: cacheSprintId, boardId: cacheBoardId } }
             });
             if (cached) {
@@ -91,7 +91,7 @@ ${JSON.stringify(
 
         // Cache the result
         try {
-            await prisma.aiSummaryCache.upsert({
+            await prisma?.aiSummaryCache.upsert({
                 where: { type_sprintId_boardId: { type: cacheType, sprintId: cacheSprintId, boardId: cacheBoardId } },
                 update: { summary: text },
                 create: { type: cacheType, sprintId: cacheSprintId, boardId: cacheBoardId, summary: text }
