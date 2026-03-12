@@ -55,17 +55,23 @@ function getStatusName(issue: JiraIssue): string {
  */
 function calculateScopeChanges(sprint: Sprint, issues: JiraIssue[]): ScopeChange[] {
     const changes: ScopeChange[] = [];
-    const sprintStartTime = new Date(sprint.startDate).getTime();
+    const sprintStartDate = new Date(sprint.startDate);
+    const sprintStartTime = sprintStartDate.getTime();
+
+    // Changes on the same calendar date as sprint start are considered part of planning, not scope changes
+    const sprintStartDayEnd = new Date(sprintStartDate);
+    sprintStartDayEnd.setHours(23, 59, 59, 999);
+    const sprintStartDayEndTime = sprintStartDayEnd.getTime();
 
     const storyPointsFields = ['customfield_10036', 'customfield_10052'];
 
     for (const issue of issues) {
         let wasAddedDuringSprint = false;
 
-        // 1. Check if the issue was created after the sprint started
+        // 1. Check if the issue was created after sprint start day
         if (issue.fields.created) {
             const createdTime = new Date(issue.fields.created).getTime();
-            if (createdTime > sprintStartTime) {
+            if (createdTime > sprintStartDayEndTime) {
                 wasAddedDuringSprint = true;
                 changes.push({
                     issueKey: issue.key,
@@ -85,7 +91,8 @@ function calculateScopeChanges(sprint: Sprint, issues: JiraIssue[]): ScopeChange
         if (issue.changelog && issue.changelog.histories) {
             for (const history of issue.changelog.histories) {
                 const historyTime = new Date(history.created).getTime();
-                if (historyTime <= sprintStartTime) continue;
+                // Skip changes on or before sprint start date (same day = part of planning)
+                if (historyTime <= sprintStartDayEndTime) continue;
 
                 for (const item of history.items) {
                     // Check if added to sprint
