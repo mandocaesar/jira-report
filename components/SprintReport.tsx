@@ -59,7 +59,7 @@ function ScopeChangeGroup({ groupKey, group, jiraDomain }: {
                     <td className="px-3 py-3">
                         <span className={`text-[10px] px-2 py-0.5 rounded border ${change.type === 'added'
                             ? 'bg-red-500/10 text-red-400 border-red-500/20'
-                            : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
+                            : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
                             }`}>
                             {change.type === 'added' ? 'Added to Sprint' : 'Points Changed'}
                         </span>
@@ -73,6 +73,21 @@ function ScopeChangeGroup({ groupKey, group, jiraDomain }: {
                     </td>
                     <td className="px-4 py-3">
                         <div className="text-xs text-foreground/70">{change.description}</div>
+                        {change.type === 'points_changed' && change.oldValue !== undefined && change.newValue !== undefined && (
+                            <div className="flex items-center gap-1.5 mt-1">
+                                <span className="text-[10px] text-muted-foreground font-medium tabular-nums">{change.oldValue}</span>
+                                <svg className="w-3 h-3 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+                                <span className="text-[10px] font-bold tabular-nums text-foreground">{change.newValue}</span>
+                                {(() => {
+                                    const delta = parseFloat(change.newValue!) - parseFloat(change.oldValue!);
+                                    return (
+                                        <span className={`text-[10px] font-medium tabular-nums ${delta > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                                            ({delta > 0 ? '+' : ''}{delta} SP)
+                                        </span>
+                                    );
+                                })()}
+                            </div>
+                        )}
                         {change.assignee && (
                             <div className="text-[10px] text-muted-foreground mt-1">Assignee: {change.assignee}</div>
                         )}
@@ -304,7 +319,7 @@ export default function SprintReport({ report, jiraDomain }: SprintReportProps) 
             {scopeChanges && scopeChanges.length > 0 && (
                 <div className="bg-orange-500/10 rounded-xl border border-orange-500/20 overflow-hidden">
                     <div className="px-4 py-3 border-b border-orange-500/20 bg-orange-500/5">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                             <svg className="w-4 h-4 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                             </svg>
@@ -312,6 +327,25 @@ export default function SprintReport({ report, jiraDomain }: SprintReportProps) 
                             <span className="text-[10px] bg-orange-500/20 text-orange-500 font-medium px-2 py-0.5 rounded-full border border-orange-500/30">
                                 {scopeChanges.length} events
                             </span>
+                            {(() => {
+                                const addedCount = scopeChanges.filter(c => c.type === 'added').length;
+                                const pointChanges = scopeChanges.filter(c => c.type === 'points_changed');
+                                const netPointDelta = pointChanges.reduce((sum, c) => sum + (parseFloat(c.newValue || '0') - parseFloat(c.oldValue || '0')), 0);
+                                return (
+                                    <>
+                                        {addedCount > 0 && (
+                                            <span className="text-[10px] bg-red-500/15 text-red-400 font-medium px-2 py-0.5 rounded-full border border-red-500/20">
+                                                +{addedCount} issues added
+                                            </span>
+                                        )}
+                                        {pointChanges.length > 0 && (
+                                            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${netPointDelta > 0 ? 'bg-red-500/15 text-red-400 border-red-500/20' : netPointDelta < 0 ? 'bg-green-500/15 text-green-400 border-green-500/20' : 'bg-muted/30 text-muted-foreground border-border'}`}>
+                                                {netPointDelta > 0 ? '+' : ''}{netPointDelta} SP net change
+                                            </span>
+                                        )}
+                                    </>
+                                );
+                            })()}
                         </div>
                     </div>
                     <div className="overflow-x-auto">
