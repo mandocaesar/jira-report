@@ -14,6 +14,12 @@ interface SprintForecast {
         effectiveEngineers: number;
         totalManDays: number;
         forecastedPoints: number;
+        workingDays: number;
+        weekdaysInSprint: number;
+        totalPossibleManDays: number;
+        totalLeaveDays: number;
+        adjustmentLoss: number;
+        holidayCount: number;
     };
     engineers: Array<{
         accountId: string;
@@ -33,6 +39,15 @@ interface SprintForecast {
     }>;
     excludedMembers?: Array<{
         name: string;
+    }>;
+    stories?: Array<{
+        key: string;
+        summary: string;
+        status: string;
+        statusCategory: string;
+        assignee: string | null;
+        storyPoints: number;
+        type: string;
     }>;
 }
 
@@ -65,6 +80,16 @@ export default function CapacityPlanningPage() {
     const [error, setError] = useState<string | null>(null);
     const [modalOpen, setModalOpen] = useState(false);
     const [editingAdjustment, setEditingAdjustment] = useState<CapacityAdjustment | null>(null);
+    const [expandedBreakdowns, setExpandedBreakdowns] = useState<Set<number>>(new Set());
+
+    const toggleBreakdown = (sprintId: number) => {
+        setExpandedBreakdowns(prev => {
+            const next = new Set(prev);
+            if (next.has(sprintId)) next.delete(sprintId);
+            else next.add(sprintId);
+            return next;
+        });
+    };
 
     useEffect(() => {
         if (selectedBoardId) {
@@ -168,13 +193,6 @@ export default function CapacityPlanningPage() {
     const formatDate = (dateString: string) => {
         const date = new Date(dateString);
         return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    };
-
-    const getCapacityColor = (effective: number, total: number) => {
-        const percentage = (effective / total) * 100;
-        if (percentage >= 90) return 'text-green-400';
-        if (percentage >= 75) return 'text-yellow-400';
-        return 'text-red-400';
     };
 
     return (
@@ -297,138 +315,220 @@ export default function CapacityPlanningPage() {
                         )}
 
                         {/* Sprint Timeline */}
-                        <div className="space-y-4">
+                        <div className="space-y-3">
                             <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
                                 <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" strokeLinecap="round" /><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01" strokeLinecap="round" strokeWidth={2.5} /></svg>
                                 Sprint Timeline
                             </h3>
-                            {forecastData.sprints.map((sprint, index) => (
+                            {forecastData.sprints.map((sprint, index) => {
+                                const cap = sprint.capacity;
+                                const capacityPct = Math.round((cap.effectiveEngineers / cap.totalEngineers) * 100);
+                                const leaveMdLoss = cap.totalLeaveDays;
+                                const adjMdLoss = cap.adjustmentLoss;
+                                const holidayMdLoss = cap.holidayCount * cap.totalEngineers;
+                                // Capacity bar segments
+                                const usedPct = cap.totalPossibleManDays > 0 ? (cap.totalManDays / cap.totalPossibleManDays) * 100 : 0;
+
+                                return (
                                 <div
                                     key={sprint.sprintId}
-                                    className={`bg-muted/30 border rounded-2xl p-6 backdrop-blur-sm transition-all ${index === 0 ? 'border-blue-500/50 ring-1 ring-blue-500/20' : 'border-border hover:border-blue-500/30'
-                                        }`}
+                                    className={`bg-muted/30 border rounded-2xl backdrop-blur-sm transition-all overflow-hidden ${
+                                        index === 0 ? 'border-blue-500/50 ring-1 ring-blue-500/20' : 'border-border hover:border-blue-500/30'
+                                    }`}
                                 >
-                                    {/* Sprint Badge for Current */}
-                                    {index === 0 && (
-                                        <div className="inline-block px-3 py-1 bg-blue-500/20 text-blue-300 text-xs font-semibold rounded-full mb-3">
-                                            Current / Next Sprint
-                                        </div>
-                                    )}
+                                    {/* Top accent strip */}
+                                    <div className={`h-1 ${index === 0 ? 'bg-blue-500' : 'bg-border'}`} />
 
-                                    {/* Sprint Header */}
-                                    <div className="flex items-start justify-between mb-4">
-                                        <div>
-                                            <h3 className="text-xl font-bold text-foreground mb-1">{sprint.sprintName}</h3>
-                                            <p className="text-sm text-muted-foreground">
-                                                {formatDate(sprint.startDate)} - {formatDate(sprint.endDate)}
-                                            </p>
-                                        </div>
-                                        <div className="text-right">
-                                            <div className={`text-3xl font-bold ${getCapacityColor(sprint.capacity.effectiveEngineers, sprint.capacity.totalEngineers)}`}>
-                                                {sprint.capacity.effectiveEngineers.toFixed(1)}
+                                    <div className="p-4 md:p-5">
+                                        {/* Header: Name + Date | Stats */}
+                                        <div className="flex items-start justify-between gap-4 mb-3">
+                                            <div className="min-w-0">
+                                                <div className="flex items-center gap-2 mb-0.5">
+                                                    {index === 0 && (
+                                                        <span className="shrink-0 px-2 py-0.5 bg-blue-500/20 text-blue-400 text-[10px] font-semibold rounded-full uppercase tracking-wide">Current</span>
+                                                    )}
+                                                    <h3 className="text-base font-bold text-foreground truncate">{sprint.sprintName}</h3>
+                                                </div>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {formatDate(sprint.startDate)} – {formatDate(sprint.endDate)} · {cap.workingDays} working days
+                                                </p>
                                             </div>
-                                            <div className="text-xs text-muted-foreground">of {sprint.capacity.totalEngineers} members</div>
-                                        </div>
-                                    </div>
-
-                                    {/* Capacity Metrics */}
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                                        <div className="bg-muted/30 rounded-xl p-4">
-                                            <div className="text-xs text-muted-foreground mb-1">Available Mandays</div>
-                                            <div className="text-2xl font-bold text-blue-400">{sprint.capacity.totalManDays}</div>
-                                            <div className="text-xs text-muted-foreground mt-1">= Story Points</div>
-                                        </div>
-                                        <div className="bg-muted/30 rounded-xl p-4">
-                                            <div className="text-xs text-muted-foreground mb-1">Effective Engineers</div>
-                                            <div className="text-2xl font-bold text-foreground">{sprint.capacity.effectiveEngineers}</div>
-                                            <div className="text-xs text-muted-foreground mt-1">of {sprint.capacity.totalEngineers} total</div>
-                                        </div>
-                                        <div className="bg-muted/30 rounded-xl p-4">
-                                            <div className="text-xs text-muted-foreground mb-1">Team Capacity</div>
-                                            <div className="text-2xl font-bold text-blue-400">
-                                                {Math.round((sprint.capacity.effectiveEngineers / sprint.capacity.totalEngineers) * 100)}%
+                                            <div className="text-right shrink-0">
+                                                <div className={`text-2xl font-bold leading-none ${capacityPct >= 90 ? 'text-green-500' : capacityPct >= 75 ? 'text-yellow-500' : 'text-red-500'}`}>
+                                                    {capacityPct}%
+                                                </div>
+                                                <div className="text-[10px] text-muted-foreground mt-0.5">capacity</div>
                                             </div>
                                         </div>
-                                    </div>
 
-                                    {/* Holidays info */}
-                                    {sprint.holidays && sprint.holidays.length > 0 && (
-                                        <div className="mb-4 pt-3 border-t border-blue-500/20">
-                                            <div className="text-sm font-semibold text-blue-300 mb-2 flex items-center gap-2">
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 6v6l4 2" strokeLinecap="round" strokeLinejoin="round" /></svg> Public Holidays:
+                                        {/* Inline Stats Row */}
+                                        <div className="grid grid-cols-4 gap-2 mb-3">
+                                            <div className="bg-muted/40 rounded-lg px-3 py-2">
+                                                <div className="text-lg font-bold text-blue-500">{cap.totalManDays}</div>
+                                                <div className="text-[10px] text-muted-foreground leading-tight">Avail. Mandays</div>
                                             </div>
-                                            <div className="flex flex-wrap gap-2">
-                                                {sprint.holidays.map((holiday, idx) => (
-                                                    <div key={idx} className="flex items-center gap-1.5 bg-blue-500/10 border border-blue-500/30 rounded-lg px-2.5 py-1.5 text-xs">
-                                                        <span className="text-blue-400 font-medium">{formatDate(holiday.date)}</span>
-                                                        <span className="text-muted-foreground">—</span>
-                                                        <span className="text-foreground/70 max-w-[150px] truncate" title={holiday.name}>{holiday.name}</span>
+                                            <div className="bg-muted/40 rounded-lg px-3 py-2">
+                                                <div className="text-lg font-bold text-foreground">{cap.effectiveEngineers}</div>
+                                                <div className="text-[10px] text-muted-foreground leading-tight">Eff. Engineers</div>
+                                            </div>
+                                            <div className="bg-muted/40 rounded-lg px-3 py-2">
+                                                <div className="text-lg font-bold text-foreground">{cap.totalEngineers}</div>
+                                                <div className="text-[10px] text-muted-foreground leading-tight">Total Members</div>
+                                            </div>
+                                            <div className="bg-muted/40 rounded-lg px-3 py-2">
+                                                <div className="text-lg font-bold text-foreground">{cap.forecastedPoints}</div>
+                                                <div className="text-[10px] text-muted-foreground leading-tight">Est. Points</div>
+                                            </div>
+                                        </div>
+
+                                        {/* Capacity Breakdown Waterfall (Collapsible) */}
+                                        <div className="bg-muted/30 rounded-lg mb-3 overflow-hidden">
+                                            <button
+                                                onClick={() => toggleBreakdown(sprint.sprintId)}
+                                                className="w-full flex items-center justify-between px-3 py-2 hover:bg-muted/40 transition-colors"
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <svg className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${expandedBreakdowns.has(sprint.sprintId) ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                                                    <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Capacity Breakdown</span>
+                                                </div>
+                                                <div className="flex items-center gap-3 text-xs tabular-nums">
+                                                    <span className="text-muted-foreground">{cap.totalPossibleManDays} md</span>
+                                                    <span className="text-muted-foreground">→</span>
+                                                    <span className="font-bold text-blue-500">{cap.totalManDays} md</span>
+                                                </div>
+                                            </button>
+                                            {expandedBreakdowns.has(sprint.sprintId) && (
+                                            <div className="px-3 pb-3 space-y-1 text-xs">
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-muted-foreground">Total capacity ({cap.weekdaysInSprint}d × {cap.totalEngineers} eng)</span>
+                                                    <span className="font-semibold text-foreground tabular-nums">{cap.totalPossibleManDays} md</span>
+                                                </div>
+                                                {cap.holidayCount > 0 && (
+                                                    <>
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-amber-500">Holidays ({cap.holidayCount}d × {cap.totalEngineers} eng)</span>
+                                                        <span className="font-semibold text-amber-500 tabular-nums">−{holidayMdLoss} md</span>
                                                     </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Team Leave */}
-                                    {sprint.leaves && sprint.leaves.length > 0 && (
-                                        <div className="mb-4 pt-3 border-t border-blue-500/20">
-                                            <div className="text-sm font-semibold text-blue-300 mb-2 flex items-center gap-2">
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" strokeLinecap="round" /><path d="M16 3.13a4 4 0 0 1 0 7.75" strokeLinecap="round" /></svg> Team Leave:
-                                            </div>
-                                            <div className="flex flex-wrap gap-2">
-                                                {sprint.leaves.map((leave, idx) => (
-                                                    <div key={idx} className="flex items-center gap-1.5 bg-blue-500/10 border border-blue-500/30 rounded-lg px-2.5 py-1.5 text-xs">
-                                                        <span className="text-blue-300 font-medium">{leave.name}</span>
-                                                        <span className="text-blue-400 font-bold">{leave.leaveDays}d</span>
+                                                    {sprint.holidays && sprint.holidays.length > 0 && (
+                                                        <div className="text-[11px] text-muted-foreground leading-relaxed pl-4">
+                                                            {sprint.holidays.map((h, i) => (
+                                                                <span key={i}>{i > 0 && ', '}<span className="text-foreground/70">{formatDate(h.date)}</span> {h.name}</span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                    </>
+                                                )}
+                                                {leaveMdLoss > 0 && (
+                                                    <>
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-orange-500">Team leave ({leaveMdLoss}d total)</span>
+                                                        <span className="font-semibold text-orange-500 tabular-nums">−{leaveMdLoss} md</span>
                                                     </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Excluded Members */}
-                                    {sprint.excludedMembers && sprint.excludedMembers.length > 0 && (
-                                        <div className="mb-4 pt-3 border-t border-red-500/20">
-                                            <div className="text-sm font-semibold text-red-300 mb-2 flex items-center gap-2">
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M18.36 5.64L5.64 18.36" strokeLinecap="round" /></svg> Excluded from Sprint:
-                                            </div>
-                                            <div className="flex flex-wrap gap-2">
-                                                {sprint.excludedMembers.map((member, idx) => (
-                                                    <div key={idx} className="flex items-center gap-1.5 bg-red-500/10 border border-red-500/30 rounded-lg px-2.5 py-1.5 text-xs">
-                                                        <span className="text-red-300 font-medium">{member.name}</span>
+                                                    {sprint.leaves && sprint.leaves.length > 0 && (
+                                                        <div className="text-[11px] text-muted-foreground leading-relaxed pl-4">
+                                                            {sprint.leaves.map((l, i) => (
+                                                                <span key={i}>{i > 0 && ', '}<span className="text-foreground/70">{l.name}</span> <span className="font-semibold text-orange-500">{l.leaveDays}d</span></span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                    </>
+                                                )}
+                                                {adjMdLoss > 0 && (
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-purple-500">Capacity adjustments</span>
+                                                        <span className="font-semibold text-purple-500 tabular-nums">−{adjMdLoss} md</span>
                                                     </div>
-                                                ))}
+                                                )}
+                                                {(sprint.excludedMembers && sprint.excludedMembers.length > 0) && (
+                                                    <>
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-red-500">Excluded ({sprint.excludedMembers.length} members)</span>
+                                                        <span className="font-semibold text-red-500 tabular-nums">−{sprint.excludedMembers.length * cap.workingDays} md</span>
+                                                    </div>
+                                                    <div className="text-[11px] text-muted-foreground leading-relaxed pl-4">
+                                                        {sprint.excludedMembers.map((m, i) => (
+                                                            <span key={i}>{i > 0 && ', '}<span className="text-foreground/70">{m.name}</span></span>
+                                                        ))}
+                                                    </div>
+                                                    </>
+                                                )}
+                                                <div className="flex justify-between items-center pt-1.5 mt-1.5 border-t border-border">
+                                                    <span className="font-semibold text-foreground">Available mandays</span>
+                                                    <span className="font-bold text-blue-500 tabular-nums">{cap.totalManDays} md</span>
+                                                </div>
+
+                                                {/* Capacity Adjustments detail */}
+                                                {sprint.engineers.some(e => !e.excluded && (e.capacity < 100 || e.reason)) && (
+                                                    <div className="pt-2.5 mt-2.5 border-t border-border">
+                                                        <div className="flex items-center gap-1.5 mb-1.5">
+                                                            <svg className="w-3.5 h-3.5 text-purple-500 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
+                                                            <span className="text-[11px] font-semibold text-muted-foreground">Adjustments</span>
+                                                        </div>
+                                                        <div className="flex flex-wrap gap-1.5">
+                                                            {sprint.engineers
+                                                                .filter(e => !e.excluded && (e.capacity < 100 || e.reason))
+                                                                .map((engineer) => (
+                                                                    <span key={engineer.accountId} className="inline-flex items-center gap-1.5 text-[11px] bg-muted/40 rounded-md px-2 py-1">
+                                                                        <span className="text-foreground/70">{engineer.name}</span>
+                                                                        <span className={`font-semibold ${engineer.capacity < 50 ? 'text-red-500' : 'text-yellow-500'}`}>
+                                                                            {engineer.capacity}%
+                                                                        </span>
+                                                                        {engineer.reason && (
+                                                                            <span className="text-muted-foreground capitalize">({engineer.reason.replace('-', ' ')})</span>
+                                                                        )}
+                                                                    </span>
+                                                                ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            )}
+                                            {/* Visual bar */}
+                                            <div className="mx-3 mb-2.5 h-2 bg-muted rounded-full overflow-hidden">
+                                                <div
+                                                    className={`h-full rounded-full transition-all ${capacityPct >= 90 ? 'bg-green-500' : capacityPct >= 75 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                                                    style={{ width: `${Math.min(usedPct, 100)}%` }}
+                                                />
                                             </div>
                                         </div>
-                                    )}
 
-                                    {/* Capacity Adjustments */}
-                                    {sprint.engineers.some(e => !e.excluded && (e.capacity < 100 || e.reason)) && (
-                                        <div className="mt-4 pt-4 border-t border-border">
-                                            <div className="text-sm font-semibold text-muted-foreground mb-2 flex items-center gap-2">
-                                                <svg className="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
-                                                Capacity Adjustments:</div>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                                {sprint.engineers
-                                                    .filter(e => !e.excluded && (e.capacity < 100 || e.reason))
-                                                    .map((engineer) => (
-                                                        <div key={engineer.accountId} className="flex items-center justify-between text-sm bg-muted/20 rounded-lg px-3 py-2">
-                                                            <span className="text-foreground/70">{engineer.name}</span>
-                                                            <div className="flex items-center gap-2">
-                                                                {engineer.reason && (
-                                                                    <span className="text-xs text-muted-foreground capitalize">{engineer.reason.replace('-', ' ')}</span>
-                                                                )}
-                                                                <span className={`font-semibold ${engineer.capacity < 50 ? 'text-red-400' : engineer.capacity < 100 ? 'text-yellow-400' : 'text-green-400'}`}>
-                                                                    {engineer.capacity}%
-                                                                </span>
-                                                            </div>
+                                        {/* Planned Stories */}
+                                        {sprint.stories && sprint.stories.length > 0 && (
+                                            <div className="mt-3 pt-3 border-t border-border">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                                                        Planned Stories ({sprint.stories.length})
+                                                    </div>
+                                                    <div className="text-[11px] text-muted-foreground tabular-nums">
+                                                        {sprint.stories.reduce((sum, s) => sum + s.storyPoints, 0)} SP total
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    {sprint.stories.map((story) => (
+                                                        <div key={story.key} className="flex items-center gap-2 text-xs py-1 px-2 rounded-md hover:bg-muted/30 transition-colors">
+                                                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                                                story.statusCategory === 'Done' ? 'bg-green-500' :
+                                                                story.statusCategory === 'In Progress' ? 'bg-blue-500' :
+                                                                'bg-muted-foreground/40'
+                                                            }`} />
+                                                            <span className="text-blue-500 font-mono text-[11px] shrink-0">{story.key}</span>
+                                                            <span className="text-foreground/80 truncate flex-1">{story.summary}</span>
+                                                            {story.assignee && (
+                                                                <span className="text-muted-foreground text-[11px] shrink-0 max-w-[100px] truncate">{story.assignee}</span>
+                                                            )}
+                                                            {story.storyPoints > 0 && (
+                                                                <span className="text-foreground font-semibold text-[11px] shrink-0 tabular-nums">{story.storyPoints} SP</span>
+                                                            )}
                                                         </div>
                                                     ))}
+                                                </div>
                                             </div>
-                                        </div>
-                                    )}
+                                        )}
+                                    </div>
                                 </div>
-                            ))}
+                                );
+                            })}
                         </div>
 
                         {/* Empty State */}

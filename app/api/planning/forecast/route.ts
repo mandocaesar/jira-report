@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getTeamByBoardIdFromDb } from '@/lib/team-roster';
 import { getHolidaysInRange, isWeekend, toLocalDateString } from '@/lib/holiday-service';
+import { createJiraClient } from '@/lib/jira-client';
 
 interface SprintForecast {
     sprintId: number;
@@ -13,6 +14,12 @@ interface SprintForecast {
         effectiveEngineers: number;
         totalManDays: number;
         forecastedPoints: number;
+        workingDays: number;
+        weekdaysInSprint: number;
+        totalPossibleManDays: number;
+        totalLeaveDays: number;
+        adjustmentLoss: number;
+        holidayCount: number;
     };
     engineers: Array<{
         accountId: string;
@@ -32,6 +39,15 @@ interface SprintForecast {
     }>;
     excludedMembers?: Array<{
         name: string;
+    }>;
+    stories?: Array<{
+        key: string;
+        summary: string;
+        status: string;
+        statusCategory: string;
+        assignee: string | null;
+        storyPoints: number;
+        type: string;
     }>;
 }
 
@@ -102,6 +118,24 @@ export async function GET(request: NextRequest) {
             });
         }
 
+        // ── Fetch sprint issues in parallel ──
+        const jiraClient = createJiraClient();
+        const storyPointsFields = ['customfield_10036', 'customfield_10052'];
+        const issuesBySprintId = new Map<number, any[]>();
+        
+        await Promise.all(
+            relevantSprints.map(async (sprint: any) => {
+                try {
+                    const issues = await jiraClient.getSprintIssues(sprint.id, boardId);
+                    // Filter to parent-level issues only (no subtasks)
+                    const parentIssues = issues.filter(issue => !issue.fields.issuetype?.subtask);
+                    issuesBySprintId.set(sprint.id, parentIssues);
+                } catch {
+                    issuesBySprintId.set(sprint.id, []);
+                }
+            })
+        );
+
         // ── Batch all data upfront instead of per-sprint ──
 
         // 1. Compute the overall date range across all sprints
@@ -155,16 +189,22 @@ export async function GET(request: NextRequest) {
 
             // Count working days from pre-fetched holidays (no async needed)
             let workingDays = 0;
+            let weekdaysInSprint = 0;
             const current = new Date(startDate);
             while (current <= endDate) {
                 const dateStr = toLocalDateString(current);
-                if (!isWeekend(current) && !sprintHolidays.some(h => h.holiday_date === dateStr)) {
-                    workingDays++;
+                if (!isWeekend(current)) {
+                    weekdaysInSprint++;
+                    if (!sprintHolidays.some(h => h.holiday_date === dateStr)) {
+                        workingDays++;
+                    }
                 }
                 current.setDate(current.getDate() + 1);
             }
 
             let totalManDays = 0;
+            let totalLeaveDays = 0;
+            let adjustmentLoss = 0;
             const engineerDetails: any[] = [];
             const leavesList: Array<{ name: string; leaveDays: number }> = [];
             const excludedList: Array<{ name: string }> = [];
@@ -187,6 +227,10 @@ export async function GET(request: NextRequest) {
                 const availableDays = workingDays - leaveDays;
                 const effectiveDays = (availableDays * capacityPercent) / 100;
                 totalManDays += effectiveDays;
+                totalLeaveDays += leaveDays;
+                if (capacityPercent < 100) {
+                    adjustmentLoss += availableDays * (1 - capacityPercent / 100);
+                }
 
                 engineerDetails.push({ accountId, name: member.name, capacity: capacityPercent, reason: adjustment?.reason, leaveDays });
                 if (leaveDays > 0) leavesList.push({ name: member.name, leaveDays });
@@ -200,6 +244,9 @@ export async function GET(request: NextRequest) {
                 .filter(h => !isWeekend(h.holiday_date))
                 .map(h => ({ date: h.holiday_date, name: h.holiday_name }));
 
+            const totalPossibleManDays = weekdaysInSprint * activeEngineers;
+            const holidayCount = formattedHolidays.length;
+
             return {
                 sprintId,
                 sprintName,
@@ -210,11 +257,37 @@ export async function GET(request: NextRequest) {
                     effectiveEngineers: Math.round(effectiveEngineers * 10) / 10,
                     totalManDays: Math.round(totalManDays * 10) / 10,
                     forecastedPoints,
+                    workingDays,
+                    weekdaysInSprint,
+                    totalPossibleManDays,
+                    totalLeaveDays,
+                    adjustmentLoss: Math.round(adjustmentLoss * 10) / 10,
+                    holidayCount,
                 },
                 engineers: engineerDetails,
                 holidays: formattedHolidays.length > 0 ? formattedHolidays : undefined,
                 leaves: leavesList.length > 0 ? leavesList : undefined,
                 excludedMembers: excludedList.length > 0 ? excludedList : undefined,
+                stories: (() => {
+                    const sprintIssues = issuesBySprintId.get(sprintId) || [];
+                    if (sprintIssues.length === 0) return undefined;
+                    return sprintIssues.map(issue => {
+                        let sp = 0;
+                        for (const f of storyPointsFields) {
+                            const v = issue.fields[f];
+                            if (v !== undefined && v !== null && typeof v === 'number') { sp = v; break; }
+                        }
+                        return {
+                            key: issue.key,
+                            summary: issue.fields.summary,
+                            status: issue.fields.status?.name || 'Unknown',
+                            statusCategory: issue.fields.status?.statusCategory?.name || 'Unknown',
+                            assignee: issue.fields.assignee?.displayName || null,
+                            storyPoints: sp,
+                            type: issue.fields.issuetype?.name || 'Story',
+                        };
+                    });
+                })(),
             };
         });
 

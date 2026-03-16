@@ -27,6 +27,26 @@ interface EpicBreakdownData {
     }>;
 }
 
+export interface MemberSprintPerformance {
+    accountId: string;
+    name: string;
+    role: string;
+    title: string;
+    storyPoints: number;
+    availableDays: number;
+    utilizationPercent: number;
+    completionRate: number;
+    cycleTimeAvg: number | null;
+    leadTimeAvg: number | null;
+    throughput: number;
+    deliveredSubTasks: number;
+    totalSubTasks: number;
+    deliveredSubChores: number;
+    totalSubChores: number;
+    deliveredOther: number;
+    totalOther: number;
+}
+
 export interface SprintReportPDFProps {
     summary: SprintSummary;
     report: SprintReportData | null;
@@ -34,6 +54,7 @@ export interface SprintReportPDFProps {
     teamName?: string;
     aiSummary?: string | null;
     worklogData?: WorklogReportData | null;
+    teamPerformanceData?: MemberSprintPerformance[];
 }
 
 // ── Color Tokens ─────────────────────────────────────────────────────────
@@ -300,7 +321,7 @@ function getHeatmapStyles(hours: number) {
 
 // ── Main Document ────────────────────────────────────────────────────────
 
-export default function SprintReportPDF({ summary, report, epicBreakdowns, teamName, aiSummary, worklogData }: SprintReportPDFProps) {
+export default function SprintReportPDF({ summary, report, epicBreakdowns, teamName, aiSummary, worklogData, teamPerformanceData }: SprintReportPDFProps) {
     const { sprint, totalStoryPoints, totalWorkingDays, averageUtilization, userUtilizations, qaStats, engineerStats, holidays } = summary;
     const engineers = userUtilizations.filter(u => u.role !== 'qa');
     const qas = userUtilizations.filter(u => u.role === 'qa');
@@ -559,6 +580,218 @@ export default function SprintReportPDF({ summary, report, epicBreakdowns, teamN
                 </View>
                 <Footer />
             </Page>
+
+            {/* ────────── TEAM SPRINT PERFORMANCE ────────── */}
+            {teamPerformanceData && teamPerformanceData.length > 0 && (
+                <Page size="A4" orientation="landscape" style={s.page} wrap>
+                    <SectionHeader title="Team Sprint Performance" color="#0369a1" />
+
+                    {/* Engineers table */}
+                    {teamPerformanceData.filter(m => m.role !== 'qa').length > 0 && (
+                        <View style={{ marginBottom: 18 }}>
+                            <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold', color: C.info, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                Engineers
+                            </Text>
+                            <View style={s.table}>
+                                <View style={s.thRow}>
+                                    <Text style={[s.th, { width: 130 }]}>Member</Text>
+                                    <Text style={[s.th, { width: 75, textAlign: 'center' }]}>SP / Avail</Text>
+                                    <Text style={[s.th, { width: 80, textAlign: 'center' }]}>Utilization</Text>
+                                    <Text style={[s.th, { width: 80, textAlign: 'center' }]}>Completion</Text>
+                                    <Text style={[s.th, { width: 60, textAlign: 'center' }]}>Cycle Time</Text>
+                                    <Text style={[s.th, { width: 60, textAlign: 'center' }]}>Lead Time</Text>
+                                    <Text style={[s.th, { width: 55, textAlign: 'center' }]}>Throughput</Text>
+                                    <Text style={[s.th, { width: 60, textAlign: 'center' }]}>Sub-Tasks</Text>
+                                    <Text style={[s.th, { width: 60, textAlign: 'center' }]}>Sub-Chores</Text>
+                                    <Text style={[s.th, { width: 62, textAlign: 'center' }]}>Other</Text>
+                                </View>
+                                {teamPerformanceData.filter(m => m.role !== 'qa').map((m, i) => (
+                                    <View key={m.accountId} style={i % 2 === 0 ? s.tr : s.trAlt}>
+                                        <View style={{ width: 130, paddingHorizontal: 8, paddingVertical: 6, justifyContent: 'center' }}>
+                                            <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold', color: C.grayDark }}>{m.name}</Text>
+                                            <Text style={{ fontSize: 6, color: C.grayMed, marginTop: 1 }}>{m.title}</Text>
+                                        </View>
+                                        <View style={{ width: 75, alignItems: 'center', justifyContent: 'center', paddingVertical: 6 }}>
+                                            <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold', color: C.grayDark }}>{m.storyPoints}</Text>
+                                            <Text style={{ fontSize: 7, color: C.grayMed }}>{m.availableDays}d avail</Text>
+                                        </View>
+                                        <View style={{ width: 80, paddingHorizontal: 8, paddingVertical: 6, justifyContent: 'center' }}>
+                                            <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold', color: completionColor(m.utilizationPercent), textAlign: 'center', marginBottom: 2 }}>
+                                                {m.utilizationPercent.toFixed(1)}%
+                                            </Text>
+                                            <ProgressBar percent={m.utilizationPercent} color={completionColor(m.utilizationPercent)} />
+                                        </View>
+                                        <View style={{ width: 80, paddingHorizontal: 8, paddingVertical: 6, justifyContent: 'center' }}>
+                                            <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold', color: completionColor(m.completionRate), textAlign: 'center', marginBottom: 2 }}>
+                                                {m.completionRate}%
+                                            </Text>
+                                            <ProgressBar percent={m.completionRate} color={completionColor(m.completionRate)} />
+                                        </View>
+                                        <View style={{ width: 60, alignItems: 'center', justifyContent: 'center', paddingVertical: 6 }}>
+                                            {m.cycleTimeAvg !== null ? (
+                                                <>
+                                                    <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold', color: m.cycleTimeAvg <= 2 ? C.success : m.cycleTimeAvg <= 5 ? C.info : m.cycleTimeAvg <= 10 ? C.warning : C.danger }}>
+                                                        {m.cycleTimeAvg}d
+                                                    </Text>
+                                                    <Text style={{ fontSize: 6, color: C.grayMed }}>avg/issue</Text>
+                                                </>
+                                            ) : (
+                                                <Text style={{ fontSize: 9, color: C.grayLight }}>—</Text>
+                                            )}
+                                        </View>
+                                        <View style={{ width: 60, alignItems: 'center', justifyContent: 'center', paddingVertical: 6 }}>
+                                            {m.leadTimeAvg !== null ? (
+                                                <>
+                                                    <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold', color: m.leadTimeAvg <= 2 ? C.success : m.leadTimeAvg <= 5 ? C.info : m.leadTimeAvg <= 10 ? C.warning : C.danger }}>
+                                                        {m.leadTimeAvg}d
+                                                    </Text>
+                                                    <Text style={{ fontSize: 6, color: C.grayMed }}>avg/issue</Text>
+                                                </>
+                                            ) : (
+                                                <Text style={{ fontSize: 9, color: C.grayLight }}>—</Text>
+                                            )}
+                                        </View>
+                                        <View style={{ width: 55, alignItems: 'center', justifyContent: 'center', paddingVertical: 6 }}>
+                                            <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold', color: C.grayDark }}>{m.throughput}</Text>
+                                            <Text style={{ fontSize: 6, color: C.grayMed }}>issues</Text>
+                                        </View>
+                                        <View style={{ width: 60, alignItems: 'center', justifyContent: 'center', paddingVertical: 6 }}>
+                                            <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold', color: m.totalSubTasks > 0 ? completionColor((m.deliveredSubTasks / m.totalSubTasks) * 100) : C.grayMed }}>
+                                                {m.deliveredSubTasks}/{m.totalSubTasks}
+                                            </Text>
+                                        </View>
+                                        <View style={{ width: 60, alignItems: 'center', justifyContent: 'center', paddingVertical: 6 }}>
+                                            <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold', color: m.totalSubChores > 0 ? completionColor((m.deliveredSubChores / m.totalSubChores) * 100) : C.grayMed }}>
+                                                {m.deliveredSubChores}/{m.totalSubChores}
+                                            </Text>
+                                        </View>
+                                        <View style={{ width: 62, alignItems: 'center', justifyContent: 'center', paddingVertical: 6 }}>
+                                            <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold', color: m.totalOther > 0 ? completionColor((m.deliveredOther / m.totalOther) * 100) : C.grayMed }}>
+                                                {m.deliveredOther}/{m.totalOther}
+                                            </Text>
+                                        </View>
+                                    </View>
+                                ))}
+                            </View>
+                        </View>
+                    )}
+
+                    {/* QA table */}
+                    {teamPerformanceData.filter(m => m.role === 'qa').length > 0 && (
+                        <View>
+                            <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold', color: '#db2777', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                QA
+                            </Text>
+                            <View style={s.table}>
+                                <View style={s.thRow}>
+                                    <Text style={[s.th, { width: 130 }]}>Member</Text>
+                                    <Text style={[s.th, { width: 75, textAlign: 'center' }]}>SP / Avail</Text>
+                                    <Text style={[s.th, { width: 80, textAlign: 'center' }]}>Utilization</Text>
+                                    <Text style={[s.th, { width: 80, textAlign: 'center' }]}>Completion</Text>
+                                    <Text style={[s.th, { width: 60, textAlign: 'center' }]}>Cycle Time</Text>
+                                    <Text style={[s.th, { width: 60, textAlign: 'center' }]}>Lead Time</Text>
+                                    <Text style={[s.th, { width: 55, textAlign: 'center' }]}>Throughput</Text>
+                                    <Text style={[s.th, { width: 60, textAlign: 'center' }]}>Sub-Tasks</Text>
+                                    <Text style={[s.th, { width: 60, textAlign: 'center' }]}>Sub-Chores</Text>
+                                    <Text style={[s.th, { width: 62, textAlign: 'center' }]}>Other</Text>
+                                </View>
+                                {teamPerformanceData.filter(m => m.role === 'qa').map((m, i) => (
+                                    <View key={m.accountId} style={i % 2 === 0 ? s.tr : s.trAlt}>
+                                        <View style={{ width: 130, paddingHorizontal: 8, paddingVertical: 6, justifyContent: 'center' }}>
+                                            <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold', color: C.grayDark }}>{m.name}</Text>
+                                            <Text style={{ fontSize: 6, color: C.grayMed, marginTop: 1 }}>{m.title}</Text>
+                                        </View>
+                                        <View style={{ width: 75, alignItems: 'center', justifyContent: 'center', paddingVertical: 6 }}>
+                                            <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold', color: C.grayDark }}>{m.storyPoints}</Text>
+                                            <Text style={{ fontSize: 7, color: C.grayMed }}>{m.availableDays}d avail</Text>
+                                        </View>
+                                        <View style={{ width: 80, paddingHorizontal: 8, paddingVertical: 6, justifyContent: 'center' }}>
+                                            <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold', color: completionColor(m.utilizationPercent), textAlign: 'center', marginBottom: 2 }}>
+                                                {m.utilizationPercent.toFixed(1)}%
+                                            </Text>
+                                            <ProgressBar percent={m.utilizationPercent} color={completionColor(m.utilizationPercent)} />
+                                        </View>
+                                        <View style={{ width: 80, paddingHorizontal: 8, paddingVertical: 6, justifyContent: 'center' }}>
+                                            <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold', color: completionColor(m.completionRate), textAlign: 'center', marginBottom: 2 }}>
+                                                {m.completionRate}%
+                                            </Text>
+                                            <ProgressBar percent={m.completionRate} color={completionColor(m.completionRate)} />
+                                        </View>
+                                        <View style={{ width: 60, alignItems: 'center', justifyContent: 'center', paddingVertical: 6 }}>
+                                            {m.cycleTimeAvg !== null ? (
+                                                <>
+                                                    <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold', color: m.cycleTimeAvg <= 2 ? C.success : m.cycleTimeAvg <= 5 ? C.info : m.cycleTimeAvg <= 10 ? C.warning : C.danger }}>
+                                                        {m.cycleTimeAvg}d
+                                                    </Text>
+                                                    <Text style={{ fontSize: 6, color: C.grayMed }}>avg/issue</Text>
+                                                </>
+                                            ) : (
+                                                <Text style={{ fontSize: 9, color: C.grayLight }}>—</Text>
+                                            )}
+                                        </View>
+                                        <View style={{ width: 60, alignItems: 'center', justifyContent: 'center', paddingVertical: 6 }}>
+                                            {m.leadTimeAvg !== null ? (
+                                                <>
+                                                    <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold', color: m.leadTimeAvg <= 2 ? C.success : m.leadTimeAvg <= 5 ? C.info : m.leadTimeAvg <= 10 ? C.warning : C.danger }}>
+                                                        {m.leadTimeAvg}d
+                                                    </Text>
+                                                    <Text style={{ fontSize: 6, color: C.grayMed }}>avg/issue</Text>
+                                                </>
+                                            ) : (
+                                                <Text style={{ fontSize: 9, color: C.grayLight }}>—</Text>
+                                            )}
+                                        </View>
+                                        <View style={{ width: 55, alignItems: 'center', justifyContent: 'center', paddingVertical: 6 }}>
+                                            <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold', color: C.grayDark }}>{m.throughput}</Text>
+                                            <Text style={{ fontSize: 6, color: C.grayMed }}>issues</Text>
+                                        </View>
+                                        <View style={{ width: 60, alignItems: 'center', justifyContent: 'center', paddingVertical: 6 }}>
+                                            <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold', color: m.totalSubTasks > 0 ? completionColor((m.deliveredSubTasks / m.totalSubTasks) * 100) : C.grayMed }}>
+                                                {m.deliveredSubTasks}/{m.totalSubTasks}
+                                            </Text>
+                                        </View>
+                                        <View style={{ width: 60, alignItems: 'center', justifyContent: 'center', paddingVertical: 6 }}>
+                                            <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold', color: m.totalSubChores > 0 ? completionColor((m.deliveredSubChores / m.totalSubChores) * 100) : C.grayMed }}>
+                                                {m.deliveredSubChores}/{m.totalSubChores}
+                                            </Text>
+                                        </View>
+                                        <View style={{ width: 62, alignItems: 'center', justifyContent: 'center', paddingVertical: 6 }}>
+                                            <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold', color: m.totalOther > 0 ? completionColor((m.deliveredOther / m.totalOther) * 100) : C.grayMed }}>
+                                                {m.deliveredOther}/{m.totalOther}
+                                            </Text>
+                                        </View>
+                                    </View>
+                                ))}
+                            </View>
+                        </View>
+                    )}
+
+                    {/* Color legend */}
+                    <View style={{ flexDirection: 'row', gap: 16, marginTop: 10, justifyContent: 'flex-end' }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                            <View style={{ width: 8, height: 8, backgroundColor: C.successBg, borderRadius: 2, borderWidth: 1, borderColor: '#86efac' }} />
+                            <Text style={{ fontSize: 7, color: C.grayDark }}>≥ 90%</Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                            <View style={{ width: 8, height: 8, backgroundColor: C.infoBg, borderRadius: 2, borderWidth: 1, borderColor: '#93c5fd' }} />
+                            <Text style={{ fontSize: 7, color: C.grayDark }}>≥ 70%</Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                            <View style={{ width: 8, height: 8, backgroundColor: C.warningBg, borderRadius: 2, borderWidth: 1, borderColor: '#fdba74' }} />
+                            <Text style={{ fontSize: 7, color: C.grayDark }}>≥ 50%</Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                            <View style={{ width: 8, height: 8, backgroundColor: C.dangerBg, borderRadius: 2, borderWidth: 1, borderColor: '#fda4af' }} />
+                            <Text style={{ fontSize: 7, color: C.grayDark }}>&lt; 50%</Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                            <Text style={{ fontSize: 7, color: C.grayMed }}>Cycle/Lead: ≤2d green · ≤5d blue · ≤10d amber · &gt;10d red</Text>
+                        </View>
+                    </View>
+
+                    <Footer />
+                </Page>
+            )}
 
             {/* ────────── SCOPE CHANGES ────────── */}
             {report && report.scopeChanges && report.scopeChanges.length > 0 && (

@@ -251,6 +251,13 @@ export interface MemberTimeMetrics {
     deliver: number;
     done: number;
   };
+  // Cycle/lead time in business days
+  cycleTimeAvg: number | null;
+  leadTimeAvg: number | null;
+  throughput: number;
+  subTasks: { delivered: number; total: number };
+  subChores: { delivered: number; total: number };
+  other: { delivered: number; total: number };
 }
 
 export interface MetricsData {
@@ -265,6 +272,18 @@ export interface MetricsData {
     totalCount: number;
     doneCount: number;
     completionRate: number;
+  };
+  // Cycle time / lead time / throughput
+  cycleTimeMetrics: {
+    avgCycleTimeDays: number | null;
+    avgLeadTimeDays: number | null;
+    throughput: number;
+    sampleSize: number;
+  };
+  issueBreakdown: {
+    subTasks: { delivered: number; total: number };
+    subChores: { delivered: number; total: number };
+    other: { delivered: number; total: number };
   };
 }
 
@@ -294,4 +313,37 @@ export interface BoardMetricsData {
   boardId: number;
   year: number;
   sprintMetrics: MetricsData[];
+}
+
+// Sprint Velocity / Commitment Tracking types
+
+export interface SprintCommitmentCategory {
+  committed: number;       // points committed at sprint start
+  actual: number;          // points completed at sprint end
+  count: number;           // total issue count (committed + added mid-sprint)
+  addedMidSprint: number;  // points added after sprint start
+  addedMidSprintCount: number;
+}
+
+export interface SprintVelocityEntry {
+  sprint: Sprint;
+  committedPoints: number;      // total points at sprint start (excl. mid-sprint additions)
+  actualPoints: number;         // total completed points
+  totalPoints: number;          // all points (committed + added mid-sprint)
+  addedMidSprintPoints: number; // points from issues added after sprint start
+  addedMidSprintCount: number;  // number of issues added mid-sprint
+  commitmentAccuracy: number;   // actualPoints / committedPoints * 100
+  breakdown: {
+    stories: SprintCommitmentCategory;    // Stories, Tasks, Tech Initiatives
+    subTasks: SprintCommitmentCategory;   // Sub-Tasks
+    subChores: SprintCommitmentCategory;  // Sub-Chores
+    incidents: SprintCommitmentCategory;  // Incidents, Bugs, Defects
+  };
+  committedDelta: number | null;  // vs previous sprint
+  actualDelta: number | null;
+}
+
+export interface SprintVelocityData {
+  boardId: number;
+  sprints: SprintVelocityEntry[];
 }

@@ -196,6 +196,78 @@ function hoursBetween(start: Date, end: Date): number {
 }
 
 /**
+ * Calculate business days between two dates (excluding weekends), minimum 1
+ */
+function businessDaysBetween(start: Date, end: Date): number {
+    if (end <= start) return 0;
+    let count = 0;
+    const current = new Date(start);
+    current.setHours(0, 0, 0, 0);
+    const endNorm = new Date(end);
+    endNorm.setHours(0, 0, 0, 0);
+
+    while (current <= endNorm) {
+        const day = current.getDay();
+        if (day !== 0 && day !== 6) count++;
+        current.setDate(current.getDate() + 1);
+    }
+    return Math.max(count, 1);
+}
+
+/**
+ * Classify a status name into To Do / In Progress / Done
+ */
+function classifyStatus(statusName: string): string {
+    const lower = statusName.toLowerCase();
+    const todoStatuses = ['to do', 'open', 'backlog', 'new', 'reopened', 'funnel', 'selected for development'];
+    const doneStatuses = ['done', 'closed', 'resolved', 'released', 'completed'];
+    if (todoStatuses.some(s => lower === s)) return 'To Do';
+    if (doneStatuses.some(s => lower === s)) return 'Done';
+    return 'In Progress';
+}
+
+/**
+ * Calculate cycle time (In Progress → Done) and lead time (Created → Done) in business days.
+ */
+function calculateCycleAndLeadTime(issue: JiraIssue): { cycleTimeDays: number; leadTimeDays: number } | null {
+    const isDone = issue.fields.status?.statusCategory?.name === 'Done';
+    if (!isDone) return null;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const changelog = (issue as unknown as { changelog?: any }).changelog;
+    const histories = changelog?.histories || [];
+    const sorted = [...histories].sort(
+        (a: ChangelogEntry, b: ChangelogEntry) => new Date(a.created).getTime() - new Date(b.created).getTime()
+    );
+
+    let firstInProgressDate: Date | null = null;
+    let doneDate: Date | null = null;
+
+    for (const history of sorted) {
+        for (const item of (history as ChangelogEntry).items) {
+            if (item.field !== 'status' || !item.toString) continue;
+            const cat = classifyStatus(item.toString);
+            if (!firstInProgressDate && cat === 'In Progress') {
+                firstInProgressDate = new Date(history.created);
+            }
+            if (cat === 'Done') {
+                doneDate = new Date(history.created);
+            }
+        }
+    }
+
+    if (!doneDate) return null;
+
+    const createdDate = new Date(issue.fields.created);
+    const leadTimeDays = businessDaysBetween(createdDate, doneDate);
+    const cycleTimeDays = firstInProgressDate
+        ? businessDaysBetween(firstInProgressDate, doneDate)
+        : leadTimeDays;
+
+    return { cycleTimeDays, leadTimeDays };
+}
+
+/**
  * Calculate all metrics for a sprint
  */
 export function calculateMetrics(sprint: Sprint, issues: JiraIssue[]): MetricsData {
@@ -235,28 +307,43 @@ export function calculateMetrics(sprint: Sprint, issues: JiraIssue[]): MetricsDa
         avatarUrl: string;
         deliverTimes: number[];
         doneTimes: number[];
+        cycleTimes: number[];
+        leadTimes: number[];
+        throughput: number;
+        subTasks: { delivered: number; total: number };
+        subChores: { delivered: number; total: number };
+        other: { delivered: number; total: number };
     }
     const memberMap = new Map<string, MemberAgg>();
 
-    function trackMemberTime(issue: JiraIssue, metric: 'deliver' | 'done', hours: number) {
-        if (!issue.fields.assignee) return;
+    function getOrCreateMember(issue: JiraIssue): MemberAgg | null {
+        if (!issue.fields.assignee) return null;
         const assignee = issue.fields.assignee;
         const accountId = assignee.accountId;
-        if (!accountId) return;
+        if (!accountId) return null;
 
         if (!memberMap.has(accountId)) {
-            // Jira User object can have varied structures for avatar
             const avatarUrl = (assignee as any).avatarUrls?.['48x48'] || '';
             memberMap.set(accountId, {
                 accountId,
                 displayName: assignee.displayName || 'Unknown',
                 avatarUrl,
                 deliverTimes: [],
-                doneTimes: []
+                doneTimes: [],
+                cycleTimes: [],
+                leadTimes: [],
+                throughput: 0,
+                subTasks: { delivered: 0, total: 0 },
+                subChores: { delivered: 0, total: 0 },
+                other: { delivered: 0, total: 0 },
             });
         }
+        return memberMap.get(accountId)!;
+    }
 
-        const member = memberMap.get(accountId)!;
+    function trackMemberTime(issue: JiraIssue, metric: 'deliver' | 'done', hours: number) {
+        const member = getOrCreateMember(issue);
+        if (!member) return;
         if (metric === 'deliver') member.deliverTimes.push(hours);
         if (metric === 'done') member.doneTimes.push(hours);
     }
@@ -372,6 +459,63 @@ export function calculateMetrics(sprint: Sprint, issues: JiraIssue[]): MetricsDa
             : 0;
     }
 
+    // === Cycle Time, Lead Time, Throughput, Issue Breakdown ===
+    const allCycleTimes: number[] = [];
+    const allLeadTimes: number[] = [];
+    let totalThroughput = 0;
+    const issueBreakdown = {
+        subTasks: { delivered: 0, total: 0 },
+        subChores: { delivered: 0, total: 0 },
+        other: { delivered: 0, total: 0 },
+    };
+
+    for (const issue of issues) {
+        const typeName = issue.fields.issuetype.name.toLowerCase();
+        const isSubtask = issue.fields.issuetype.subtask;
+        const isDone = issue.fields.status?.statusCategory?.name === 'Done';
+        const member = getOrCreateMember(issue);
+
+        // Classify sub-task / sub-chore / other
+        if (typeName === 'sub-task' || (isSubtask && typeName !== 'sub-chore')) {
+            issueBreakdown.subTasks.total++;
+            if (isDone) issueBreakdown.subTasks.delivered++;
+            if (member) {
+                member.subTasks.total++;
+                if (isDone) member.subTasks.delivered++;
+            }
+        } else if (typeName === 'sub-chore') {
+            issueBreakdown.subChores.total++;
+            if (isDone) issueBreakdown.subChores.delivered++;
+            if (member) {
+                member.subChores.total++;
+                if (isDone) member.subChores.delivered++;
+            }
+        } else {
+            issueBreakdown.other.total++;
+            if (isDone) issueBreakdown.other.delivered++;
+            if (member) {
+                member.other.total++;
+                if (isDone) member.other.delivered++;
+            }
+        }
+
+        // Cycle time / lead time / throughput
+        if (isDone) {
+            totalThroughput++;
+            if (member) member.throughput++;
+
+            const times = calculateCycleAndLeadTime(issue);
+            if (times) {
+                allCycleTimes.push(times.cycleTimeDays);
+                allLeadTimes.push(times.leadTimeDays);
+                if (member) {
+                    member.cycleTimes.push(times.cycleTimeDays);
+                    member.leadTimes.push(times.leadTimeDays);
+                }
+            }
+        }
+    }
+
     // Calculate mean times
     const mean = (arr: number[]) => arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
 
@@ -395,11 +539,25 @@ export function calculateMetrics(sprint: Sprint, issues: JiraIssue[]): MetricsDa
         sampleSize: {
             deliver: m.deliverTimes.length,
             done: m.doneTimes.length
-        }
-    })).filter(m => m.sampleSize.deliver > 0 || m.sampleSize.done > 0)
-        .sort((a, b) => b.sampleSize.done - a.sampleSize.done);
+        },
+        cycleTimeAvg: m.cycleTimes.length > 0
+            ? Math.round((m.cycleTimes.reduce((a, b) => a + b, 0) / m.cycleTimes.length) * 10) / 10
+            : null,
+        leadTimeAvg: m.leadTimes.length > 0
+            ? Math.round((m.leadTimes.reduce((a, b) => a + b, 0) / m.leadTimes.length) * 10) / 10
+            : null,
+        throughput: m.throughput,
+        subTasks: m.subTasks,
+        subChores: m.subChores,
+        other: m.other,
+    })).filter(m => m.sampleSize.deliver > 0 || m.sampleSize.done > 0 || m.throughput > 0)
+        .sort((a, b) => b.throughput - a.throughput);
 
     const totalCount = totalStory + totalTask + totalTest;
+
+    const meanRound = (arr: number[]) => arr.length > 0
+        ? Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 10) / 10
+        : null;
 
     return {
         sprint,
@@ -414,5 +572,12 @@ export function calculateMetrics(sprint: Sprint, issues: JiraIssue[]): MetricsDa
             doneCount: totalDone,
             completionRate: totalCount > 0 ? (totalDone / totalCount) * 100 : 0,
         },
+        cycleTimeMetrics: {
+            avgCycleTimeDays: meanRound(allCycleTimes),
+            avgLeadTimeDays: meanRound(allLeadTimes),
+            throughput: totalThroughput,
+            sampleSize: allCycleTimes.length,
+        },
+        issueBreakdown,
     };
 }

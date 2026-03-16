@@ -61,6 +61,80 @@ export async function POST(request: NextRequest) {
             calculateSprintReport(sprint, issues, boardId),
         ]);
 
+        // 2b. Compute per-member sprint performance (Team Sprint Performance section)
+        const teamPerformanceData = (() => {
+            function _statusCat(name: string): string {
+                const l = name.toLowerCase();
+                if (['to do', 'open', 'backlog', 'new', 'reopened', 'funnel', 'selected for development'].some(s => l === s)) return 'To Do';
+                if (['done', 'closed', 'resolved', 'released', 'completed'].some(s => l === s)) return 'Done';
+                return 'In Progress';
+            }
+            function _bizDays(start: Date, end: Date): number {
+                if (end <= start) return 0;
+                let count = 0;
+                const cur = new Date(start); cur.setHours(0, 0, 0, 0);
+                const endN = new Date(end); endN.setHours(0, 0, 0, 0);
+                while (cur <= endN) { if (cur.getDay() !== 0 && cur.getDay() !== 6) count++; cur.setDate(cur.getDate() + 1); }
+                return Math.max(count, 1);
+            }
+            const mp = new Map<string, { dST: number; dSC: number; dO: number; tST: number; tSC: number; tO: number; ct: number[]; lt: number[]; thru: number }>();
+            for (const issue of issues) {
+                const aid = issue.fields.assignee?.accountId;
+                if (!aid) continue;
+                if (!mp.has(aid)) mp.set(aid, { dST: 0, dSC: 0, dO: 0, tST: 0, tSC: 0, tO: 0, ct: [], lt: [], thru: 0 });
+                const m = mp.get(aid)!;
+                const typeName = issue.fields.issuetype.name.toLowerCase();
+                const isDone = issue.fields.status?.statusCategory?.name === 'Done';
+                if (typeName === 'sub-task' || (issue.fields.issuetype.subtask && typeName !== 'sub-chore')) {
+                    m.tST++; if (isDone) m.dST++;
+                } else if (typeName === 'sub-chore') {
+                    m.tSC++; if (isDone) m.dSC++;
+                } else {
+                    m.tO++; if (isDone) m.dO++;
+                }
+                if (isDone) {
+                    m.thru++;
+                    const histories = issue.changelog?.histories || [];
+                    const sorted = [...histories].sort((a, b) => new Date(a.created).getTime() - new Date(b.created).getTime());
+                    let firstIP: Date | null = null, doneDate: Date | null = null;
+                    for (const h of sorted) {
+                        for (const item of h.items) {
+                            if (item.field !== 'status') continue;
+                            if (!firstIP && item.toString && _statusCat(item.toString) === 'In Progress') firstIP = new Date(h.created);
+                            if (item.toString && _statusCat(item.toString) === 'Done') doneDate = new Date(h.created);
+                        }
+                    }
+                    if (doneDate) {
+                        const lead = _bizDays(new Date(issue.fields.created), doneDate);
+                        m.lt.push(lead);
+                        m.ct.push(firstIP ? _bizDays(firstIP, doneDate) : lead);
+                    }
+                }
+            }
+            return utilization.userUtilizations.map(u => {
+                const m = mp.get(u.user.accountId) || { dST: 0, dSC: 0, dO: 0, tST: 0, tSC: 0, tO: 0, ct: [], lt: [], thru: 0 };
+                const totalAssigned = m.tST + m.tSC + m.tO;
+                const totalDelivered = m.dST + m.dSC + m.dO;
+                const avg = (arr: number[]) => arr.length > 0 ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length * 10) / 10 : null;
+                return {
+                    accountId: u.user.accountId,
+                    name: u.user.displayName,
+                    role: u.role,
+                    title: u.title,
+                    storyPoints: u.storyPoints,
+                    availableDays: u.availableDays,
+                    utilizationPercent: Math.round(u.utilizationPercent * 10) / 10,
+                    completionRate: totalAssigned > 0 ? Math.round((totalDelivered / totalAssigned) * 100) : 0,
+                    cycleTimeAvg: avg(m.ct),
+                    leadTimeAvg: avg(m.lt),
+                    throughput: m.thru,
+                    deliveredSubTasks: m.dST, totalSubTasks: m.tST,
+                    deliveredSubChores: m.dSC, totalSubChores: m.tSC,
+                    deliveredOther: m.dO, totalOther: m.tO,
+                };
+            });
+        })();
+
         // 3. Fetch epic breakdown
         let epicBreakdowns: any[] = [];
         if (boardId) {
@@ -315,6 +389,7 @@ ${JSON.stringify(
                 worklogData,
                 teamName,
                 aiSummary: finalAiSummary,
+                teamPerformanceData,
             }) as any
         );
 

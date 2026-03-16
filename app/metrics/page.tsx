@@ -33,7 +33,7 @@ function getTimeColor(hours: number | null, thresholds: [number, number]): strin
 
 export default function MetricsPage() {
     const [selectedBoardId, setSelectedBoardId] = useState<number | null>(null);
-    const [selectedSprintId, setSelectedSprintId] = useState<number | null>(null);
+    const [selectedSprintId, setSelectedSprintId] = useState<number | null>(-1 as any);
     const [metricsData, setMetricsData] = useState<MetricsData | null>(null);
     const [boardMetricsData, setBoardMetricsData] = useState<any>(null); // Quick any for now
     const [loading, setLoading] = useState(false);
@@ -53,6 +53,16 @@ export default function MetricsPage() {
         let totalStory = 0, totalTask = 0, totalTest = 0, totalDone = 0;
         let deliverSum = 0, testSum = 0, doneSum = 0;
         let deliverCount = 0, testCount = 0, doneCount = 0;
+
+        // New aggregate accumulators
+        let cycleTimeSum = 0, cycleTimeCount = 0;
+        let leadTimeSum = 0, leadTimeCount = 0;
+        let aggThroughput = 0;
+        const aggBreakdown = {
+            subTasks: { delivered: 0, total: 0 },
+            subChores: { delivered: 0, total: 0 },
+            other: { delivered: 0, total: 0 },
+        };
 
         const memberAggMap = new Map<string, any>();
 
@@ -75,6 +85,27 @@ export default function MetricsPage() {
                 doneCount += (sm.timeMetrics.sampleSize?.done || 1);
             }
 
+            // Accumulate cycle time / lead time / throughput / breakdown
+            if (sm.cycleTimeMetrics) {
+                if (sm.cycleTimeMetrics.avgCycleTimeDays != null && sm.cycleTimeMetrics.sampleSize > 0) {
+                    cycleTimeSum += sm.cycleTimeMetrics.avgCycleTimeDays * sm.cycleTimeMetrics.sampleSize;
+                    cycleTimeCount += sm.cycleTimeMetrics.sampleSize;
+                }
+                if (sm.cycleTimeMetrics.avgLeadTimeDays != null && sm.cycleTimeMetrics.sampleSize > 0) {
+                    leadTimeSum += sm.cycleTimeMetrics.avgLeadTimeDays * sm.cycleTimeMetrics.sampleSize;
+                    leadTimeCount += sm.cycleTimeMetrics.sampleSize;
+                }
+                aggThroughput += sm.cycleTimeMetrics.throughput || 0;
+            }
+            if (sm.issueBreakdown) {
+                aggBreakdown.subTasks.delivered += sm.issueBreakdown.subTasks?.delivered || 0;
+                aggBreakdown.subTasks.total += sm.issueBreakdown.subTasks?.total || 0;
+                aggBreakdown.subChores.delivered += sm.issueBreakdown.subChores?.delivered || 0;
+                aggBreakdown.subChores.total += sm.issueBreakdown.subChores?.total || 0;
+                aggBreakdown.other.delivered += sm.issueBreakdown.other?.delivered || 0;
+                aggBreakdown.other.total += sm.issueBreakdown.other?.total || 0;
+            }
+
             if (sm.memberTimeMetrics) {
                 sm.memberTimeMetrics.forEach((m: any) => {
                     if (!memberAggMap.has(m.accountId)) {
@@ -83,7 +114,15 @@ export default function MetricsPage() {
                             deliverSum: 0,
                             deliverCount: 0,
                             doneSum: 0,
-                            doneCount: 0
+                            doneCount: 0,
+                            cycleTimeSum: 0,
+                            cycleTimeCount: 0,
+                            leadTimeSum: 0,
+                            leadTimeCount: 0,
+                            aggThroughput: 0,
+                            aggSubTasks: { delivered: 0, total: 0 },
+                            aggSubChores: { delivered: 0, total: 0 },
+                            aggOther: { delivered: 0, total: 0 },
                         });
                     }
                     const agg = memberAggMap.get(m.accountId);
@@ -94,6 +133,27 @@ export default function MetricsPage() {
                     if (m.meanTimeToDone != null) {
                         agg.doneSum += m.meanTimeToDone * (m.sampleSize?.done || 1);
                         agg.doneCount += (m.sampleSize?.done || 1);
+                    }
+                    if (m.cycleTimeAvg != null) {
+                        agg.cycleTimeSum += m.cycleTimeAvg * m.throughput;
+                        agg.cycleTimeCount += m.throughput;
+                    }
+                    if (m.leadTimeAvg != null) {
+                        agg.leadTimeSum += m.leadTimeAvg * m.throughput;
+                        agg.leadTimeCount += m.throughput;
+                    }
+                    agg.aggThroughput += m.throughput || 0;
+                    if (m.subTasks) {
+                        agg.aggSubTasks.delivered += m.subTasks.delivered || 0;
+                        agg.aggSubTasks.total += m.subTasks.total || 0;
+                    }
+                    if (m.subChores) {
+                        agg.aggSubChores.delivered += m.subChores.delivered || 0;
+                        agg.aggSubChores.total += m.subChores.total || 0;
+                    }
+                    if (m.other) {
+                        agg.aggOther.delivered += m.other.delivered || 0;
+                        agg.aggOther.total += m.other.total || 0;
                     }
                 });
             }
@@ -111,10 +171,16 @@ export default function MetricsPage() {
                 sampleSize: {
                     deliver: m.deliverCount,
                     done: m.doneCount
-                }
+                },
+                cycleTimeAvg: m.cycleTimeCount > 0 ? Math.round((m.cycleTimeSum / m.cycleTimeCount) * 10) / 10 : null,
+                leadTimeAvg: m.leadTimeCount > 0 ? Math.round((m.leadTimeSum / m.leadTimeCount) * 10) / 10 : null,
+                throughput: m.aggThroughput,
+                subTasks: m.aggSubTasks,
+                subChores: m.aggSubChores,
+                other: m.aggOther,
             }))
-            .filter(m => m.sampleSize.deliver > 0 || m.sampleSize.done > 0)
-            .sort((a, b) => b.sampleSize.done - a.sampleSize.done);
+            .filter(m => m.sampleSize.deliver > 0 || m.sampleSize.done > 0 || m.throughput > 0)
+            .sort((a, b) => b.throughput - a.throughput);
 
         return {
             sprint: allSprints[0].sprint, // Dummy
@@ -137,20 +203,27 @@ export default function MetricsPage() {
                 totalCount,
                 doneCount: totalDone,
                 completionRate: totalCount > 0 ? (totalDone / totalCount) * 100 : 0
-            }
+            },
+            cycleTimeMetrics: {
+                avgCycleTimeDays: cycleTimeCount > 0 ? Math.round((cycleTimeSum / cycleTimeCount) * 10) / 10 : null,
+                avgLeadTimeDays: leadTimeCount > 0 ? Math.round((leadTimeSum / leadTimeCount) * 10) / 10 : null,
+                throughput: aggThroughput,
+                sampleSize: cycleTimeCount,
+            },
+            issueBreakdown: aggBreakdown,
         };
     }, [boardMetricsData]);
 
     const handleBoardChange = async (boardId: number | null) => {
         setSelectedBoardId(boardId);
-        setSelectedSprintId(null);
+        setSelectedSprintId(-1 as any);
         setMetricsData(null);
         setBoardMetricsData(null);
         setAiSummary(null);
         setAiError(null);
+    };
 
-        if (!boardId) return;
-
+    const loadBoardMetrics = async (boardId: number) => {
         setLoading(true);
         setError(null);
         try {
@@ -173,6 +246,12 @@ export default function MetricsPage() {
 
         if (!sprintId) {
             setMetricsData(null);
+            // Load board metrics when "All Sprints (YTD)" is selected
+            if (selectedBoardId && !boardMetricsData) {
+                await loadBoardMetrics(selectedBoardId);
+            } else if (boardMetricsData) {
+                generateAiSummary(null, boardMetricsData);
+            }
             return;
         }
 
@@ -201,7 +280,7 @@ export default function MetricsPage() {
     };
 
     const generateAiSummary = async (sprintData: any = null, boardData: any = null) => {
-        const useSprintId = selectedSprintId;
+        const useSprintId = selectedSprintId && selectedSprintId > 0 ? selectedSprintId : null;
         const currentSprintMetrics = sprintData || metricsData;
         const currentBoardMetrics = boardData || boardMetricsData;
 
@@ -273,7 +352,7 @@ export default function MetricsPage() {
 
             csvContent = lines.join('\n');
 
-        } else if (boardMetricsData && !selectedSprintId) {
+        } else if (boardMetricsData && selectedSprintId === null) {
             // Board Level Export
             filename = `Board_${selectedBoardId}_YoY_Metrics.csv`;
             const lines: string[] = [];
@@ -396,6 +475,12 @@ export default function MetricsPage() {
                     {/* Time Metrics Summary Cards */}
                     <TimeMetricsCards data={metricsData} />
 
+                    {/* Cycle Time / Lead Time / Throughput Cards */}
+                    <CycleTimeCards data={metricsData} />
+
+                    {/* Issue Breakdown (Sub-Tasks / Sub-Chores / Other) */}
+                    <IssueBreakdownCards data={metricsData} />
+
                     {/* Per-Member Delivery Speed */}
                     {metricsData.memberTimeMetrics && metricsData.memberTimeMetrics.length > 0 && (
                         <MemberTimeMetricsTable data={metricsData} />
@@ -413,12 +498,18 @@ export default function MetricsPage() {
             )}
 
             {/* Board YoY Metrics Content */}
-            {boardMetricsData && !selectedSprintId && !loading && (
+            {boardMetricsData && selectedSprintId === null && !loading && (
                 <div className="space-y-8 animate-fadeIn">
                     {aggregateMetrics && (
                         <>
                             {/* Year-to-Date Time Metrics Summary Cards */}
                             <TimeMetricsCards data={aggregateMetrics as MetricsData} />
+
+                            {/* Year-to-Date Cycle Time / Lead Time / Throughput */}
+                            <CycleTimeCards data={aggregateMetrics as MetricsData} />
+
+                            {/* Year-to-Date Issue Breakdown */}
+                            <IssueBreakdownCards data={aggregateMetrics as MetricsData} />
 
                             {/* Year-to-Date Per-Member Delivery Speed */}
                             {aggregateMetrics.memberTimeMetrics && aggregateMetrics.memberTimeMetrics.length > 0 && (
@@ -436,12 +527,14 @@ export default function MetricsPage() {
             )}
 
             {/* Empty State */}
-            {!metricsData && !boardMetricsData && !loading && !error && !selectedBoardId && (
+            {!metricsData && !boardMetricsData && !loading && !error && (
                 <div className="text-center py-20">
                     <div className="w-16 h-16 bg-muted/30 rounded-full flex items-center justify-center mx-auto mb-4">
                         <svg className="w-8 h-8 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>
                     </div>
-                    <p className="text-muted-foreground">Select a board to view 2026 metrics</p>
+                    <p className="text-muted-foreground">
+                        {!selectedBoardId ? 'Select a board to view 2026 metrics' : 'Select a sprint or All Sprints (YTD) to view metrics'}
+                    </p>
                 </div>
             )}
         </main>
@@ -457,18 +550,20 @@ function BoardYearlyTrendChart({ data }: { data: any }) {
         name: sm.sprint.name,
         mttd: sm.meanTimeToDeliver ? Number(sm.meanTimeToDeliver.toFixed(1)) : null,
         mttc: sm.meanTimeToDone ? Number(sm.meanTimeToDone.toFixed(1)) : null,
+        cycleTime: sm.cycleTimeMetrics?.avgCycleTimeDays ?? null,
+        leadTime: sm.cycleTimeMetrics?.avgLeadTimeDays ?? null,
     }));
 
     return (
         <div className="p-6 bg-muted/30 border border-border rounded-xl">
             <div className="mb-6">
                 <h3 className="text-lg font-bold text-foreground">2026 Delivery Timeline</h3>
-                <p className="text-sm text-muted-foreground">Mean Time to Deliver & Done across all sprints</p>
+                <p className="text-sm text-muted-foreground">Mean Time to Deliver & Done (hours) · Cycle & Lead Time (days) across all sprints</p>
             </div>
 
             <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
+                    <LineChart data={chartData} margin={{ top: 20, right: 40, left: 0, bottom: 20 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
                         <XAxis
                             dataKey="name"
@@ -480,9 +575,17 @@ function BoardYearlyTrendChart({ data }: { data: any }) {
                             height={60}
                         />
                         <YAxis
+                            yAxisId="hours"
                             stroke="#9CA3AF"
                             fontSize={12}
                             tickFormatter={(value) => `${value}h`}
+                        />
+                        <YAxis
+                            yAxisId="days"
+                            orientation="right"
+                            stroke="#9CA3AF"
+                            fontSize={12}
+                            tickFormatter={(value) => `${value}d`}
                         />
                         <Tooltip
                             contentStyle={{
@@ -492,13 +595,19 @@ function BoardYearlyTrendChart({ data }: { data: any }) {
                                 color: '#F3F4F6',
                             }}
                             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            formatter={(value: any, name: any) => [
-                                `${value}h`,
-                                name === 'mttd' ? 'Mean Time to Deliver' : 'Mean Time to Done'
-                            ]}
+                            formatter={(value: any, name: any) => {
+                                const labels: Record<string, string> = {
+                                    mttd: 'Mean Time to Deliver',
+                                    mttc: 'Mean Time to Done',
+                                    cycleTime: 'Avg Cycle Time',
+                                    leadTime: 'Avg Lead Time',
+                                };
+                                const unit = name === 'cycleTime' || name === 'leadTime' ? 'd' : 'h';
+                                return [`${value}${unit}`, labels[name] || name];
+                            }}
                         />
-                        <Legend wrapperStyle={{ color: '#9CA3AF', fontSize: 12, marginTop: '20px' }} />
                         <Line
+                            yAxisId="hours"
                             type="monotone"
                             dataKey="mttd"
                             name="mttd"
@@ -509,6 +618,7 @@ function BoardYearlyTrendChart({ data }: { data: any }) {
                             connectNulls
                         />
                         <Line
+                            yAxisId="hours"
                             type="monotone"
                             dataKey="mttc"
                             name="mttc"
@@ -516,6 +626,30 @@ function BoardYearlyTrendChart({ data }: { data: any }) {
                             strokeWidth={3}
                             dot={{ fill: '#10B981', r: 4 }}
                             activeDot={{ r: 6, strokeWidth: 0 }}
+                            connectNulls
+                        />
+                        <Line
+                            yAxisId="days"
+                            type="monotone"
+                            dataKey="cycleTime"
+                            name="cycleTime"
+                            stroke="#06B6D4"
+                            strokeWidth={2}
+                            strokeDasharray="5 5"
+                            dot={{ fill: '#06B6D4', r: 3 }}
+                            activeDot={{ r: 5, strokeWidth: 0 }}
+                            connectNulls
+                        />
+                        <Line
+                            yAxisId="days"
+                            type="monotone"
+                            dataKey="leadTime"
+                            name="leadTime"
+                            stroke="#F59E0B"
+                            strokeWidth={2}
+                            strokeDasharray="5 5"
+                            dot={{ fill: '#F59E0B', r: 3 }}
+                            activeDot={{ r: 5, strokeWidth: 0 }}
                             connectNulls
                         />
                     </LineChart>
@@ -607,6 +741,14 @@ function TimeMetricsCards({ data }: { data: MetricsData }) {
 function MemberTimeMetricsTable({ data }: { data: MetricsData }) {
     const { memberTimeMetrics } = data;
 
+    const getCycleColor = (days: number | null) => {
+        if (days === null) return 'text-muted-foreground/50';
+        if (days <= 2) return 'text-green-400';
+        if (days <= 5) return 'text-blue-400';
+        if (days <= 10) return 'text-yellow-400';
+        return 'text-red-400';
+    };
+
     return (
         <div className="bg-muted/30 rounded-xl border border-border overflow-hidden">
             <div className="p-4 border-b border-border bg-muted/20">
@@ -614,16 +756,21 @@ function MemberTimeMetricsTable({ data }: { data: MetricsData }) {
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg>
                     Team Delivery Performance
                 </h3>
-                <p className="text-sm text-muted-foreground mt-1">Mean Time to Deliver and Done per team member based on story/subtask completions.</p>
+                <p className="text-sm text-muted-foreground mt-1">Delivery speed, cycle time, and issue breakdown per team member</p>
             </div>
             <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                     <thead>
                         <tr className="bg-muted/30 text-xs uppercase text-muted-foreground tracking-wider">
                             <th className="p-3 pl-4 font-medium">Team Member</th>
-                            <th className="p-3 font-medium text-center">Mean Time to Deliver (MTD)</th>
-                            <th className="p-3 font-medium text-center border-l border-border">Mean Time to Done (MTTC)</th>
-                            <th className="p-3 font-medium text-center border-l border-border">Sample Size</th>
+                            <th className="p-3 font-medium text-center">MTD</th>
+                            <th className="p-3 font-medium text-center border-l border-border">MTTD</th>
+                            <th className="p-3 font-medium text-center border-l border-border">Cycle Time</th>
+                            <th className="p-3 font-medium text-center border-l border-border">Lead Time</th>
+                            <th className="p-3 font-medium text-center border-l border-border">Throughput</th>
+                            <th className="p-3 font-medium text-center border-l border-border">Sub-Tasks</th>
+                            <th className="p-3 font-medium text-center border-l border-border">Sub-Chores</th>
+                            <th className="p-3 font-medium text-center border-l border-border">Other</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-border text-sm text-foreground/70 bg-background/30">
@@ -643,7 +790,7 @@ function MemberTimeMetricsTable({ data }: { data: MetricsData }) {
                                 </td>
                                 <td className="p-3 text-center">
                                     {member.meanTimeToDeliver !== null ? (
-                                        <span className={`font-mono font-bold text-base ${getTimeColor(member.meanTimeToDeliver, [24, 72])}`}>
+                                        <span className={`font-mono font-bold ${getTimeColor(member.meanTimeToDeliver, [24, 72])}`}>
                                             {formatDuration(member.meanTimeToDeliver)}
                                         </span>
                                     ) : (
@@ -652,20 +799,182 @@ function MemberTimeMetricsTable({ data }: { data: MetricsData }) {
                                 </td>
                                 <td className="p-3 text-center border-l border-border">
                                     {member.meanTimeToDone !== null ? (
-                                        <span className={`font-mono font-bold text-base ${getTimeColor(member.meanTimeToDone, [120, 240])}`}>
+                                        <span className={`font-mono font-bold ${getTimeColor(member.meanTimeToDone, [120, 240])}`}>
                                             {formatDuration(member.meanTimeToDone)}
                                         </span>
                                     ) : (
                                         <span className="text-muted-foreground/50">—</span>
                                     )}
                                 </td>
-                                <td className="p-3 text-center border-l border-border text-muted-foreground">
-                                    {member.sampleSize.done} done / {member.sampleSize.deliver} delivered
+                                <td className="p-3 text-center border-l border-border">
+                                    <span className={`font-mono font-bold ${getCycleColor(member.cycleTimeAvg)}`}>
+                                        {member.cycleTimeAvg !== null ? `${member.cycleTimeAvg}d` : '—'}
+                                    </span>
+                                </td>
+                                <td className="p-3 text-center border-l border-border">
+                                    <span className={`font-mono font-bold ${getCycleColor(member.leadTimeAvg)}`}>
+                                        {member.leadTimeAvg !== null ? `${member.leadTimeAvg}d` : '—'}
+                                    </span>
+                                </td>
+                                <td className="p-3 text-center border-l border-border font-bold text-foreground">
+                                    {member.throughput}
+                                </td>
+                                <td className="p-3 text-center border-l border-border tabular-nums">
+                                    <span className="font-semibold text-foreground">{member.subTasks.delivered}</span>
+                                    <span className="text-muted-foreground">/{member.subTasks.total}</span>
+                                </td>
+                                <td className="p-3 text-center border-l border-border tabular-nums">
+                                    <span className="font-semibold text-foreground">{member.subChores.delivered}</span>
+                                    <span className="text-muted-foreground">/{member.subChores.total}</span>
+                                </td>
+                                <td className="p-3 text-center border-l border-border tabular-nums">
+                                    <span className="font-semibold text-foreground">{member.other.delivered}</span>
+                                    <span className="text-muted-foreground">/{member.other.total}</span>
                                 </td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
+            </div>
+        </div>
+    );
+}
+
+/**
+ * Cycle Time / Lead Time / Throughput Cards
+ */
+function CycleTimeCards({ data }: { data: MetricsData }) {
+    const ct = data.cycleTimeMetrics;
+    if (!ct) return null;
+
+    const getCycleColor = (days: number | null, thresholds: [number, number]) => {
+        if (days === null) return 'text-muted-foreground';
+        if (days <= thresholds[0]) return 'text-green-400';
+        if (days <= thresholds[1]) return 'text-yellow-400';
+        return 'text-red-400';
+    };
+
+    const cards = [
+        {
+            label: 'Avg Cycle Time',
+            sublabel: 'In Progress → Done',
+            value: ct.avgCycleTimeDays,
+            display: ct.avgCycleTimeDays !== null ? `${ct.avgCycleTimeDays}d` : '—',
+            color: getCycleColor(ct.avgCycleTimeDays, [5, 10]),
+            icon: <svg className="w-5 h-5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>,
+        },
+        {
+            label: 'Avg Lead Time',
+            sublabel: 'Created → Done',
+            value: ct.avgLeadTimeDays,
+            display: ct.avgLeadTimeDays !== null ? `${ct.avgLeadTimeDays}d` : '—',
+            color: getCycleColor(ct.avgLeadTimeDays, [7, 14]),
+            icon: <svg className="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+        },
+        {
+            label: 'Throughput',
+            sublabel: 'Issues completed',
+            value: ct.throughput,
+            display: `${ct.throughput}`,
+            color: 'text-foreground',
+            icon: <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>,
+        },
+    ];
+
+    return (
+        <div>
+            <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-cyan-500/20 rounded-xl flex items-center justify-center">
+                    <svg className="w-5 h-5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                </div>
+                <div>
+                    <h2 className="text-xl font-bold text-foreground">Cycle & Lead Time</h2>
+                    <p className="text-sm text-muted-foreground">Average business days for issue lifecycle · {ct.sampleSize} issues measured</p>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {cards.map((card) => (
+                    <div key={card.label} className="p-6 bg-muted/50 rounded-xl border border-border">
+                        <div className="flex items-center gap-2 mb-3">
+                            <span className="text-xl">{card.icon}</span>
+                            <div>
+                                <div className="text-sm font-semibold text-foreground">{card.label}</div>
+                                <div className="text-[10px] text-muted-foreground">{card.sublabel}</div>
+                            </div>
+                        </div>
+                        <div className={`text-4xl font-bold mb-1 ${card.color}`}>
+                            {card.display}
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+/**
+ * Issue Breakdown Cards (Sub-Tasks / Sub-Chores / Other)
+ */
+function IssueBreakdownCards({ data }: { data: MetricsData }) {
+    const bd = data.issueBreakdown;
+    if (!bd) return null;
+
+    const getCompletionColor = (delivered: number, total: number) => {
+        if (total === 0) return 'text-muted-foreground';
+        const pct = (delivered / total) * 100;
+        if (pct >= 90) return 'text-green-400';
+        if (pct >= 70) return 'text-blue-400';
+        if (pct >= 50) return 'text-yellow-400';
+        return 'text-red-400';
+    };
+
+    const cards = [
+        { label: 'Sub-Tasks', delivered: bd.subTasks.delivered, total: bd.subTasks.total, color: 'text-blue-400', bg: 'bg-blue-500/20' },
+        { label: 'Sub-Chores', delivered: bd.subChores.delivered, total: bd.subChores.total, color: 'text-purple-400', bg: 'bg-purple-500/20' },
+        { label: 'Other', delivered: bd.other.delivered, total: bd.other.total, color: 'text-pink-400', bg: 'bg-pink-500/20' },
+    ];
+
+    const totalDelivered = bd.subTasks.delivered + bd.subChores.delivered + bd.other.delivered;
+    const totalAll = bd.subTasks.total + bd.subChores.total + bd.other.total;
+
+    return (
+        <div>
+            <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-purple-500/20 rounded-xl flex items-center justify-center">
+                    <svg className="w-5 h-5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+                </div>
+                <div>
+                    <h2 className="text-xl font-bold text-foreground">Issue Breakdown</h2>
+                    <p className="text-sm text-muted-foreground">Delivered vs total by issue type · {totalDelivered}/{totalAll} completed</p>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {cards.map((card) => {
+                    const pct = card.total > 0 ? Math.round((card.delivered / card.total) * 100) : 0;
+                    return (
+                        <div key={card.label} className="p-6 bg-muted/50 rounded-xl border border-border">
+                            <div className="flex items-center gap-2 mb-3">
+                                <div className={`w-8 h-8 ${card.bg} rounded-lg flex items-center justify-center`}>
+                                    <span className={`text-sm font-bold ${card.color}`}>{card.label.charAt(0)}</span>
+                                </div>
+                                <div className="text-sm font-semibold text-foreground">{card.label}</div>
+                            </div>
+                            <div className="flex items-baseline gap-2 mb-2">
+                                <span className={`text-3xl font-bold ${getCompletionColor(card.delivered, card.total)}`}>{card.delivered}</span>
+                                <span className="text-lg text-muted-foreground">/ {card.total}</span>
+                            </div>
+                            <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                                <div
+                                    className={`h-full rounded-full ${card.bg.replace('/20', '')}`}
+                                    style={{ width: `${Math.min(pct, 100)}%` }}
+                                />
+                            </div>
+                            <div className="text-[10px] text-muted-foreground mt-1">{pct}% completion</div>
+                        </div>
+                    );
+                })}
             </div>
         </div>
     );

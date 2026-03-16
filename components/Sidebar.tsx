@@ -57,9 +57,22 @@ const IconTitleDays = () => (
     </svg>
 );
 
+const IconVelocity = () => (
+    <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
+        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" strokeLinecap="round" strokeLinejoin="round" />
+        <polyline points="17 6 23 6 23 12" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+);
+
 const IconMetrics = () => (
     <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
         <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+);
+
+const IconTeamReport = () => (
+    <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
+        <path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
 );
 
@@ -83,6 +96,12 @@ const navigation: NavSection[] = [
                 href: '/planning/capacity',
                 icon: <IconCapacity />,
                 description: 'Forecast sprint capacity',
+            },
+            {
+                name: 'Sprint Velocity',
+                href: '/planning/velocity',
+                icon: <IconVelocity />,
+                description: 'Sprint-to-sprint commitment tracker',
             },
         ],
     },
@@ -118,6 +137,13 @@ const navigation: NavSection[] = [
                 icon: <IconMetrics />,
                 description: 'Historical performance',
             },
+            {
+                name: 'Team Report',
+                href: '/reports/team',
+                icon: <IconTeamReport />,
+                description: 'Per-member sprint metrics',
+            },
+
         ],
     },
 ];
