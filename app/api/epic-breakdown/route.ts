@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createJiraClient } from '@/lib/jira-client';
-import { JiraIssue } from '@/types';
+import { getStoryPoints, getStatusCategory, getStatusName } from '@/lib/issue-helpers';
 
 // Interface for epic breakdown data
 interface EpicIssue {
@@ -28,27 +28,6 @@ interface EpicBreakdown {
     totalPoints: number;
     completedPoints: number;
     completionPercent: number;
-}
-
-// Story points fields to check
-const storyPointsFields = ['customfield_10036', 'customfield_10052'];
-
-function getStoryPoints(issue: JiraIssue): number {
-    for (const fieldName of storyPointsFields) {
-        const value = issue.fields[fieldName];
-        if (value !== undefined && value !== null && typeof value === 'number') {
-            return value;
-        }
-    }
-    return 0;
-}
-
-function getStatusCategory(issue: JiraIssue): string {
-    return issue.fields.status?.statusCategory?.name || 'To Do';
-}
-
-function getStatusName(issue: JiraIssue): string {
-    return issue.fields.status?.name || 'Unknown';
 }
 
 export async function GET(request: NextRequest) {

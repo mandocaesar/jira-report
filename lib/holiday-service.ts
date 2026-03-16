@@ -1,9 +1,9 @@
-import { Holiday, HolidayApiResponse } from '@/types';
+import { Holiday } from '@/types';
 
 const HOLIDAY_API_URL = 'https://libur.deno.dev/api';
 
 // Cache for holiday data
-let holidayCache: Map<number, Holiday[]> = new Map();
+const holidayCache: Map<number, Holiday[]> = new Map();
 
 /**
  * Fetch Indonesian holidays for a specific year
@@ -103,20 +103,37 @@ export function isHoliday(date: Date, holidays: Holiday[]): boolean {
 }
 
 /**
+ * Iterate over each calendar date from startDate to endDate (inclusive)
+ * using string-based arithmetic to avoid timezone drift.
+ */
+function forEachDate(startDate: Date, endDate: Date, callback: (dateStr: string) => void): void {
+    const startStr = toLocalDateString(startDate);
+    const endStr = toLocalDateString(endDate);
+    // Parse start date components to avoid timezone issues
+    const [sy, sm, sd] = startStr.split('-').map(Number);
+    const current = new Date(sy, sm - 1, sd);
+    let currentStr = startStr;
+
+    while (currentStr <= endStr) {
+        callback(currentStr);
+        current.setDate(current.getDate() + 1);
+        currentStr = toLocalDateString(current);
+    }
+}
+
+/**
  * Calculate working days between two dates (excluding weekends and Indonesian holidays)
  */
 export async function calculateWorkingDays(startDate: Date, endDate: Date): Promise<number> {
     const holidays = await getHolidaysInRange(startDate, endDate);
+    const holidaySet = new Set(holidays.map(h => h.holiday_date));
 
     let workingDays = 0;
-    const currentDate = new Date(startDate);
-
-    while (currentDate <= endDate) {
-        if (!isWeekend(currentDate) && !isHoliday(currentDate, holidays)) {
+    forEachDate(startDate, endDate, (dateStr) => {
+        if (!isWeekend(dateStr) && !holidaySet.has(dateStr)) {
             workingDays++;
         }
-        currentDate.setDate(currentDate.getDate() + 1);
-    }
+    });
 
     return workingDays;
 }
@@ -126,16 +143,15 @@ export async function calculateWorkingDays(startDate: Date, endDate: Date): Prom
  */
 export async function getWorkingDates(startDate: Date, endDate: Date): Promise<Date[]> {
     const holidays = await getHolidaysInRange(startDate, endDate);
+    const holidaySet = new Set(holidays.map(h => h.holiday_date));
 
     const workingDates: Date[] = [];
-    const currentDate = new Date(startDate);
-
-    while (currentDate <= endDate) {
-        if (!isWeekend(currentDate) && !isHoliday(currentDate, holidays)) {
-            workingDates.push(new Date(currentDate));
+    forEachDate(startDate, endDate, (dateStr) => {
+        if (!isWeekend(dateStr) && !holidaySet.has(dateStr)) {
+            const [y, m, d] = dateStr.split('-').map(Number);
+            workingDates.push(new Date(y, m - 1, d));
         }
-        currentDate.setDate(currentDate.getDate() + 1);
-    }
+    });
 
     return workingDates;
 }

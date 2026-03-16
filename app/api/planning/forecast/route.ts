@@ -78,27 +78,9 @@ export async function GET(request: NextRequest) {
         }
         const team = teamData.config;
 
-        // Fetch active sprints from Jira API
-        const jiraDomain = process.env.JIRA_DOMAIN;
-        const jiraEmail = process.env.JIRA_EMAIL;
-        const jiraToken = process.env.JIRA_API_TOKEN;
-
-        const sprintsResponse = await fetch(
-            `https://${jiraDomain}/rest/agile/1.0/board/${boardId}/sprint?state=active,future&maxResults=50`,
-            {
-                headers: {
-                    Authorization: `Basic ${Buffer.from(`${jiraEmail}:${jiraToken}`).toString('base64')}`,
-                    'Content-Type': 'application/json',
-                },
-            }
-        );
-
-        if (!sprintsResponse.ok) {
-            throw new Error('Failed to fetch sprints from Jira');
-        }
-
-        const sprintsData = await sprintsResponse.json();
-        const sprints = sprintsData.values || [];
+        // Fetch active/future sprints via JiraClient
+        const client = createJiraClient();
+        const sprints = await client.getSprintsByState(boardId, 'active,future');
 
         // Filter sprints within the forecast horizon
         const now = new Date();

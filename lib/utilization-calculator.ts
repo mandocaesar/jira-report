@@ -2,68 +2,7 @@ import { JiraIssue, User, UserUtilization, Sprint, SprintSummary } from '@/types
 import { calculateWorkingDays, getHolidaysInRange } from './holiday-service';
 import { getMemberByAccountId, getSprintLeave, getTeamByBoardIdFromDb, getAvailableDaysFromMap, getTitleDaysMapFromDb } from './team-roster';
 import { prisma, isDatabaseAvailable } from './db';
-
-/**
- * Extract story points from a Jira issue
- * Only use known story point fields - be careful of date fields!
- */
-function getStoryPoints(issue: JiraIssue): number {
-    // Only use verified story point field names
-    // IMPORTANT: customfield_10026 is a DATE field, not story points!
-    const storyPointsFields = [
-        'customfield_10036', // Story Points (Bank Sinarmas instance)
-        'customfield_10052', // QA Story Point
-    ];
-
-    for (const fieldName of storyPointsFields) {
-        const value = issue.fields[fieldName];
-        if (value !== undefined && value !== null && typeof value === 'number') {
-            return value;
-        }
-    }
-
-    return 0;
-}
-
-/**
- * Extract user information from a Jira issue
- */
-function extractUser(issue: JiraIssue): User | null {
-    if (!issue.fields.assignee) {
-        return null;
-    }
-
-    const assignee = issue.fields.assignee;
-    return {
-        accountId: assignee.accountId,
-        displayName: assignee.displayName,
-        emailAddress: assignee.emailAddress,
-        avatarUrl: assignee.avatarUrls['48x48'],
-    };
-}
-
-/**
- * Categorize issue type into:
- * - Product: Default category (Story, Task, Sub-task, etc.)
- * - Technical Initiatives: Technical Initiative, Chore
- * - Incident: Incident, Bug, Defect
- */
-function categorizeIssueType(typeName: string): string {
-    const lowerType = typeName.toLowerCase();
-
-    // Technical Initiatives
-    if (lowerType.includes('technical') || lowerType === 'chore') {
-        return 'Technical Initiatives';
-    }
-
-    // Incident
-    if (lowerType === 'incident' || lowerType === 'bug' || lowerType === 'defect') {
-        return 'Incident';
-    }
-
-    // Product (default)
-    return 'Product';
-}
+import { getStoryPoints, extractUser, categorizeIssueType } from './issue-helpers';
 
 /**
  * Group issues by assignee and sum their story points and collect work type stats.

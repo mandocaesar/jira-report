@@ -1,4 +1,6 @@
 import { Sprint, JiraIssue } from '@/types';
+import { STORY_POINTS_FIELDS } from './issue-helpers';
+import { apiCache } from './cache';
 
 interface JiraConfig {
     domain: string;
@@ -21,14 +23,7 @@ class JiraClient {
         const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
         this.authHeader = `Basic ${auth}`;
 
-        // Common story points custom field IDs
-        this.storyPointsFields = [
-            'customfield_10036', // Story Points (your Jira instance)
-            'customfield_10052', // QA Story Point
-            'customfield_10016', // Story point estimate (fallback)
-            'customfield_10026', // Another common field (fallback)
-            'customfield_10004', // Yet another common field (fallback)
-        ];
+        this.storyPointsFields = STORY_POINTS_FIELDS;
     }
 
     private async fetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -60,7 +55,7 @@ class JiraClient {
     }
 
     /**
-   * Get all sprints for a board
+   * Get all sprints for a board (cached for 5 minutes)
    */
     async getSprints(boardId?: number): Promise<Sprint[]> {
         let targetBoardId = boardId;
@@ -82,7 +77,12 @@ class JiraClient {
         }
 
         const endpoint = `/board/${targetBoardId}/sprint`;
+        const cacheKey = `sprints:${targetBoardId}`;
+        const cached = apiCache.get<Sprint[]>(cacheKey);
+        if (cached) return cached;
+
         const response = await this.fetch<{ values: Sprint[] }>(endpoint);
+        apiCache.set(cacheKey, response.values);
         return response.values;
     }
 
@@ -110,6 +110,9 @@ class JiraClient {
      */
     async getSprintIssues(sprintId: number, boardId?: number): Promise<JiraIssue[]> {
         const teamId = boardId ? this.getTeamIdForBoard(boardId) : null;
+        const cacheKey = `sprintIssues:${sprintId}:${boardId || 'default'}`;
+        const cached = apiCache.get<JiraIssue[]>(cacheKey);
+        if (cached) return cached;
 
         // Use Agile API and filter client-side to avoid deprecated JQL endpoints
         // Include customfield_10014 (Epic Link) for epic grouping
@@ -132,6 +135,7 @@ class JiraClient {
             console.log(`[getSprintIssues] Filtered from ${originalCount} to ${issues.length} issues for team ${teamId}`);
         }
 
+        apiCache.set(cacheKey, issues);
         return issues;
     }
 
@@ -158,6 +162,9 @@ class JiraClient {
      */
     async getSprintIssuesWithChangelog(sprintId: number, boardId?: number): Promise<JiraIssue[]> {
         const teamId = boardId ? this.getTeamIdForBoard(boardId) : null;
+        const cacheKey = `sprintIssuesChangelog:${sprintId}:${boardId || 'default'}`;
+        const cached = apiCache.get<JiraIssue[]>(cacheKey);
+        if (cached) return cached;
 
         const endpoint = `/sprint/${sprintId}/issue?` +
             `fields=summary,assignee,worklog,issuetype,status,created,parent,subtasks,customfield_10001,customfield_10014,${this.storyPointsFields.join(',')}&` +
@@ -179,6 +186,7 @@ class JiraClient {
             console.log(`[getSprintIssuesWithChangelog] Filtered from ${originalCount} to ${issues.length} issues for team ${teamId}`);
         }
 
+        apiCache.set(cacheKey, issues);
         return issues;
     }
 
@@ -187,6 +195,17 @@ class JiraClient {
      */
     async getSprint(sprintId: number): Promise<Sprint> {
         return this.fetch<Sprint>(`/sprint/${sprintId}`);
+    }
+
+    /**
+     * Get sprints for a board filtered by state(s).
+     * @param boardId - The board ID
+     * @param states - Comma-separated states, e.g. 'active,future'
+     */
+    async getSprintsByState(boardId: number, states: string): Promise<Sprint[]> {
+        const endpoint = `/board/${boardId}/sprint?state=${states}&maxResults=50`;
+        const response = await this.fetch<{ values: Sprint[] }>(endpoint);
+        return response.values;
     }
 }
 

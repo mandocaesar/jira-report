@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 
-const AUTH_SECRET = new TextEncoder().encode(process.env.AUTH_SECRET || 'default-secret-change-me');
+if (!process.env.AUTH_SECRET) {
+    throw new Error('AUTH_SECRET environment variable is required');
+}
+const AUTH_SECRET = new TextEncoder().encode(process.env.AUTH_SECRET);
 
 // Routes that don't require authentication
 const publicRoutes = ['/login', '/api/auth/login', '/api/cron'];

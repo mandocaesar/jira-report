@@ -1,26 +1,12 @@
 import { NextResponse } from 'next/server';
 import { createJiraClient } from '@/lib/jira-client';
+import { getStoryPoints, isStoryPointField, sprintFieldContainsId } from '@/lib/issue-helpers';
 import { JiraIssue, Sprint, SprintVelocityEntry, SprintVelocityData, SprintCommitmentCategory } from '@/types';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const STORY_POINTS_FIELDS = ['customfield_10036', 'customfield_10052'];
-
-function getStoryPoints(issue: JiraIssue): number {
-    for (const field of STORY_POINTS_FIELDS) {
-        const v = issue.fields[field];
-        if (v !== undefined && v !== null && typeof v === 'number') return v;
-    }
-    return 0;
-}
-
-function isSpField(fieldId?: string | null, fieldName?: string | null): boolean {
-    if (fieldId) return STORY_POINTS_FIELDS.includes(fieldId);
-    return fieldName === 'Story Points' || fieldName === 'QA Story Point';
-}
 
 type CategoryKey = 'stories' | 'subTasks' | 'subChores' | 'incidents';
 
@@ -45,7 +31,7 @@ function getPointsAtStart(issue: JiraIssue, sprintStartDayEnd: number): number {
         const t = new Date(h.created).getTime();
         if (t <= sprintStartDayEnd) continue;
         for (const item of h.items) {
-            if (isSpField(item.fieldId, item.field)) {
+            if (isStoryPointField(item.fieldId, item.field)) {
                 laterChanges.push({ time: t, fromVal: item.fromString || '0' });
             }
         }
@@ -71,7 +57,7 @@ function isAddedMidSprint(issue: JiraIssue, sprint: Sprint, sprintStartDayEnd: n
             for (const item of h.items) {
                 if (item.field === 'Sprint' || item.fieldId === 'customfield_10020') {
                     if (
-                        item.to?.includes(String(sprint.id)) ||
+                        sprintFieldContainsId(item.to, sprint.id) ||
                         item.toString?.includes(sprint.name)
                     ) return true;
                 }

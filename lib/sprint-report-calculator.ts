@@ -1,54 +1,6 @@
 import { JiraIssue, Sprint, User, SprintReportData, StatusGroup, MemberBreakdown, ReportIssue, ScopeChange } from '@/types';
 import { getMemberByAccountId, getTeamByBoardIdFromDb } from './team-roster';
-
-/**
- * Extract story points from a Jira issue (same logic as utilization-calculator)
- */
-function getStoryPoints(issue: JiraIssue): number {
-    const storyPointsFields = [
-        'customfield_10036', // Story Points
-        'customfield_10052', // QA Story Point
-    ];
-
-    for (const fieldName of storyPointsFields) {
-        const value = issue.fields[fieldName];
-        if (value !== undefined && value !== null && typeof value === 'number') {
-            return value;
-        }
-    }
-
-    return 0;
-}
-
-/**
- * Extract user information from a Jira issue
- */
-function extractUser(issue: JiraIssue): User | null {
-    if (!issue.fields.assignee) return null;
-
-    const assignee = issue.fields.assignee;
-    return {
-        accountId: assignee.accountId,
-        displayName: assignee.displayName,
-        emailAddress: assignee.emailAddress,
-        avatarUrl: assignee.avatarUrls['48x48'],
-    };
-}
-
-/**
- * Get status category from an issue.
- * Maps Jira's statusCategory.name to a normalized category.
- */
-function getStatusCategory(issue: JiraIssue): string {
-    return issue.fields.status?.statusCategory?.name || 'Unknown';
-}
-
-/**
- * Get status name from an issue (e.g. "In Review", "QA Testing")
- */
-function getStatusName(issue: JiraIssue): string {
-    return issue.fields.status?.name || 'Unknown';
-}
+import { getStoryPoints, extractUser, isStoryPointField, getStatusCategory, getStatusName, sprintFieldContainsId } from './issue-helpers';
 
 /**
  * Calculates scope changes (added to sprint, points changed)
@@ -56,14 +8,11 @@ function getStatusName(issue: JiraIssue): string {
 function calculateScopeChanges(sprint: Sprint, issues: JiraIssue[]): ScopeChange[] {
     const changes: ScopeChange[] = [];
     const sprintStartDate = new Date(sprint.startDate);
-    const sprintStartTime = sprintStartDate.getTime();
 
     // Changes on the same calendar date as sprint start are considered part of planning, not scope changes
     const sprintStartDayEnd = new Date(sprintStartDate);
     sprintStartDayEnd.setHours(23, 59, 59, 999);
     const sprintStartDayEndTime = sprintStartDayEnd.getTime();
-
-    const storyPointsFields = ['customfield_10036', 'customfield_10052'];
 
     for (const issue of issues) {
         let wasAddedDuringSprint = false;
@@ -95,9 +44,9 @@ function calculateScopeChanges(sprint: Sprint, issues: JiraIssue[]): ScopeChange
                 if (historyTime <= sprintStartDayEndTime) continue;
 
                 for (const item of history.items) {
-                    // Check if added to sprint
+                    // Check if added to sprint (exact ID match to avoid substring false positives)
                     if (!wasAddedDuringSprint && (item.field === 'Sprint' || item.fieldId === 'customfield_10020')) {
-                        const addedToThisSprint = item.to?.includes(String(sprint.id)) || item.toString?.includes(sprint.name);
+                        const addedToThisSprint = sprintFieldContainsId(item.to, sprint.id) || item.toString?.includes(sprint.name);
                         if (addedToThisSprint) {
                             wasAddedDuringSprint = true;
                             changes.push({
@@ -115,8 +64,7 @@ function calculateScopeChanges(sprint: Sprint, issues: JiraIssue[]): ScopeChange
                     }
 
                     // Check for point changes
-                    const isStoryPointField = item.fieldId ? storyPointsFields.includes(item.fieldId) : (item.field === 'Story Points' || item.field === 'QA Story Point');
-                    if (isStoryPointField) {
+                    if (isStoryPointField(item.fieldId, item.field)) {
                         const oldVal = item.fromString || '0';
                         const newVal = item.toString || '0';
                         // Ignore trivial changes like null -> 0 if they're equivalent in math terms

@@ -336,7 +336,19 @@ ${JSON.stringify(
 export async function GET(request: Request) {
     try {
         const authHeader = request.headers.get('authorization');
-        if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+        const cronSecret = process.env.CRON_SECRET;
+        if (!cronSecret || !authHeader) {
+            return new Response('Unauthorized', { status: 401 });
+        }
+        // Timing-safe comparison to prevent timing attacks
+        const expected = `Bearer ${cronSecret}`;
+        if (authHeader.length !== expected.length) {
+            return new Response('Unauthorized', { status: 401 });
+        }
+        const { timingSafeEqual } = await import('crypto');
+        const a = Buffer.from(authHeader);
+        const b = Buffer.from(expected);
+        if (!timingSafeEqual(a, b)) {
             return new Response('Unauthorized', { status: 401 });
         }
 
