@@ -82,16 +82,60 @@ model SprintMetrics {
   @@index([sprintId])
 }
 
-// Team definition (replaces static team-roster.json)
+// Organisation hierarchy: Group → Division → Department → Squad (Team)
+model OrgGroup {
+  id        String     @id @default(cuid())
+  name      String
+  code      String     @unique
+  isActive  Boolean    @default(true)
+  divisions Division[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model Division {
+  id          String       @id @default(cuid())
+  name        String
+  code        String       @unique
+  isActive    Boolean      @default(true)
+  groupId     String
+  group       OrgGroup     @relation(fields: [groupId], references: [id])
+  departments Department[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([groupId])
+}
+
+model Department {
+  id         String   @id @default(cuid())
+  name       String
+  code       String   @unique
+  isActive   Boolean  @default(true)
+  divisionId String
+  division   Division @relation(fields: [divisionId], references: [id])
+  teams      Team[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([divisionId])
+}
+
+// Squad-level entity (formerly standalone Team)
 model Team {
   id       String       @id @default(cuid())
   name     String
   boardId  Int          @unique
   members  TeamMember[]
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+  workingHoursPerDay Float   @default(8) // Productive hours per working day
   reportEmailGroup String?  // Comma-separated or group email for scheduled reports
   isSchedulingEnabled Boolean @default(false)
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
+
+  @@index([departmentId])
 }
 
 // Team member belonging to a team

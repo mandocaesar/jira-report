@@ -36,7 +36,7 @@ export async function POST(request: Request) {
             );
         }
 
-        const { name, boardId } = await request.json();
+        const { name, boardId, departmentId } = await request.json();
 
         if (!name || boardId === undefined) {
             return NextResponse.json(
@@ -46,7 +46,11 @@ export async function POST(request: Request) {
         }
 
         const team = await prisma.team.create({
-            data: { name, boardId: parseInt(boardId) },
+            data: {
+                name,
+                boardId: parseInt(boardId),
+                ...(departmentId && { departmentId }),
+            },
         });
 
         return NextResponse.json({ success: true, data: team });
@@ -69,7 +73,7 @@ export async function PUT(request: Request) {
             );
         }
 
-        const { id, name, boardId, reportEmailGroup, isSchedulingEnabled } = await request.json();
+        const { id, name, boardId, reportEmailGroup, isSchedulingEnabled, departmentId, workingHoursPerDay } = await request.json();
 
         if (!id) {
             return NextResponse.json(
@@ -85,6 +89,8 @@ export async function PUT(request: Request) {
                 ...(boardId !== undefined && { boardId: parseInt(boardId) }),
                 ...(reportEmailGroup !== undefined && { reportEmailGroup }),
                 ...(isSchedulingEnabled !== undefined && { isSchedulingEnabled }),
+                ...(departmentId !== undefined && { departmentId }),
+                ...(workingHoursPerDay !== undefined && { workingHoursPerDay: parseFloat(workingHoursPerDay) }),
             },
         });
 
