@@ -82,6 +82,15 @@ const IconTeamReport = () => (
     </svg>
 );
 
+const IconSquad = () => (
+    <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
+        <rect x="3" y="3" width="7" height="7" rx="1.5" />
+        <rect x="14" y="3" width="7" height="7" rx="1.5" />
+        <rect x="3" y="14" width="7" height="7" rx="1.5" />
+        <rect x="14" y="14" width="7" height="7" rx="1.5" />
+    </svg>
+);
+
 const navigation: NavSection[] = [
     {
         title: 'Dashboard',
@@ -92,6 +101,12 @@ const navigation: NavSection[] = [
                 icon: <IconSprintOverview />,
                 description: 'View sprint progress and metrics',
             },
+            {
+                name: 'Squad Dashboard',
+                href: '/squads',
+                icon: <IconSquad />,
+                description: 'Squad health and performance',
+            },
         ],
     },
     {
@@ -101,7 +116,7 @@ const navigation: NavSection[] = [
                 name: 'Capacity Planning',
                 href: '/planning/capacity',
                 icon: <IconCapacity />,
-                description: 'Forecast sprint capacity',
+                description: 'Forecast capacity & manage leave',
             },
             {
                 name: 'Sprint Velocity',
@@ -130,12 +145,6 @@ const navigation: NavSection[] = [
                 href: '/settings/team',
                 icon: <IconTeam />,
                 description: 'Manage team roster',
-            },
-            {
-                name: 'Sprint Leave',
-                href: '/settings/leave',
-                icon: <IconLeave />,
-                description: 'Plan leave per sprint',
             },
             {
                 name: 'Title Days',

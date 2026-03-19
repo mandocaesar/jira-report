@@ -360,3 +360,72 @@ export interface SprintVelocityData {
   boardId: number;
   sprints: SprintVelocityEntry[];
 }
+
+// Squad Dashboard types
+export interface SquadOverview {
+  id: string;
+  name: string;
+  boardId: number;
+  departmentName?: string;
+  memberCount: number;
+  engineerCount: number;
+  qaCount: number;
+  workingHoursPerDay: number;
+  currentSprint?: {
+    id: number;
+    name: string;
+    state: string;
+    progress: number; // % through sprint timeline
+    committedPoints: number;
+    completedPoints: number;
+    completionPercent: number;
+  };
+  recentVelocity?: {
+    avgCommitted: number;
+    avgActual: number;
+    avgAccuracy: number;
+    trend: 'up' | 'down' | 'stable';
+    sprintCount: number;
+  };
+}
+
+export interface SquadMemberPerformance {
+  accountId: string;
+  name: string;
+  role: 'qa' | 'engineer';
+  title: string;
+  avatarUrl: string;
+  workingHoursPerDay?: number;
+  sprintMetrics: Array<{
+    sprintId: number;
+    sprintName: string;
+    storyPoints: number;
+    availableDays: number;
+    effectiveMandays: number;
+    utilizationPercent: number;
+    completedIssues: number;
+    cycleTimeAvg: number | null;
+    leadTimeAvg: number | null;
+  }>;
+  averages: {
+    storyPoints: number;
+    utilization: number;
+    cycleTime: number | null;
+    leadTime: number | null;
+    throughput: number;
+  };
+}
+
+export interface SquadHealthData {
+  squad: SquadOverview;
+  velocity: SprintVelocityEntry[];
+  memberPerformance: SquadMemberPerformance[];
+  workloadDistribution: Array<{
+    accountId: string;
+    name: string;
+    role: 'qa' | 'engineer';
+    currentPoints: number;
+    currentUtilization: number;
+    status: 'under' | 'optimal' | 'over';
+  }>;
+}
