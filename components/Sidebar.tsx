@@ -125,6 +125,13 @@ const IconWorkType = () => (
     </svg>
 );
 
+const IconSprintPerformance = () => (
+    <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
+        <path d="M3 3v18h18" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M7 16l4-8 4 4 5-10" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+);
+
 const navigation: NavSection[] = [
     {
         title: 'Dashboard',
@@ -134,6 +141,12 @@ const navigation: NavSection[] = [
                 href: '/',
                 icon: <IconSprintOverview />,
                 description: 'View sprint progress and metrics',
+            },
+            {
+                name: 'Sprint Performance',
+                href: '/sprint-performance',
+                icon: <IconSprintPerformance />,
+                description: 'Detailed metrics & capacity KPIs',
             },
         ],
     },

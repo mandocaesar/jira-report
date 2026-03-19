@@ -15,7 +15,7 @@
 | 2 | Settings Pages | ✅ Complete | 2026-03-19 |
 | 3 | Organisation — Engineers & Leaves | ✅ Complete | 2026-03-19 |
 | 4 | Organisation — Squad Detail Rewrite | ✅ Complete | 2026-03-19 |
-| 5 | Sprint Performance Page | 🔲 Not Started | — |
+| 5 | Sprint Performance Page | ✅ Complete | 2026-03-20 |
 | 6 | Leadership Dashboard | 🔲 Not Started | — |
 | 7 | Timesheet (Worklog Enhancement) | 🔲 Not Started | — |
 
@@ -163,13 +163,13 @@ Leave             — engineerId, startDate, endDate, type, notes
 
 | # | Task | Status |
 |---|------|--------|
-| 5.1 | Capacity pipeline (prorated allocation formula) | 🔲 |
-| 5.2 | Hours-based metrics (Committed Hours, Logged Hours, Planned/Exec Util, SP/Hour) | 🔲 |
-| 5.3 | Sprint Performance page (`/sprint-performance`) | 🔲 |
-| 5.4 | Sprint Report tab (Overview, Totals, 8 KPIs, Non-Dev Days, Allocations, Charts, Issues, Engineer Metrics) | 🔲 |
-| 5.5 | History tab (past sprints table) | 🔲 |
-| 5.6 | Export XLSX + CSV | 🔲 |
-| 5.7 | Refactor home page | 🔲 |
+| 5.1 | Capacity pipeline (prorated allocation formula) | ✅ |
+| 5.2 | Hours-based metrics (Committed Hours, Logged Hours, Planned/Exec Util, SP/Hour) | ✅ |
+| 5.3 | Sprint Performance page (`/sprint-performance`) | ✅ |
+| 5.4 | Sprint Report tab (Overview, Totals, 8 KPIs, Non-Dev Days, Allocations, Charts, Issues, Engineer Metrics) | ✅ |
+| 5.5 | History tab (past sprints table) | ✅ |
+| 5.6 | Export XLSX + CSV | ✅ |
+| 5.7 | Refactor home page | ⏭️ Deferred |
 
 ### Capacity Pipeline (Section 8 of spec)
 ```
