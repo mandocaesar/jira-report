@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, lazy, Suspense } from 'react';
 import BoardSelector from '@/components/BoardSelector';
 import SprintSelector from '@/components/SprintSelector';
 import { MetricsData } from '@/types';
@@ -8,6 +8,18 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
     LineChart, Line, ResponsiveContainer
 } from 'recharts';
+
+const TeamScorecard = lazy(() => import('@/components/metrics/TeamScorecard'));
+const SquadGrid = lazy(() => import('@/components/metrics/SquadGrid'));
+const VelocityOverview = lazy(() => import('@/components/metrics/VelocityOverview'));
+
+function SectionLoader() {
+    return (
+        <div className="flex items-center justify-center py-8">
+            <div className="w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+    );
+}
 
 /**
  * Format hours into a human-readable string
@@ -388,8 +400,35 @@ export default function MetricsPage() {
                     <h1 className="text-3xl font-bold text-foreground">
                         Metrics Dashboard
                     </h1>
-                    <p className="text-muted-foreground mt-2">Track issue flow, completion rates, and delivery speed</p>
+                    <p className="text-muted-foreground mt-2">Team performance, velocity, and delivery metrics at a glance</p>
                 </div>
+            </div>
+
+            {/* === Team Scorecard (Top/Bottom 3) === */}
+            <div className="mb-8">
+                <Suspense fallback={<SectionLoader />}>
+                    <TeamScorecard />
+                </Suspense>
+            </div>
+
+            {/* === Squad Overview Grid === */}
+            <div className="mb-8">
+                <Suspense fallback={<SectionLoader />}>
+                    <SquadGrid />
+                </Suspense>
+            </div>
+
+            {/* === Velocity Overview (board-scoped) === */}
+            <div className="mb-8">
+                <Suspense fallback={<SectionLoader />}>
+                    <VelocityOverview boardId={selectedBoardId} />
+                </Suspense>
+            </div>
+
+            {/* Divider between overview and detailed metrics */}
+            <div className="border-t border-border mb-8 pt-8">
+                <h2 className="text-xl font-bold text-foreground mb-1">Detailed Sprint Metrics</h2>
+                <p className="text-sm text-muted-foreground">Select a board and sprint to view in-depth delivery metrics</p>
             </div>
 
             {/* Selectors */}

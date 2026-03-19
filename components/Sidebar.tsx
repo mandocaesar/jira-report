@@ -48,6 +48,19 @@ const IconOrgStructure = () => (
     </svg>
 );
 
+const IconEngineer = () => (
+    <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
+        <path d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+);
+
+const IconLeaveNav = () => (
+    <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
+        <path d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M10 15l2 2 4-4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+);
+
 const IconLeave = () => (
     <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
         <rect x="3" y="4" width="18" height="18" rx="2" />
@@ -91,6 +104,27 @@ const IconSquad = () => (
     </svg>
 );
 
+const IconJira = () => (
+    <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
+        <path d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+);
+
+const IconHoliday = () => (
+    <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
+        <rect x="3" y="4" width="18" height="18" rx="2" />
+        <path d="M16 2v4M8 2v4M3 10h18" strokeLinecap="round" />
+        <circle cx="12" cy="15" r="2" />
+    </svg>
+);
+
+const IconWorkType = () => (
+    <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
+        <path d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M6 6h.008v.008H6V6z" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+);
+
 const navigation: NavSection[] = [
     {
         title: 'Dashboard',
@@ -100,12 +134,6 @@ const navigation: NavSection[] = [
                 href: '/',
                 icon: <IconSprintOverview />,
                 description: 'View sprint progress and metrics',
-            },
-            {
-                name: 'Squad Dashboard',
-                href: '/squads',
-                icon: <IconSquad />,
-                description: 'Squad health and performance',
             },
         ],
     },
@@ -119,7 +147,7 @@ const navigation: NavSection[] = [
                 description: 'Forecast capacity & manage leave',
             },
             {
-                name: 'Sprint Velocity',
+                name: 'Velocity',
                 href: '/planning/velocity',
                 icon: <IconVelocity />,
                 description: 'Sprint-to-sprint commitment tracker',
@@ -135,22 +163,52 @@ const navigation: NavSection[] = [
                 icon: <IconOrgStructure />,
                 description: 'Group → Division → Dept → Squad',
             },
+            {
+                name: 'Squads',
+                href: '/organisation/squads',
+                icon: <IconSquad />,
+                description: 'Squad hub & performance',
+            },
+            {
+                name: 'Engineers',
+                href: '/organisation/engineers',
+                icon: <IconEngineer />,
+                description: 'View and manage engineers',
+            },
+            {
+                name: 'Leaves',
+                href: '/organisation/leaves',
+                icon: <IconLeaveNav />,
+                description: 'Manage engineer leaves',
+            },
         ],
     },
     {
         title: 'Settings',
         items: [
             {
-                name: 'Team Members',
-                href: '/settings/team',
-                icon: <IconTeam />,
-                description: 'Manage team roster',
-            },
-            {
                 name: 'Title Days',
                 href: '/settings/title-days',
                 icon: <IconTitleDays />,
                 description: 'Available days per title',
+            },
+            {
+                name: 'Jira Integration',
+                href: '/settings/jira',
+                icon: <IconJira />,
+                description: 'Connection & data sources',
+            },
+            {
+                name: 'Holidays',
+                href: '/settings/holidays',
+                icon: <IconHoliday />,
+                description: 'National holidays calendar',
+            },
+            {
+                name: 'Work Type Labels',
+                href: '/settings/work-type-labels',
+                icon: <IconWorkType />,
+                description: 'Jira label → category mapping',
             },
         ],
     },
@@ -163,13 +221,6 @@ const navigation: NavSection[] = [
                 icon: <IconMetrics />,
                 description: 'Historical performance',
             },
-            {
-                name: 'Team Report',
-                href: '/reports/team',
-                icon: <IconTeamReport />,
-                description: 'Per-member sprint metrics',
-            },
-
         ],
     },
 ];
