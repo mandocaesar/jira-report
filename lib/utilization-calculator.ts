@@ -121,6 +121,9 @@ export async function calculateSprintUtilization(
     // Calculate utilization for each user
     const userUtilizations: UserUtilization[] = [];
 
+    // Team standard hours (from DB team or default 8)
+    const teamStandardHours = teamInfo?.config.workingHoursPerDay ?? 8;
+
     // Stats for QA and Engineers
     let qaCount = 0;
     let engineerCount = 0;
@@ -130,6 +133,10 @@ export async function calculateSprintUtilization(
     let engineerStoryPoints = 0;
     let qaLeaveDays = 0;
     let engineerLeaveDays = 0;
+    let qaTotalHours = 0;
+    let engineerTotalHours = 0;
+    let qaEffectiveMandays = 0;
+    let engineerEffectiveMandays = 0;
 
     // Work type stats by role
     const qaWorkTypeStats: Record<string, number> = { 'Product': 0, 'Technical Initiatives': 0, 'Incident': 0 };
@@ -176,8 +183,15 @@ export async function calculateSprintUtilization(
             const titleBaseDays = Math.min(getAvailableDaysFromMap(member.title, titleDaysMap), totalWorkingDays);
             const availableDays = isExcluded ? 0 : Math.max(0, titleBaseDays - leaveDays);
 
-            const utilizationPercent = availableDays > 0
-                ? (storyPoints / availableDays) * 100
+            // Hours-based capacity
+            const resolvedHours = member.workingHoursPerDay ?? teamStandardHours;
+            const availableHours = availableDays * resolvedHours;
+            const effectiveMandays = teamStandardHours > 0
+                ? availableHours / teamStandardHours
+                : availableDays;
+
+            const utilizationPercent = effectiveMandays > 0
+                ? (storyPoints / effectiveMandays) * 100
                 : 0;
 
             userUtilizations.push({
@@ -192,6 +206,10 @@ export async function calculateSprintUtilization(
                 title: member.title,
                 workTypeStats,
                 isUnrecognized: false,
+                workingHoursPerDay: resolvedHours,
+                teamStandardHours,
+                availableHours,
+                effectiveMandays,
             });
 
             // Aggregate overall work type stats
@@ -206,6 +224,8 @@ export async function calculateSprintUtilization(
                     qaMandays += availableDays;
                     qaStoryPoints += storyPoints;
                     qaLeaveDays += leaveDays;
+                    qaTotalHours += availableHours;
+                    qaEffectiveMandays += effectiveMandays;
                     for (const [type, points] of Object.entries(workTypeStats)) {
                         qaWorkTypeStats[type] = (qaWorkTypeStats[type] || 0) + points;
                     }
@@ -214,6 +234,8 @@ export async function calculateSprintUtilization(
                     engineerMandays += availableDays;
                     engineerStoryPoints += storyPoints;
                     engineerLeaveDays += leaveDays;
+                    engineerTotalHours += availableHours;
+                    engineerEffectiveMandays += effectiveMandays;
                     for (const [type, points] of Object.entries(workTypeStats)) {
                         engineerWorkTypeStats[type] = (engineerWorkTypeStats[type] || 0) + points;
                     }
@@ -237,8 +259,15 @@ export async function calculateSprintUtilization(
         const titleBaseDays = Math.min(getAvailableDaysFromMap(title, titleDaysMap), totalWorkingDays);
         const availableDays = Math.max(0, titleBaseDays - leaveDays);
 
-        const utilizationPercent = availableDays > 0
-            ? (storyPoints / availableDays) * 100
+        // Non-roster: assume team standard hours
+        const resolvedHours = teamStandardHours;
+        const availableHours = availableDays * resolvedHours;
+        const effectiveMandays = teamStandardHours > 0
+            ? availableHours / teamStandardHours
+            : availableDays;
+
+        const utilizationPercent = effectiveMandays > 0
+            ? (storyPoints / effectiveMandays) * 100
             : 0;
 
         userUtilizations.push({
@@ -253,6 +282,10 @@ export async function calculateSprintUtilization(
             title,
             workTypeStats,
             isUnrecognized: true,
+            workingHoursPerDay: resolvedHours,
+            teamStandardHours,
+            availableHours,
+            effectiveMandays,
         });
 
         // Non-roster points still count in overall work type stats
@@ -294,12 +327,14 @@ export async function calculateSprintUtilization(
     // Team-level calculation
     const teamSize = userUtilizations.length;
     const totalMandays = qaMandays + engineerMandays;
+    const totalHours = qaTotalHours + engineerTotalHours;
+    const totalEffectiveMandays = qaEffectiveMandays + engineerEffectiveMandays;
 
     // Get adhoc days configuration (default 3 days total for the team)
     const adhocDays = parseInt(process.env.ADHOC_DAYS_PER_SPRINT || '3', 10);
 
-    // Available capacity = total mandays - adhoc days
-    const availableCapacity = Math.max(0, totalMandays - adhocDays);
+    // Available capacity = total effective mandays - adhoc days
+    const availableCapacity = Math.max(0, totalEffectiveMandays - adhocDays);
 
     // Team average utilization = total story points / available capacity
     const averageUtilization = availableCapacity > 0
@@ -318,6 +353,8 @@ export async function calculateSprintUtilization(
             storyPoints: qaStoryPoints,
             leaveDays: qaLeaveDays,
             workTypeStats: qaWorkTypeStats,
+            totalHours: qaTotalHours,
+            effectiveMandays: qaEffectiveMandays,
         },
         engineerStats: {
             count: engineerCount,
@@ -325,9 +362,14 @@ export async function calculateSprintUtilization(
             storyPoints: engineerStoryPoints,
             leaveDays: engineerLeaveDays,
             workTypeStats: engineerWorkTypeStats,
+            totalHours: engineerTotalHours,
+            effectiveMandays: engineerEffectiveMandays,
         },
         workTypeStats: totalWorkTypeStats,
         holidays,
+        teamStandardHours,
+        totalAvailableHours: totalHours,
+        totalEffectiveMandays,
     };
 }
 

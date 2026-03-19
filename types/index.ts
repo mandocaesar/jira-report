@@ -175,6 +175,11 @@ export interface UserUtilization {
   title: string;
   workTypeStats: WorkTypeStats;
   isUnrecognized?: boolean;
+  // Hours-based capacity fields
+  workingHoursPerDay: number;      // Resolved hours (member override or team default)
+  teamStandardHours: number;       // Team's standard hours/day
+  availableHours: number;          // availableDays × workingHoursPerDay
+  effectiveMandays: number;        // availableHours / teamStandardHours (normalized)
 }
 
 // Sprint summary
@@ -191,6 +196,8 @@ export interface SprintSummary {
     storyPoints: number;
     leaveDays: number;
     workTypeStats: WorkTypeStats;
+    totalHours: number;
+    effectiveMandays: number;
   };
   engineerStats: {
     count: number;
@@ -198,11 +205,17 @@ export interface SprintSummary {
     storyPoints: number;
     leaveDays: number;
     workTypeStats: WorkTypeStats;
+    totalHours: number;
+    effectiveMandays: number;
   };
   // Overall sprint work distribution
   workTypeStats: WorkTypeStats;
   // Detected Indonesian Holidays
   holidays: Holiday[];
+  // Hours-based capacity totals
+  teamStandardHours: number;
+  totalAvailableHours: number;
+  totalEffectiveMandays: number;
 }
 
 // Indonesian holiday

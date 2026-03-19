@@ -11,7 +11,7 @@ export async function POST(request: Request) {
             );
         }
 
-        const { teamId, accountId, name, email, role, title } = await request.json();
+        const { teamId, accountId, name, email, role, title, workingHoursPerDay } = await request.json();
 
         if (!teamId || !accountId || !name || !email) {
             return NextResponse.json(
@@ -28,6 +28,7 @@ export async function POST(request: Request) {
                 email,
                 role: role || 'engineer',
                 title: title || 'Associate',
+                ...(workingHoursPerDay !== undefined && workingHoursPerDay !== null && { workingHoursPerDay: parseFloat(workingHoursPerDay) }),
             },
         });
 
@@ -51,7 +52,7 @@ export async function PUT(request: Request) {
             );
         }
 
-        const { id, name, email, role, title } = await request.json();
+        const { id, name, email, role, title, workingHoursPerDay } = await request.json();
 
         if (!id) {
             return NextResponse.json(
@@ -67,6 +68,7 @@ export async function PUT(request: Request) {
                 ...(email !== undefined && { email }),
                 ...(role !== undefined && { role }),
                 ...(title !== undefined && { title }),
+                ...(workingHoursPerDay !== undefined && { workingHoursPerDay: workingHoursPerDay === null ? null : parseFloat(workingHoursPerDay) }),
             },
         });
 

@@ -20,6 +20,10 @@ interface SprintForecast {
         totalLeaveDays: number;
         adjustmentLoss: number;
         holidayCount: number;
+        // Hours-based fields
+        teamStandardHours: number;
+        totalAvailableHours: number;
+        totalEffectiveMandays: number;
     };
     engineers: Array<{
         accountId: string;
@@ -28,6 +32,7 @@ interface SprintForecast {
         reason?: string;
         leaveDays?: number;
         excluded?: boolean;
+        workingHoursPerDay?: number;
     }>;
     holidays?: Array<{
         date: string;
@@ -187,6 +192,9 @@ export async function GET(request: NextRequest) {
             let totalManDays = 0;
             let totalLeaveDays = 0;
             let adjustmentLoss = 0;
+            let totalAvailableHours = 0;
+            let totalEffectiveMandays = 0;
+            const teamStandardHours = team.workingHoursPerDay ?? 8;
             const engineerDetails: any[] = [];
             const leavesList: Array<{ name: string; leaveDays: number }> = [];
             const excludedList: Array<{ name: string }> = [];
@@ -196,9 +204,10 @@ export async function GET(request: NextRequest) {
                 const accountId = member.accountId;
                 const leave = leaveData.find((l) => l.accountId === accountId);
                 const leaveDays = leave?.leaveDays || 0;
+                const memberHours = member.workingHoursPerDay ?? teamStandardHours;
 
                 if (leaveDays === -1) {
-                    engineerDetails.push({ accountId, name: member.name, capacity: 0, excluded: true, leaveDays: -1 });
+                    engineerDetails.push({ accountId, name: member.name, capacity: 0, excluded: true, leaveDays: -1, workingHoursPerDay: memberHours });
                     excludedList.push({ name: member.name });
                     continue;
                 }
@@ -214,13 +223,21 @@ export async function GET(request: NextRequest) {
                     adjustmentLoss += availableDays * (1 - capacityPercent / 100);
                 }
 
-                engineerDetails.push({ accountId, name: member.name, capacity: capacityPercent, reason: adjustment?.reason, leaveDays });
+                // Hours-based calculation
+                const memberAvailableHours = availableDays * memberHours * (capacityPercent / 100);
+                const memberEffectiveMandays = teamStandardHours > 0
+                    ? memberAvailableHours / teamStandardHours
+                    : effectiveDays;
+                totalAvailableHours += memberAvailableHours;
+                totalEffectiveMandays += memberEffectiveMandays;
+
+                engineerDetails.push({ accountId, name: member.name, capacity: capacityPercent, reason: adjustment?.reason, leaveDays, workingHoursPerDay: memberHours });
                 if (leaveDays > 0) leavesList.push({ name: member.name, leaveDays });
             }
 
-            const effectiveEngineers = workingDays > 0 ? totalManDays / workingDays : 0;
+            const effectiveEngineers = workingDays > 0 ? totalEffectiveMandays / workingDays : 0;
             const pointsPerManDay = 1.8;
-            const forecastedPoints = Math.floor(totalManDays * pointsPerManDay);
+            const forecastedPoints = Math.floor(totalEffectiveMandays * pointsPerManDay);
 
             const formattedHolidays = sprintHolidays
                 .filter(h => !isWeekend(h.holiday_date))
@@ -245,6 +262,9 @@ export async function GET(request: NextRequest) {
                     totalLeaveDays,
                     adjustmentLoss: Math.round(adjustmentLoss * 10) / 10,
                     holidayCount,
+                    teamStandardHours,
+                    totalAvailableHours: Math.round(totalAvailableHours * 10) / 10,
+                    totalEffectiveMandays: Math.round(totalEffectiveMandays * 10) / 10,
                 },
                 engineers: engineerDetails,
                 holidays: formattedHolidays.length > 0 ? formattedHolidays : undefined,

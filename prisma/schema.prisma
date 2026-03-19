@@ -140,16 +140,17 @@ model Team {
 
 // Team member belonging to a team
 model TeamMember {
-  id        String   @id @default(cuid())
-  accountId String
-  name      String
-  email     String
-  role      String   @default("engineer") // "engineer" or "qa"
-  title     String   @default("Associate")
-  teamId    String
-  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  accountId          String
+  name               String
+  email              String
+  role               String   @default("engineer") // "engineer" or "qa"
+  title              String   @default("Associate")
+  workingHoursPerDay Float?   // Override team default; null = inherit from team
+  teamId             String
+  team               Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   @@unique([teamId, accountId])
   @@index([accountId])

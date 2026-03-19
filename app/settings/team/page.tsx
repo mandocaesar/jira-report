@@ -37,12 +37,14 @@ interface Member {
     role: string;
     title: string;
     teamId: string;
+    workingHoursPerDay?: number | null;
 }
 
 interface Team {
     id: string;
     name: string;
     boardId: number;
+    workingHoursPerDay: number;
     reportEmailGroup?: string;
     isSchedulingEnabled?: boolean;
     members: Member[];
@@ -65,11 +67,11 @@ export default function TeamManagementPage() {
 
     // Edit member
     const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
-    const [editMember, setEditMember] = useState({ name: '', email: '', role: '', title: '' });
+    const [editMember, setEditMember] = useState({ name: '', email: '', role: '', title: '', workingHoursPerDay: '' as string });
 
     // Team Settings
     const [editingTeamSettingsId, setEditingTeamSettingsId] = useState<string | null>(null);
-    const [editTeamSettings, setEditTeamSettings] = useState({ reportEmailGroup: '', isSchedulingEnabled: false });
+    const [editTeamSettings, setEditTeamSettings] = useState({ reportEmailGroup: '', isSchedulingEnabled: false, workingHoursPerDay: '8' });
 
     // Sync from Jira
     const [showSync, setShowSync] = useState(false);
@@ -202,7 +204,7 @@ export default function TeamManagementPage() {
             const res = await fetch('/api/settings/teams', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: teamId, ...editTeamSettings }),
+                body: JSON.stringify({ id: teamId, ...editTeamSettings, workingHoursPerDay: parseFloat(editTeamSettings.workingHoursPerDay) || 8 }),
             });
             const result = await res.json();
             if (!result.success) throw new Error(result.error);
@@ -239,7 +241,7 @@ export default function TeamManagementPage() {
             const res = await fetch('/api/settings/teams/members', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: memberId, ...editMember }),
+                body: JSON.stringify({ id: memberId, ...editMember, workingHoursPerDay: editMember.workingHoursPerDay === '' ? null : parseFloat(editMember.workingHoursPerDay) }),
             });
             const result = await res.json();
             if (!result.success) throw new Error(result.error);
@@ -270,7 +272,7 @@ export default function TeamManagementPage() {
 
     const startEditMember = (member: Member) => {
         setEditingMemberId(member.id);
-        setEditMember({ name: member.name, email: member.email, role: member.role, title: member.title });
+        setEditMember({ name: member.name, email: member.email, role: member.role, title: member.title, workingHoursPerDay: member.workingHoursPerDay != null ? String(member.workingHoursPerDay) : '' });
     };
 
     // --- Seed ---
@@ -519,7 +521,7 @@ export default function TeamManagementPage() {
                         <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/20">
                             <div>
                                 <h2 className="text-xl font-bold text-foreground">{team.name}</h2>
-                                <p className="text-sm text-muted-foreground">Board ID: {team.boardId} · {team.members.length} members</p>
+                                <p className="text-sm text-muted-foreground">Board ID: {team.boardId} · {team.members.length} members · {team.workingHoursPerDay}h/day</p>
                             </div>
                             <div className="flex gap-2">
                                 <button
@@ -528,7 +530,7 @@ export default function TeamManagementPage() {
                                             setEditingTeamSettingsId(null);
                                         } else {
                                             setEditingTeamSettingsId(team.id);
-                                            setEditTeamSettings({ reportEmailGroup: team.reportEmailGroup || '', isSchedulingEnabled: team.isSchedulingEnabled || false });
+                                            setEditTeamSettings({ reportEmailGroup: team.reportEmailGroup || '', isSchedulingEnabled: team.isSchedulingEnabled || false, workingHoursPerDay: String(team.workingHoursPerDay || 8) });
                                         }
                                     }}
                                     className="px-3 py-1.5 text-sm bg-blue-500/20 text-blue-300 border border-blue-500/30 rounded-lg hover:bg-blue-500/30 transition-all"
@@ -553,8 +555,8 @@ export default function TeamManagementPage() {
                         {/* Team Settings Form */}
                         {editingTeamSettingsId === team.id && (
                             <div className="px-6 py-4 bg-blue-900/10 border-b border-blue-500/20 space-y-3">
-                                <h4 className="text-sm font-semibold text-blue-300">Automated Scheduled Reports</h4>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <h4 className="text-sm font-semibold text-blue-300">Team Settings</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                     <div className="flex items-center gap-3 bg-muted/30 p-3 rounded-lg border border-border">
                                         <input
                                             type="checkbox"
@@ -574,6 +576,19 @@ export default function TeamManagementPage() {
                                         onChange={(e) => setEditTeamSettings(p => ({ ...p, reportEmailGroup: e.target.value }))}
                                         className="px-3 py-2 bg-muted border border-border rounded-lg text-foreground text-sm placeholder-muted-foreground focus:outline-none focus:border-blue-500/50 w-full"
                                     />
+                                    <div className="flex items-center gap-2 bg-muted/30 p-3 rounded-lg border border-border">
+                                        <label className="text-sm text-muted-foreground whitespace-nowrap">Working Hours/Day</label>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            max="24"
+                                            step="0.5"
+                                            value={editTeamSettings.workingHoursPerDay}
+                                            onChange={(e) => setEditTeamSettings(p => ({ ...p, workingHoursPerDay: e.target.value }))}
+                                            className="w-20 px-2 py-1 bg-muted border border-border rounded text-foreground text-sm text-center focus:outline-none focus:border-blue-500/50"
+                                        />
+                                        <span className="text-xs text-muted-foreground">hrs</span>
+                                    </div>
                                 </div>
                                 <div className="flex gap-2 pt-2">
                                     <button onClick={() => handleUpdateTeamSettings(team.id)} className="px-4 py-1.5 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all">Save Settings</button>
@@ -628,6 +643,7 @@ export default function TeamManagementPage() {
                                         <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase">Email</th>
                                         <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase">Role</th>
                                         <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase">Title</th>
+                                        <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase">Hours/Day</th>
                                         <th className="text-right py-3 px-6 text-xs font-semibold text-muted-foreground uppercase">Actions</th>
                                     </tr>
                                 </thead>
@@ -649,9 +665,12 @@ export default function TeamManagementPage() {
                                                             {titleOptions.map(t => <option key={t} value={t}>{t}</option>)}
                                                         </select>
                                                     </td>
+                                                    <td className="py-2 px-4">
+                                                        <input type="number" min="1" max="24" step="0.5" placeholder={String(team.workingHoursPerDay)} value={editMember.workingHoursPerDay} onChange={(e) => setEditMember(p => ({ ...p, workingHoursPerDay: e.target.value }))} className="w-16 px-2 py-1 bg-muted border border-border rounded text-foreground text-sm text-center" title="Leave empty to inherit team default" />
+                                                    </td>
                                                     <td className="py-2 px-6 text-right">
-                                                        <button onClick={() => handleUpdateMember(member.id)} className="text-green-400 hover:text-green-300 text-sm mr-2">✓ Save</button>
-                                                        <button onClick={() => setEditingMemberId(null)} className="text-muted-foreground hover:text-foreground text-sm">✕</button>
+                                                        <button onClick={() => handleUpdateMember(member.id)} className="text-green-400 hover:text-green-300 text-sm mr-2">&#x2713; Save</button>
+                                                        <button onClick={() => setEditingMemberId(null)} className="text-muted-foreground hover:text-foreground text-sm">&#x2715;</button>
                                                     </td>
                                                 </>
                                             ) : (
@@ -669,6 +688,13 @@ export default function TeamManagementPage() {
                                                         </span>
                                                     </td>
                                                     <td className="py-3 px-4 text-foreground/70 text-sm">{member.title}</td>
+                                                    <td className="py-3 px-4 text-sm">
+                                                        {member.workingHoursPerDay != null ? (
+                                                            <span className="text-amber-400 font-medium">{member.workingHoursPerDay}h</span>
+                                                        ) : (
+                                                            <span className="text-muted-foreground">{team.workingHoursPerDay}h</span>
+                                                        )}
+                                                    </td>
                                                     <td className="py-3 px-6 text-right space-x-2">
                                                         <button onClick={() => startEditMember(member)} className="text-blue-400 hover:text-blue-300 text-sm">Edit</button>
                                                         <button onClick={() => handleDeleteMember(member.id, member.name)} className="text-red-400 hover:text-red-300 text-sm">Delete</button>
@@ -678,7 +704,7 @@ export default function TeamManagementPage() {
                                         </tr>
                                     ))}
                                     {team.members.length === 0 && (
-                                        <tr><td colSpan={5} className="py-8 text-center text-muted-foreground">No members yet</td></tr>
+                                        <tr><td colSpan={6} className="py-8 text-center text-muted-foreground">No members yet</td></tr>
                                     )}
                                 </tbody>
                             </table>

@@ -115,6 +115,8 @@ export default function SprintSummaryComponent({ summary, reportData, onAiSummar
 
     const totalMandays = (summary.engineerStats?.mandays || 0) + (summary.qaStats?.mandays || 0);
     const totalLeaveDays = (summary.engineerStats?.leaveDays || 0) + (summary.qaStats?.leaveDays || 0);
+    const totalEffectiveMandays = summary.totalEffectiveMandays ?? totalMandays;
+    const hasHoursVariation = totalEffectiveMandays !== totalMandays;
 
     const formatDate = (dateStr: string) => {
         return new Date(dateStr).toLocaleDateString('en-US', {
@@ -265,15 +267,20 @@ export default function SprintSummaryComponent({ summary, reportData, onAiSummar
                 </div>
 
                 {/* Total Mandays */}
-                <div className="text-center py-2 px-2 bg-muted/50 rounded-lg border border-border cursor-help flex flex-col justify-center" title="Sum of available days for all roster members, based on their title's configured days minus any manual leave. Mandays = Σ (title available days − leave days) per member.">
+                <div className="text-center py-2 px-2 bg-muted/50 rounded-lg border border-border cursor-help flex flex-col justify-center" title={hasHoursVariation ? `Effective Mandays = Σ (available days × member hours / team standard hours). Raw available days: ${totalMandays}. Team standard: ${summary.teamStandardHours ?? 8}h/day.` : 'Sum of available days for all roster members, based on their title\'s configured days minus any manual leave.'}>
                     <div className="text-3xl font-bold text-foreground leading-tight pb-1">
-                        {totalMandays}
+                        {hasHoursVariation ? totalEffectiveMandays.toFixed(1) : totalMandays}
                     </div>
                     <div className="flex flex-col items-center justify-center">
-                        <div className="text-xs text-muted-foreground mt-0.5">Mandays</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">{hasHoursVariation ? 'Eff. Mandays' : 'Mandays'}</div>
                         <div className="text-[10px] text-muted-foreground">
                             ({userUtilizations.length} members)
                         </div>
+                        {hasHoursVariation && (
+                            <div className="text-[10px] text-amber-400">
+                                {totalMandays} raw days
+                            </div>
+                        )}
                         {totalLeaveDays > 0 && (
                             <div className="text-[10px] text-red-400">
                                 -{totalLeaveDays} leave
@@ -400,7 +407,7 @@ export default function SprintSummaryComponent({ summary, reportData, onAiSummar
                         <div className="flex items-center gap-5">
                             <div>
                                 <span className="text-[11px] text-muted-foreground">Mandays </span>
-                                <span className="text-base font-bold text-foreground">{summary.engineerStats?.mandays || 0}</span>
+                                <span className="text-base font-bold text-foreground">{summary.engineerStats?.effectiveMandays != null && summary.engineerStats.effectiveMandays !== summary.engineerStats.mandays ? summary.engineerStats.effectiveMandays.toFixed(1) : (summary.engineerStats?.mandays || 0)}</span>
                                 {summary.engineerStats?.leaveDays > 0 && (
                                     <span className="text-[10px] text-red-500 ml-1 font-medium">-{summary.engineerStats.leaveDays}</span>
                                 )}
@@ -412,7 +419,10 @@ export default function SprintSummaryComponent({ summary, reportData, onAiSummar
                             <div>
                                 <span className="text-[11px] text-muted-foreground">Util </span>
                                 <span className="text-base font-bold text-blue-300">
-                                    {(summary.engineerStats?.mandays > 0 ? (summary.engineerStats.storyPoints / summary.engineerStats.mandays * 100) : 0).toFixed(0)}%
+                                    {(() => {
+                                        const denom = summary.engineerStats?.effectiveMandays ?? summary.engineerStats?.mandays ?? 0;
+                                        return (denom > 0 ? (summary.engineerStats!.storyPoints / denom * 100) : 0).toFixed(0);
+                                    })()}%
                                 </span>
                             </div>
                         </div>
@@ -443,7 +453,7 @@ export default function SprintSummaryComponent({ summary, reportData, onAiSummar
                         <div className="flex items-center gap-5">
                             <div>
                                 <span className="text-[11px] text-muted-foreground">Mandays </span>
-                                <span className="text-base font-bold text-foreground">{summary.qaStats?.mandays || 0}</span>
+                                <span className="text-base font-bold text-foreground">{summary.qaStats?.effectiveMandays != null && summary.qaStats.effectiveMandays !== summary.qaStats.mandays ? summary.qaStats.effectiveMandays.toFixed(1) : (summary.qaStats?.mandays || 0)}</span>
                                 {summary.qaStats?.leaveDays > 0 && (
                                     <span className="text-[10px] text-red-500 ml-1 font-medium">-{summary.qaStats.leaveDays}</span>
                                 )}
@@ -455,7 +465,10 @@ export default function SprintSummaryComponent({ summary, reportData, onAiSummar
                             <div>
                                 <span className="text-[11px] text-muted-foreground">Util </span>
                                 <span className="text-base font-bold text-indigo-300">
-                                    {(summary.qaStats?.mandays > 0 ? (summary.qaStats.storyPoints / summary.qaStats.mandays * 100) : 0).toFixed(0)}%
+                                    {(() => {
+                                        const denom = summary.qaStats?.effectiveMandays ?? summary.qaStats?.mandays ?? 0;
+                                        return (denom > 0 ? (summary.qaStats!.storyPoints / denom * 100) : 0).toFixed(0);
+                                    })()}%
                                 </span>
                             </div>
                         </div>

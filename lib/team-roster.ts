@@ -6,12 +6,14 @@ export interface TeamMember {
     email: string;
     role: 'qa' | 'engineer';
     title: string;
+    workingHoursPerDay?: number; // Override team default; null/undefined = inherit
 }
 
 export interface TeamConfig {
     name: string;
     boardId: number;
     members: TeamMember[];
+    workingHoursPerDay?: number; // Team standard hours/day (default 8 if not set)
 }
 
 export interface TeamRosterConfig {
@@ -35,7 +37,7 @@ export function getTeamByTeamId(teamId: string): TeamConfig | null {
 export function getTeamByBoardId(boardId: number): { teamId: string; config: TeamConfig } | null {
     for (const [teamId, config] of Object.entries(teamRoster.teams)) {
         if (config.boardId === boardId) {
-            return { teamId, config };
+            return { teamId, config: { ...config, workingHoursPerDay: config.workingHoursPerDay ?? 8 } };
         }
     }
     return null;
@@ -174,12 +176,14 @@ export async function getTeamByBoardIdFromDb(
                     config: {
                         name: team.name,
                         boardId: team.boardId,
+                        workingHoursPerDay: team.workingHoursPerDay,
                         members: team.members.map((m) => ({
                             accountId: m.accountId,
                             name: m.name,
                             email: m.email,
                             role: m.role as 'qa' | 'engineer',
                             title: m.title,
+                            workingHoursPerDay: m.workingHoursPerDay ?? undefined,
                         })),
                     },
                 };
