@@ -20,6 +20,9 @@ const nextConfig: NextConfig = {
       { source: '/settings/leave', destination: '/planning/capacity', permanent: true },
       { source: '/settings/team', destination: '/organisation/squads', permanent: true },
       { source: '/reports/team', destination: '/organisation/squads', permanent: true },
+      { source: '/sprint-performance', destination: '/analytics', permanent: true },
+      { source: '/planning/velocity', destination: '/analytics', permanent: true },
+      { source: '/metrics', destination: '/analytics', permanent: true },
     ];
   },
 };

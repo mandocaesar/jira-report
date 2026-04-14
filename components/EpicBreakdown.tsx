@@ -53,7 +53,7 @@ export function EpicBreakdownComponent({ boardId, sprintId, jiraDomain = 'bank-s
                     throw new Error('Failed to fetch epic breakdown');
                 }
                 const data = await response.json();
-                setEpicBreakdowns(data.epicBreakdowns || []);
+                setEpicBreakdowns(data.data || []);
             } catch (err) {
                 setError(err instanceof Error ? err.message : 'Unknown error');
             } finally {

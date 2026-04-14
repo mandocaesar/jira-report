@@ -30,7 +30,7 @@ export function useAiSummary({ summary, reportData, onGenerate }: UseAiSummaryOp
             fetch(`/api/epic-breakdown?sprintId=${sprint.id}&boardId=${sprint.originBoardId}`)
                 .then(res => res.json())
                 .then(data => {
-                    setEpicBreakdowns(data.epicBreakdowns || []);
+                    setEpicBreakdowns(data.data || []);
                 })
                 .catch(console.error);
         }
