@@ -6,8 +6,8 @@ import { usePathname, useRouter } from 'next/navigation';
 import { ThemeToggle } from './ThemeToggle';
 import {
     IconSprintOverview, IconCapacity, IconTeam, IconOrgStructure, IconEngineer,
-    IconLeaveNav, IconLeave, IconTitleDays, IconVelocity, IconMetrics,
-    IconTeamReport, IconSquad, IconJira, IconHoliday, IconWorkType, IconSprintPerformance,
+    IconLeaveNav, IconLeave, IconTitleDays, IconMetrics,
+    IconTeamReport, IconSquad, IconJira, IconHoliday, IconWorkType,
 } from './icons/NavIcons';
 
 interface NavItem {
@@ -32,12 +32,6 @@ const navigation: NavSection[] = [
                 icon: <IconSprintOverview />,
                 description: 'View sprint progress and metrics',
             },
-            {
-                name: 'Sprint Performance',
-                href: '/sprint-performance',
-                icon: <IconSprintPerformance />,
-                description: 'Detailed metrics & capacity KPIs',
-            },
         ],
     },
     {
@@ -48,12 +42,6 @@ const navigation: NavSection[] = [
                 href: '/planning/capacity',
                 icon: <IconCapacity />,
                 description: 'Forecast capacity & manage leave',
-            },
-            {
-                name: 'Velocity',
-                href: '/planning/velocity',
-                icon: <IconVelocity />,
-                description: 'Sprint-to-sprint commitment tracker',
             },
         ],
     },
@@ -119,10 +107,10 @@ const navigation: NavSection[] = [
         title: 'Analytics',
         items: [
             {
-                name: 'Metrics Dashboard',
-                href: '/metrics',
+                name: 'Analytics',
+                href: '/analytics',
                 icon: <IconMetrics />,
-                description: 'Historical performance',
+                description: 'Velocity, flow metrics & sprint detail',
             },
         ],
     },
