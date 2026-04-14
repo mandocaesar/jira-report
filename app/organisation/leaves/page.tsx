@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import BoardSelector from '@/components/BoardSelector';
@@ -77,6 +77,14 @@ const LEAVE_TYPE_COLORS: Record<string, string> = {
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export default function LeavesPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-[60vh]"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500" /></div>}>
+      <LeavesPageInner />
+    </Suspense>
+  );
+}
+
+function LeavesPageInner() {
   const searchParams = useSearchParams();
   const presetEngineerId = searchParams.get('engineerId') || '';
   const [activeTab, setActiveTab] = useState<'leaves' | 'exclusions'>('leaves');
