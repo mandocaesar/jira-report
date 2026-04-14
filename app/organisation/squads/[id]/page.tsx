@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import MemberReport from '@/components/organisation/MemberReport';
+import { Spinner } from '@/components/ui/Spinner';
+import { ErrorAlert } from '@/components/ui/ErrorAlert';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -273,7 +275,7 @@ export default function SquadDetailPage() {
         return (
             <div className="flex items-center justify-center min-h-[60vh]">
                 <div className="flex flex-col items-center gap-3">
-                    <div className="w-7 h-7 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                    <Spinner size="md" />
                     <p className="text-muted-foreground text-sm">Loading squad...</p>
                 </div>
             </div>
@@ -283,10 +285,9 @@ export default function SquadDetailPage() {
     if (error || !squad) {
         return (
             <div className="p-8 max-w-2xl mx-auto">
-                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-6 text-center">
-                    <p className="text-red-400 font-medium mb-2">Error</p>
-                    <p className="text-muted-foreground text-sm">{error || 'Squad not found'}</p>
-                    <Link href="/organisation/squads" className="mt-4 inline-block text-purple-400 hover:text-purple-300 text-sm">← Back to Squads</Link>
+                <ErrorAlert message={error || 'Squad not found'} title="Error" variant="card" />
+                <div className="text-center mt-4">
+                    <Link href="/organisation/squads" className="inline-block text-purple-400 hover:text-purple-300 text-sm">← Back to Squads</Link>
                 </div>
             </div>
         );
@@ -368,7 +369,7 @@ export default function SquadDetailPage() {
             <Section title="Performance Statistics" collapsed={collapsed['kpis']} onToggle={() => toggle('kpis')}>
                 {perfLoading ? (
                     <div className="flex items-center justify-center py-10">
-                        <div className="w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                        <Spinner size="md" />
                         <span className="text-muted-foreground text-sm ml-3">Loading performance data from Jira...</span>
                     </div>
                 ) : perf ? (

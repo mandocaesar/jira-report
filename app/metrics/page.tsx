@@ -5,6 +5,8 @@ import Link from 'next/link';
 import BoardSelector from '@/components/BoardSelector';
 import SprintSelector from '@/components/SprintSelector';
 import { MetricsData } from '@/types';
+import { Spinner } from '@/components/ui/Spinner';
+import { ErrorAlert } from '@/components/ui/ErrorAlert';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
     LineChart, Line, ResponsiveContainer
@@ -17,7 +19,7 @@ const VelocityOverview = lazy(() => import('@/components/metrics/VelocityOvervie
 function SectionLoader() {
     return (
         <div className="flex items-center justify-center py-8">
-            <div className="w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+            <Spinner size="md" />
         </div>
     );
 }
@@ -504,9 +506,7 @@ export default function MetricsPage() {
 
             {/* Error */}
             {error && (
-                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-center">
-                    <p className="text-red-400">{error}</p>
-                </div>
+                <ErrorAlert message={error} variant="card" />
             )}
 
             {/* Single Sprint Metrics Content */}

@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import BoardSelector from '@/components/BoardSelector';
 import SprintSelector from '@/components/SprintSelector';
 import CollapsibleSection from '@/components/CollapsibleSection';
+import { useFetch } from '@/hooks/useFetch';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -140,57 +141,21 @@ export default function SprintPerformancePage() {
   const [selectedBoardId, setSelectedBoardId] = useState<number | null>(null);
   const [selectedSprintId, setSelectedSprintId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<'report' | 'history'>('report');
-  const [data, setData] = useState<SprintPerfResponse | null>(null);
-  const [historyData, setHistoryData] = useState<HistoryRow[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  // Fetch sprint performance data
-  const fetchSprintData = useCallback(async () => {
-    if (!selectedBoardId || !selectedSprintId) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const resp = await fetch(`/api/sprint-performance?sprintId=${selectedSprintId}&boardId=${selectedBoardId}`);
-      const json = await resp.json();
-      if (!json.success) throw new Error(json.error);
-      setData(json.data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load sprint data');
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedBoardId, selectedSprintId]);
+  const sprintUrl = (selectedBoardId && selectedSprintId && activeTab === 'report')
+    ? `/api/sprint-performance?sprintId=${selectedSprintId}&boardId=${selectedBoardId}`
+    : null;
+  const { data, loading, error } = useFetch<SprintPerfResponse>(sprintUrl);
 
-  // Fetch history data
-  const fetchHistory = useCallback(async () => {
-    if (!selectedBoardId) return;
-    setHistoryLoading(true);
-    try {
-      const resp = await fetch(`/api/sprint-performance/history?boardId=${selectedBoardId}&maxSprints=15`);
-      const json = await resp.json();
-      if (json.success) setHistoryData(json.data.history);
-    } catch {
-      // silently fail
-    } finally {
-      setHistoryLoading(false);
-    }
-  }, [selectedBoardId]);
-
-  useEffect(() => {
-    if (activeTab === 'report') fetchSprintData();
-  }, [fetchSprintData, activeTab]);
-
-  useEffect(() => {
-    if (activeTab === 'history') fetchHistory();
-  }, [fetchHistory, activeTab]);
+  const historyUrl = (selectedBoardId && activeTab === 'history')
+    ? `/api/sprint-performance/history?boardId=${selectedBoardId}&maxSprints=15`
+    : null;
+  const { data: historyResult, loading: historyLoading } = useFetch<{ history: HistoryRow[] }>(historyUrl);
+  const historyData = historyResult?.history || [];
 
   const handleBoardChange = (boardId: number | null) => {
     setSelectedBoardId(boardId);
     setSelectedSprintId(null);
-    setData(null);
-    setHistoryData([]);
   };
 
   // ─── Export ────────────────────────────────────────────────────────────

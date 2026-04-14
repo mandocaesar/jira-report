@@ -3,6 +3,8 @@
 import { useState, useCallback, useEffect } from 'react';
 import Image from 'next/image';
 import { getUtilColor } from '@/lib/ui-colors';
+import { Spinner } from '@/components/ui/Spinner';
+import { ErrorAlert } from '@/components/ui/ErrorAlert';
 import MemberDetailView from './MemberDetailView';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -229,16 +231,14 @@ export default function MemberReport({ boardId }: MemberReportProps) {
             {/* Loading */}
             {loading && (
                 <div className="flex items-center justify-center py-12">
-                    <div className="w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                    <Spinner size="md" />
                     <span className="text-muted-foreground text-sm ml-3">Loading member report...</span>
                 </div>
             )}
 
             {/* Error */}
             {error && !loading && (
-                <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
-                    <p className="text-red-400 text-sm">{error}</p>
-                </div>
+                <ErrorAlert message={error} variant="card" />
             )}
 
             {/* Data */}

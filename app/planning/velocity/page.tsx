@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import BoardSelector from '@/components/BoardSelector';
 import { SprintVelocityData, SprintVelocityEntry } from '@/types';
+import { useFetch } from '@/hooks/useFetch';
 import {
     ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip,
     Legend, ResponsiveContainer, BarChart, ReferenceLine,
@@ -287,28 +288,12 @@ function SprintRow({ entry, expanded, onToggle }: {
 export default function VelocityPage() {
     const [selectedBoardId, setSelectedBoardId] = useState<number | null>(null);
     const [sprintCount, setSprintCount] = useState(8);
-    const [velocityData, setVelocityData] = useState<SprintVelocityData | null>(null);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
     const [expandedSprints, setExpandedSprints] = useState<Set<number>>(new Set());
 
-    useEffect(() => {
-        if (!selectedBoardId) return;
-        setLoading(true);
-        setError(null);
-        setVelocityData(null);
-        fetch(`/api/planning/sprint-velocity?boardId=${selectedBoardId}&count=${sprintCount}`)
-            .then(r => r.json())
-            .then(json => {
-                if (json.success) {
-                    setVelocityData(json.data);
-                } else {
-                    setError(json.error || 'Unknown error');
-                }
-            })
-            .catch(() => setError('Failed to fetch velocity data'))
-            .finally(() => setLoading(false));
-    }, [selectedBoardId, sprintCount]);
+    const fetchUrl = selectedBoardId
+        ? `/api/planning/sprint-velocity?boardId=${selectedBoardId}&count=${sprintCount}`
+        : null;
+    const { data: velocityData, loading, error } = useFetch<SprintVelocityData>(fetchUrl, [sprintCount]);
 
     const sprints = velocityData?.sprints || [];
 

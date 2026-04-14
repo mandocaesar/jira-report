@@ -2,6 +2,17 @@
 
 All optimizations sequenced into 6 dependency-ordered phases. Phase 1 creates shared foundations everything else depends on. Phase 2 fixes algorithmic hotspots (biggest perf wins). Phase 3 removes dead weight. Phase 4 standardizes APIs. Phase 5 eliminates UX duplication. Phase 6 splits oversized components. Each phase is independently verifiable.
 
+### Status
+
+| Phase | Status | Notes |
+|-------|--------|-------|
+| 1 — Foundation | ✅ Complete | All shared utilities created (date-utils, ui-colors, api-helpers, issue-helpers, team-roster reverse index) |
+| 2 — Algorithmic | ✅ Complete | Single-pass metrics, Date.parse, changelog merge, worklog Map, capacity pre-compute |
+| 3 — Housekeeping | ✅ Complete | Dead code removed, 5 redirect pages deleted → next.config.ts, LRU cache added |
+| 4 — API Routes | ✅ Complete | 46+ routes migrated to api-helpers, epic-breakdown extracted, parallel API calls, changelog dedup, Cache-Control headers, capacity route split. Cron split (4.7) skipped. |
+| 5 — UX Duplication | ✅ Complete | Sprint-perf unused data removed, metrics squad links added, leave cross-link, computeRoleStats on-demand |
+| 6 — Components | ✅ Complete | NavIcons, SprintSummary split (→ SprintTimeline, WorkTypeBreakdown, ScopeChangesSummary), UI primitives (Spinner, ErrorAlert, EmptyState, StatusBadge, ProgressBar, KPICard), useFetch wired (velocity, sprint-perf), shared UI wired (metrics, squads, MemberReport), 'use client' verified, ui-colors migration done |
+
 ---
 
 ## Phase 1 — Foundation: Shared Utilities
