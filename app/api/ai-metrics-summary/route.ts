@@ -13,13 +13,18 @@ export async function POST(req: Request) {
         const cacheSprintId = sprintId || 0;
         const cacheBoardId = boardId || 0;
 
-        // Check cache first
+        // Check cache first (24h TTL)
         try {
             const cached = await prisma?.aiSummaryCache.findUnique({
                 where: { type_sprintId_boardId: { type: cacheType, sprintId: cacheSprintId, boardId: cacheBoardId } }
             });
             if (cached) {
-                return NextResponse.json({ summary: cached.summary, cached: true });
+                const ageMs = Date.now() - new Date(cached.createdAt).getTime();
+                if (ageMs < 24 * 60 * 60 * 1000) {
+                    return NextResponse.json({ summary: cached.summary, cached: true });
+                }
+                // Expired — delete stale entry
+                await prisma?.aiSummaryCache.delete({ where: { id: cached.id } });
             }
         } catch {
             // DB unavailable, continue to generate
@@ -94,7 +99,7 @@ ${JSON.stringify(
         try {
             await prisma?.aiSummaryCache.upsert({
                 where: { type_sprintId_boardId: { type: cacheType, sprintId: cacheSprintId, boardId: cacheBoardId } },
-                update: { summary: text },
+                update: { summary: text, createdAt: new Date() },
                 create: { type: cacheType, sprintId: cacheSprintId, boardId: cacheBoardId, summary: text }
             });
         } catch {
