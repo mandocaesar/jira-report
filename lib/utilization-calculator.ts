@@ -113,6 +113,13 @@ function getUtilizationStatus(percent: number): 'under' | 'optimal' | 'over' {
     return 'optimal';
 }
 
+/** Accumulate work type stats from source into target */
+function addWorkTypeStats(target: Record<string, number>, source: Record<string, number>) {
+    for (const [type, points] of Object.entries(source)) {
+        target[type] = (target[type] || 0) + points;
+    }
+}
+
 /**
  * Fetch leave data for a sprint from the database, falling back to static JSON
  */
@@ -270,11 +277,7 @@ export async function calculateSprintUtilization(
                 issues: issueData?.issues || [],
             });
             totalStoryPoints += storyPoints;
-
-            // Aggregate overall work type stats
-            for (const [type, points] of Object.entries(workTypeStats)) {
-                totalWorkTypeStats[type] = (totalWorkTypeStats[type] || 0) + points;
-            }
+            addWorkTypeStats(totalWorkTypeStats, workTypeStats);
 
             // Aggregate stats by role (only non-excluded roster members count toward capacity)
             if (!isExcluded) {
@@ -285,9 +288,7 @@ export async function calculateSprintUtilization(
                     qaLeaveDays += leaveDays;
                     qaTotalHours += availableHours;
                     qaEffectiveMandays += effectiveMandays;
-                    for (const [type, points] of Object.entries(workTypeStats)) {
-                        qaWorkTypeStats[type] = (qaWorkTypeStats[type] || 0) + points;
-                    }
+                    addWorkTypeStats(qaWorkTypeStats, workTypeStats);
                 } else {
                     engineerCount++;
                     engineerMandays += availableDays;
@@ -295,9 +296,7 @@ export async function calculateSprintUtilization(
                     engineerLeaveDays += leaveDays;
                     engineerTotalHours += availableHours;
                     engineerEffectiveMandays += effectiveMandays;
-                    for (const [type, points] of Object.entries(workTypeStats)) {
-                        engineerWorkTypeStats[type] = (engineerWorkTypeStats[type] || 0) + points;
-                    }
+                    addWorkTypeStats(engineerWorkTypeStats, workTypeStats);
                 }
             }
         }
@@ -348,11 +347,7 @@ export async function calculateSprintUtilization(
             issues: userDataMap.get(user.accountId)?.issues || [],
         });
         totalStoryPoints += storyPoints;
-
-        // Non-roster points still count in overall work type stats
-        for (const [type, points] of Object.entries(workTypeStats)) {
-            totalWorkTypeStats[type] = (totalWorkTypeStats[type] || 0) + points;
-        }
+        addWorkTypeStats(totalWorkTypeStats, workTypeStats);
 
         // If there's no team info at all (no DB, no JSON match), count them normally
         if (!teamInfo) {
@@ -361,17 +356,13 @@ export async function calculateSprintUtilization(
                 qaMandays += availableDays;
                 qaStoryPoints += storyPoints;
                 qaLeaveDays += leaveDays;
-                for (const [type, points] of Object.entries(workTypeStats)) {
-                    qaWorkTypeStats[type] = (qaWorkTypeStats[type] || 0) + points;
-                }
+                addWorkTypeStats(qaWorkTypeStats, workTypeStats);
             } else {
                 engineerCount++;
                 engineerMandays += availableDays;
                 engineerStoryPoints += storyPoints;
                 engineerLeaveDays += leaveDays;
-                for (const [type, points] of Object.entries(workTypeStats)) {
-                    engineerWorkTypeStats[type] = (engineerWorkTypeStats[type] || 0) + points;
-                }
+                addWorkTypeStats(engineerWorkTypeStats, workTypeStats);
             }
         }
     }

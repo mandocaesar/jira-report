@@ -1,6 +1,6 @@
 import { JiraIssue, Sprint, SprintVelocityEntry, SprintCommitmentCategory, WorklogReportData } from '@/types';
 import { SprintCapacity } from './capacity-pipeline';
-import { getStoryPoints, isStoryPointField, sprintFieldContainsId, classifyStatus, calculateIssueTimes } from './issue-helpers';
+import { getStoryPoints, isStoryPointField, sprintFieldContainsId, calculateIssueTimes } from './issue-helpers';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -78,40 +78,6 @@ function getCategory(issue: JiraIssue): CategoryKey {
   if (issue.fields.issuetype.subtask === true) return 'subTasks';
   if (['incident', 'bug', 'defect'].includes(name)) return 'incidents';
   return 'stories';
-}
-
-function getPointsAtStart(issue: JiraIssue, sprintStartDayEnd: number): number {
-  const current = getStoryPoints(issue);
-  if (!issue.changelog?.histories) return current;
-  const laterChanges: Array<{ time: number; fromVal: string }> = [];
-  for (const h of issue.changelog.histories) {
-    const t = Date.parse(h.created);
-    if (t <= sprintStartDayEnd) continue;
-    for (const item of h.items) {
-      if (isStoryPointField(item.fieldId, item.field)) {
-        laterChanges.push({ time: t, fromVal: item.fromString || '0' });
-      }
-    }
-  }
-  if (laterChanges.length === 0) return current;
-  laterChanges.sort((a, b) => a.time - b.time);
-  return parseFloat(laterChanges[0].fromVal || '0');
-}
-
-function isAddedMidSprint(issue: JiraIssue, sprint: Sprint, sprintStartDayEnd: number): boolean {
-  if (issue.fields.created && Date.parse(issue.fields.created) > sprintStartDayEnd) return true;
-  if (issue.changelog?.histories) {
-    for (const h of issue.changelog.histories) {
-      const t = Date.parse(h.created);
-      if (t <= sprintStartDayEnd) continue;
-      for (const item of h.items) {
-        if (item.field === 'Sprint' || item.fieldId === 'customfield_10020') {
-          if (sprintFieldContainsId(item.to, sprint.id) || item.toString?.includes(sprint.name)) return true;
-        }
-      }
-    }
-  }
-  return false;
 }
 
 /**

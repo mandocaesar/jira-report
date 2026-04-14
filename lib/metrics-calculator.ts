@@ -41,38 +41,36 @@ interface ChangelogEntry {
 /**
  * Extract and cache status transitions from an issue's changelog.
  * Sorting once here prevents duplicate sorts later.
+ * Uses Date.parse() to avoid allocating Date objects in hot loops.
  */
 function getStatusTransitions(issue: JiraIssue): Array<{
-    timestamp: Date;
+    timestampMs: number;
     fromStatus: string;
     toStatus: string;
-    toCategory: string;
 }> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const changelog = (issue as unknown as { changelog?: any }).changelog;
     if (!changelog || !changelog.histories) return [];
 
     const transitions: Array<{
-        timestamp: Date;
+        timestampMs: number;
         fromStatus: string;
         toStatus: string;
-        toCategory: string;
     }> = [];
 
     for (const history of changelog.histories as ChangelogEntry[]) {
         for (const item of history.items) {
             if (item.field === 'status' && item.toString) {
                 transitions.push({
-                    timestamp: new Date(history.created),
+                    timestampMs: Date.parse(history.created),
                     fromStatus: item.fromString || '',
                     toStatus: item.toString,
-                    toCategory: '',
                 });
             }
         }
     }
 
-    transitions.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+    transitions.sort((a, b) => a.timestampMs - b.timestampMs);
     return transitions;
 }
 
@@ -83,14 +81,11 @@ function getStatusTransitions(issue: JiraIssue): Array<{
  */
 function findFirstInProgressTime(issue: JiraIssue): Date | null {
     const transitions = getStatusTransitions(issue);
-    // Look for first transition to any non-To Do status (i.e., work started)
     for (const t of transitions) {
-        // The first transition away from the initial status is typically "In Progress"
-        // We check by finding transitions where "To Do"/"Open"/"Backlog" → something else
         const fromLower = t.fromStatus.toLowerCase();
         const isFromToDo = ['to do', 'open', 'backlog', 'new', 'created', ''].includes(fromLower);
         if (isFromToDo && t.toStatus) {
-            return t.timestamp;
+            return new Date(t.timestampMs);
         }
     }
     return null;
@@ -111,14 +106,14 @@ function findDoneTime(issue: JiraIssue): Date | null {
     for (const t of transitions) {
         const toLower = t.toStatus.toLowerCase();
         if (['done', 'closed', 'resolved', 'complete', 'completed'].includes(toLower)) {
-            return t.timestamp;
+            return new Date(t.timestampMs);
         }
     }
 
     // If we can't find an explicit "Done" transition but the issue is Done,
     // use the last transition timestamp
     if (transitions.length > 0) {
-        return transitions[transitions.length - 1].timestamp;
+        return new Date(transitions[transitions.length - 1].timestampMs);
     }
 
     return null;
@@ -210,7 +205,7 @@ export function calculateMetrics(sprint: Sprint, issues: JiraIssue[]): MetricsDa
         completionRate: 0,
     }));
 
-    // Time metrics accumulators (These will be calculated via isolated loops below)
+    // Time metrics accumulators
     const deliverTimes: number[] = [];
     const testTimes: number[] = [];
     const doneTimes: number[] = [];
@@ -255,21 +250,13 @@ export function calculateMetrics(sprint: Sprint, issues: JiraIssue[]): MetricsDa
         return memberMap.get(accountId)!;
     }
 
-    function trackMemberTime(issue: JiraIssue, metric: 'deliver' | 'done', hours: number) {
-        const member = getOrCreateMember(issue);
-        if (!member) return;
-        if (metric === 'deliver') member.deliverTimes.push(hours);
-        if (metric === 'done') member.doneTimes.push(hours);
-    }
-
     // Totals
     let totalStory = 0, totalTask = 0, totalTest = 0, totalDone = 0;
 
-    // Buckets for role-specific time metrics (populated during single pass below)
-    const storyIssues: JiraIssue[] = [];
-    const testIssuesList: JiraIssue[] = [];
-    const subtaskAndChoreIssues: JiraIssue[] = [];
+    // Pre-compute sprint start date for time calculations
+    const sprintStartDate = new Date(sprint.startDate);
 
+    // === Single pass over tracked issues: categorize + weekly data + time metrics ===
     for (const issue of trackedIssues) {
         const typeName = issue.fields.issuetype.name.toLowerCase();
         const isDone = issue.fields.status?.statusCategory?.name === 'Done';
@@ -278,24 +265,47 @@ export function calculateMetrics(sprint: Sprint, issues: JiraIssue[]): MetricsDa
         const createdDate = new Date(issue.fields.created);
         const bucketDate = doneTime || createdDate;
         const weekIdx = findWeekBucket(bucketDate, weekBuckets);
+        const baselineDate = sprintStartDate > createdDate ? sprintStartDate : createdDate;
 
-        // Count by type
+        // Count by type + compute type-specific time metrics inline
         if (typeName.includes('story')) {
             totalStory++;
             if (weekIdx >= 0 && weekIdx < weeklyData.length) weeklyData[weekIdx].storyCount++;
-            if (!issue.fields.issuetype.subtask) storyIssues.push(issue);
+            // Deliver time for non-subtask stories
+            if (!issue.fields.issuetype.subtask) {
+                const firstInProgress = findFirstInProgressTime(issue);
+                if (firstInProgress) {
+                    const hours = hoursBetween(baselineDate, firstInProgress);
+                    if (hours >= 0) {
+                        deliverTimes.push(hours);
+                        const member = getOrCreateMember(issue);
+                        if (member) member.deliverTimes.push(hours);
+                    }
+                }
+            }
         } else if (typeName.includes('test') || typeName.includes('qa-test')) {
             totalTest++;
             if (weekIdx >= 0 && weekIdx < weeklyData.length) weeklyData[weekIdx].testCount++;
-            testIssuesList.push(issue);
+            // Test time for done test issues
+            if (isDone && doneTime) {
+                const hours = hoursBetween(baselineDate, doneTime);
+                if (hours >= 0) testTimes.push(hours);
+            }
         } else if (typeName.includes('task')) {
             totalTask++;
             if (weekIdx >= 0 && weekIdx < weeklyData.length) weeklyData[weekIdx].taskCount++;
         }
 
-        // Sub-task/chore for MTTC
+        // Done time for sub-tasks/chores (MTTC)
         if (issue.fields.issuetype.subtask || typeName.includes('sub-chore')) {
-            subtaskAndChoreIssues.push(issue);
+            if (isDone && doneTime) {
+                const hours = hoursBetween(baselineDate, doneTime);
+                if (hours >= 0) {
+                    doneTimes.push(hours);
+                    const member = getOrCreateMember(issue);
+                    if (member) member.doneTimes.push(hours);
+                }
+            }
         }
 
         if (weekIdx >= 0 && weekIdx < weeklyData.length) {
@@ -307,47 +317,6 @@ export function calculateMetrics(sprint: Sprint, issues: JiraIssue[]): MetricsDa
         }
     }
 
-    for (const issue of storyIssues) {
-        const firstInProgress = findFirstInProgressTime(issue);
-        const createdDate = new Date(issue.fields.created);
-        const sprintStartDate = new Date(sprint.startDate);
-        const baselineDate = sprintStartDate > createdDate ? sprintStartDate : createdDate;
-        if (firstInProgress) {
-            const hours = hoursBetween(baselineDate, firstInProgress);
-            if (hours >= 0) {
-                deliverTimes.push(hours);
-                trackMemberTime(issue, 'deliver', hours);
-            }
-        }
-    }
-
-    for (const issue of testIssuesList) {
-        const doneTime = findDoneTime(issue);
-        const isDone = issue.fields.status?.statusCategory?.name === 'Done';
-        if (isDone && doneTime) {
-            const createdDate = new Date(issue.fields.created);
-            const sprintStartDate = new Date(sprint.startDate);
-            const baselineDate = sprintStartDate > createdDate ? sprintStartDate : createdDate;
-            const hours = hoursBetween(baselineDate, doneTime);
-            if (hours >= 0) testTimes.push(hours);
-        }
-    }
-
-    for (const issue of subtaskAndChoreIssues) {
-        const doneTime = findDoneTime(issue);
-        const isDone = issue.fields.status?.statusCategory?.name === 'Done';
-        if (isDone && doneTime) {
-            const createdDate = new Date(issue.fields.created);
-            const sprintStartDate = new Date(sprint.startDate);
-            const baselineDate = sprintStartDate > createdDate ? sprintStartDate : createdDate;
-            const hours = hoursBetween(baselineDate, doneTime);
-            if (hours >= 0) {
-                doneTimes.push(hours);
-                trackMemberTime(issue, 'done', hours);
-            }
-        }
-    }
-
     // Calculate weekly completion rates
     for (const week of weeklyData) {
         week.completionRate = week.totalCount > 0
@@ -355,7 +324,7 @@ export function calculateMetrics(sprint: Sprint, issues: JiraIssue[]): MetricsDa
             : 0;
     }
 
-    // === Cycle Time, Lead Time, Throughput, Issue Breakdown ===
+    // === Single pass over all issues: breakdown + cycle/lead time + throughput ===
     const allCycleTimes: number[] = [];
     const allLeadTimes: number[] = [];
     let totalThroughput = 0;

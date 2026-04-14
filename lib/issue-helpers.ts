@@ -95,14 +95,19 @@ export function sprintFieldContainsId(fieldValue: string | null | undefined, spr
  * Classify a Jira status name into To Do / In Progress / Done.
  * Shared across metrics-calculator, sprint-performance-metrics, and sprint-report-calculator.
  */
-const TODO_STATUSES = ['to do', 'open', 'backlog', 'new', 'reopened', 'funnel', 'selected for development'];
-const DONE_STATUSES = ['done', 'closed', 'resolved', 'released', 'completed'];
+const TODO_STATUSES = new Set(['to do', 'open', 'backlog', 'new', 'reopened', 'funnel', 'selected for development']);
+const DONE_STATUSES = new Set(['done', 'closed', 'resolved', 'released', 'completed']);
+
+/** Cache for classifyStatus — Jira has ~10 unique statuses, avoids repeated toLowerCase + linear scans */
+const statusClassifyCache = new Map<string, 'To Do' | 'In Progress' | 'Done'>();
 
 export function classifyStatus(statusName: string): 'To Do' | 'In Progress' | 'Done' {
+    const cached = statusClassifyCache.get(statusName);
+    if (cached) return cached;
     const lower = statusName.toLowerCase();
-    if (TODO_STATUSES.some(s => lower === s)) return 'To Do';
-    if (DONE_STATUSES.some(s => lower === s)) return 'Done';
-    return 'In Progress';
+    const result: 'To Do' | 'In Progress' | 'Done' = TODO_STATUSES.has(lower) ? 'To Do' : DONE_STATUSES.has(lower) ? 'Done' : 'In Progress';
+    statusClassifyCache.set(statusName, result);
+    return result;
 }
 
 /**
