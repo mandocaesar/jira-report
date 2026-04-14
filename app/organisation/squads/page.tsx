@@ -387,9 +387,9 @@ function ConfigureModal({
                                         Removed / Not in Jira ({removedMembers.length})
                                     </p>
                                     <div className="space-y-2">
-                                        {removedMembers.map((member) => (
+                                        {removedMembers.map((member, idx) => (
                                             <div
-                                                key={member.accountId}
+                                                key={`${member.accountId}-${idx}`}
                                                 className="flex items-center gap-3 p-3 rounded-xl bg-red-500/5 border border-red-500/10"
                                             >
                                                 <Avatar name={member.displayName} avatarUrl={member.avatarUrl} size={36} />
