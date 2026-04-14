@@ -5,29 +5,17 @@ import nodemailer from 'nodemailer';
 import { createJiraClient } from '@/lib/jira-client';
 import { calculateSprintUtilization } from '@/lib/utilization-calculator';
 import { calculateSprintReport } from '@/lib/sprint-report-calculator';
+import { calculateEpicBreakdowns } from '@/lib/epic-breakdown-calculator';
 import SprintReportPDF from '@/components/SprintReportPDF';
 import teamRoster from '@/config/team-roster.json';
 import { prisma, isDatabaseAvailable } from '@/lib/db';
 import { WorklogReportData } from '@/types';
+import { generateDateRange } from '@/lib/date-utils';
 
 import { generateText } from 'ai';
 
 // GET: Automated scheduler (protected by CRON_SECRET)
 // POST: On-demand trigger from authenticated UI (protected by JWT middleware)
-
-function generateDateRange(startIso: string, endIso: string): string[] {
-    const dates: string[] = [];
-    const startDate = new Date(startIso);
-    const endDate = new Date(endIso);
-    startDate.setHours(0, 0, 0, 0);
-    endDate.setHours(23, 59, 59, 999);
-    const currentDate = new Date(startDate);
-    while (currentDate <= endDate) {
-        dates.push(`${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`);
-        currentDate.setDate(currentDate.getDate() + 1);
-    }
-    return dates;
-}
 
 // ── Shared core: generates PDF + sends email for a single board ──
 async function generateAndSendReportForBoard(
@@ -58,79 +46,7 @@ async function generateAndSendReportForBoard(
     let epicBreakdowns: any[] = [];
     try {
         const epics = await client.getEpics(boardId);
-        const epicMap = new Map<string, { key: string; name: string }>();
-        for (const epic of epics) {
-            epicMap.set(epic.key, { key: epic.key, name: epic.summary || epic.name || epic.key });
-        }
-
-        const epicBreakdownMap = new Map<string, any>();
-        const noEpicKey = 'NO_EPIC';
-        const issueEpicMap = new Map<string, string>();
-
-        for (const issue of issues) {
-            let epicKey = issue.fields['customfield_10014'];
-            if (!epicKey && issue.fields.parent && issue.fields.parent.fields.issuetype?.name === 'Epic') {
-                epicKey = issue.fields.parent.key;
-            }
-            if (epicKey) issueEpicMap.set(issue.key, epicKey);
-        }
-
-        for (const issue of issues) {
-            let epicKey = issueEpicMap.get(issue.key);
-            if (!epicKey && issue.fields.parent) {
-                epicKey = issueEpicMap.get(issue.fields.parent.key);
-            }
-            epicKey = epicKey || noEpicKey;
-            const epicInfo = epicMap.get(epicKey) || { key: epicKey, name: epicKey === noEpicKey ? 'No Epic' : epicKey };
-
-            if (!epicBreakdownMap.has(epicKey)) {
-                epicBreakdownMap.set(epicKey, {
-                    epicKey: epicInfo.key,
-                    epicName: epicInfo.name,
-                    stories: [],
-                    totalPoints: 0,
-                    completedPoints: 0,
-                    completionPercent: 0,
-                });
-            }
-
-            const breakdown = epicBreakdownMap.get(epicKey)!;
-            const storyPointsFields = ['customfield_10036', 'customfield_10052'];
-            let points = 0;
-            for (const f of storyPointsFields) {
-                if (typeof issue.fields[f] === 'number') { points = issue.fields[f]; break; }
-            }
-            const statusCat = issue.fields.status?.statusCategory?.name || 'To Do';
-            const isCompleted = statusCat === 'Done';
-
-            breakdown.totalPoints += points;
-            if (isCompleted) breakdown.completedPoints += points;
-
-            const parentKey = issue.fields.parent?.key || 'Standalone';
-            const parentSummary = issue.fields.parent?.fields.summary || 'Standalone Issues';
-
-            let storyGroup = breakdown.stories.find((sg: any) => sg.key === parentKey);
-            if (!storyGroup) {
-                storyGroup = { key: parentKey, summary: parentSummary, issues: [], totalPoints: 0, completedPoints: 0 };
-                breakdown.stories.push(storyGroup);
-            }
-
-            storyGroup.issues.push({
-                key: issue.key,
-                summary: issue.fields.summary,
-                issueType: issue.fields.issuetype.name,
-                storyPoints: points,
-                assignee: issue.fields.assignee?.displayName || null,
-                status: issue.fields.status?.name || 'Unknown',
-                statusCategory: statusCat,
-            });
-            storyGroup.totalPoints += points;
-            if (isCompleted) storyGroup.completedPoints += points;
-        }
-
-        epicBreakdowns = Array.from(epicBreakdownMap.values())
-            .map(b => ({ ...b, completionPercent: b.totalPoints > 0 ? (b.completedPoints / b.totalPoints) * 100 : 0 }))
-            .sort((a, b) => b.totalPoints - a.totalPoints);
+        epicBreakdowns = calculateEpicBreakdowns(epics, issues);
     } catch (err) {
         console.warn('Could not fetch epic breakdowns for PDF:', err);
     }
@@ -171,14 +87,19 @@ async function generateAndSendReportForBoard(
         if (teamMembersMap.size > 0 && sprint.startDate && sprint.endDate) {
             const dates = generateDateRange(sprint.startDate, sprint.endDate);
             const memberWorklogsMap = new Map<string, any>();
+            const memberLogIndex = new Map<string, Map<string, any>>();
             for (const [accountId, member] of teamMembersMap.entries()) {
+                const dailyLogs = dates.map((date: any) => ({ date, hours: 0 }));
+                const idx = new Map<string, any>();
+                for (const dl of dailyLogs) idx.set(dl.date, dl);
+                memberLogIndex.set(accountId, idx);
                 memberWorklogsMap.set(accountId, {
                     accountId,
                     displayName: member.name,
                     avatarUrl: '',
                     role: member.role as 'qa' | 'engineer',
                     title: member.title,
-                    dailyLogs: dates.map((date: any) => ({ date, hours: 0 })),
+                    dailyLogs,
                     totalHours: 0
                 });
             }
@@ -201,7 +122,7 @@ async function generateAndSendReportForBoard(
                     const tDate = `${startedDate.getFullYear()}-${String(startedDate.getMonth() + 1).padStart(2, '0')}-${String(startedDate.getDate()).padStart(2, '0')}`;
                     if (dates.includes(tDate)) {
                         const hours = log.timeSpentSeconds / 3600;
-                        const dailyLog = member.dailyLogs.find((dl: any) => dl.date === tDate);
+                        const dailyLog = memberLogIndex.get(authorId)?.get(tDate);
                         if (dailyLog) {
                             dailyLog.hours += hours;
                             member.totalHours += hours;

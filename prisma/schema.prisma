@@ -132,6 +132,8 @@ model Team {
   code                String?              @unique // Squad code (e.g., "SQ-FT")
   boardId             Int                  @unique
   isActive            Boolean              @default(true)
+  status              String               @default("active") // "draft", "active", "archived"
+  lastSyncedAt        DateTime?            // Last Jira board member sync
   members             TeamMember[]
   departmentId        String?
   department          Department?          @relation(fields: [departmentId], references: [id])

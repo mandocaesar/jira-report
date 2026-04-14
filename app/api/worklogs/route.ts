@@ -3,32 +3,9 @@ import { createJiraClient } from '@/lib/jira-client';
 import { WorklogReportData, MemberWorklog, DailyWorklog } from '@/types';
 import { prisma, isDatabaseAvailable } from '@/lib/db';
 import { teamRoster } from '@/lib/team-roster';
+import { generateDateRange } from '@/lib/date-utils';
 
 export const dynamic = 'force-dynamic';
-
-function generateDateRange(startIso: string, endIso: string): string[] {
-    const dates: string[] = [];
-    const startDate = new Date(startIso);
-    const endDate = new Date(endIso);
-
-    // Set to midnight to avoid timezone issues when comparing
-    startDate.setHours(0, 0, 0, 0);
-    endDate.setHours(23, 59, 59, 999);
-
-    const currentDate = new Date(startDate);
-
-    while (currentDate <= endDate) {
-        // Format as YYYY-MM-DD
-        const year = currentDate.getFullYear();
-        const month = String(currentDate.getMonth() + 1).padStart(2, '0');
-        const day = String(currentDate.getDate()).padStart(2, '0');
-        dates.push(`${year}-${month}-${day}`);
-
-        currentDate.setDate(currentDate.getDate() + 1);
-    }
-
-    return dates;
-}
 
 export async function GET(request: NextRequest) {
     try {
@@ -103,16 +80,20 @@ export async function GET(request: NextRequest) {
         // 3. Generate Date Range array
         const dates = generateDateRange(sprint.startDate, sprint.endDate);
 
-        // 4. Initialize Member Worklogs
+        // 4. Initialize Member Worklogs with a date→log Map for O(1) lookup
         const memberWorklogsMap = new Map<string, MemberWorklog>();
+        const memberDailyLogIndex = new Map<string, Map<string, DailyWorklog>>();
 
         for (const [accountId, member] of teamMembersMap.entries()) {
             const dailyLogs: DailyWorklog[] = dates.map(date => ({ date, hours: 0 }));
+            const logIndex = new Map<string, DailyWorklog>();
+            for (const dl of dailyLogs) logIndex.set(dl.date, dl);
+            memberDailyLogIndex.set(accountId, logIndex);
 
             memberWorklogsMap.set(accountId, {
                 accountId,
                 displayName: member.name,
-                avatarUrl: '', // Will populate from Jira issues if found
+                avatarUrl: '',
                 role: member.role as 'qa' | 'engineer',
                 title: member.title,
                 dailyLogs,
@@ -153,7 +134,8 @@ export async function GET(request: NextRequest) {
                 // Only count worklogs within the sprint date range
                 if (dates.includes(dateKey)) {
                     const hours = log.timeSpentSeconds / 3600;
-                    const dailyLog = member.dailyLogs.find(dl => dl.date === dateKey);
+                    const logIndex = memberDailyLogIndex.get(authorId);
+                    const dailyLog = logIndex?.get(dateKey);
                     if (dailyLog) {
                         dailyLog.hours += hours;
                         member.totalHours += hours;

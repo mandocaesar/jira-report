@@ -104,6 +104,8 @@ export async function GET(request: Request) {
                     qaCount,
                 },
             },
+        }, {
+            headers: { 'Cache-Control': 'public, max-age=300, s-maxage=300' },
         });
     } catch (error) {
         console.error('Error fetching team members:', error);

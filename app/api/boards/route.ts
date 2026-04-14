@@ -9,6 +9,8 @@ export async function GET() {
         return NextResponse.json({
             success: true,
             data: boards.values || []
+        }, {
+            headers: { 'Cache-Control': 'public, max-age=3600, s-maxage=3600' },
         });
     } catch (error) {
         console.error('Error fetching boards:', error);

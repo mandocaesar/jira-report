@@ -1,8 +1,8 @@
-import { JiraIssue, User, UserUtilization, Sprint, SprintSummary } from '@/types';
+import { JiraIssue, User, UserUtilization, Sprint, SprintSummary, UserIssue } from '@/types';
 import { calculateWorkingDays, getHolidaysInRange } from './holiday-service';
 import { getMemberByAccountId, getSprintLeave, getTeamByBoardIdFromDb, getAvailableDaysFromMap, getTitleDaysMapFromDb } from './team-roster';
 import { prisma, isDatabaseAvailable } from './db';
-import { getStoryPoints, extractUser, categorizeIssueType } from './issue-helpers';
+import { getStoryPoints, extractUser, categorizeIssueType, sprintFieldContainsId } from './issue-helpers';
 
 /**
  * Group issues by assignee and sum their story points and collect work type stats.
@@ -12,10 +12,42 @@ import { getStoryPoints, extractUser, categorizeIssueType } from './issue-helper
  * 
  * Categories: Product, Technical Initiatives, Incident
  */
-function groupByUser(issues: JiraIssue[]): Map<string, { user: User; storyPoints: number; workTypeStats: Record<string, number> }> {
-    const userMap = new Map<string, { user: User; storyPoints: number; workTypeStats: Record<string, number> }>();
+function groupByUser(issues: JiraIssue[], sprint: Sprint): Map<string, { user: User; storyPoints: number; workTypeStats: Record<string, number>; issues: UserIssue[] }> {
+    const userMap = new Map<string, { user: User; storyPoints: number; workTypeStats: Record<string, number>; issues: UserIssue[] }>();
 
-    const addStats = (user: User, points: number, category: string) => {
+    // Pre-compute sprint start boundary for scope change detection
+    const sprintStartDayEnd = new Date(sprint.startDate);
+    sprintStartDayEnd.setHours(23, 59, 59, 999);
+    const sprintStartDayEndTime = sprintStartDayEnd.getTime();
+
+    const isAddedDuringSprint = (issue: JiraIssue): { added: boolean; daysAfter: number } => {
+        // Check if created after sprint start day
+        if (issue.fields.created) {
+            const createdTime = Date.parse(issue.fields.created);
+            if (createdTime > sprintStartDayEndTime) {
+                const days = Math.ceil((createdTime - sprintStartDayEndTime) / (1000 * 60 * 60 * 24));
+                return { added: true, daysAfter: days };
+            }
+        }
+        // Check changelog for sprint field changes
+        if (issue.changelog?.histories) {
+            for (const history of issue.changelog.histories) {
+                const historyTime = Date.parse(history.created);
+                if (historyTime <= sprintStartDayEndTime) continue;
+                for (const item of history.items) {
+                    if (item.field === 'Sprint' || item.fieldId === 'customfield_10020') {
+                        if (sprintFieldContainsId(item.to, sprint.id) || item.toString?.includes(sprint.name)) {
+                            const days = Math.ceil((historyTime - sprintStartDayEndTime) / (1000 * 60 * 60 * 24));
+                            return { added: true, daysAfter: days };
+                        }
+                    }
+                }
+            }
+        }
+        return { added: false, daysAfter: 0 };
+    };
+
+    const addStats = (user: User, points: number, category: string, issue: JiraIssue) => {
         if (!userMap.has(user.accountId)) {
             userMap.set(user.accountId, {
                 user,
@@ -24,16 +56,40 @@ function groupByUser(issues: JiraIssue[]): Map<string, { user: User; storyPoints
                     'Product': 0,
                     'Technical Initiatives': 0,
                     'Incident': 0
-                }
+                },
+                issues: []
             });
         }
         const entry = userMap.get(user.accountId)!;
         entry.storyPoints += points;
         entry.workTypeStats[category] = (entry.workTypeStats[category] || 0) + points;
+        entry.issues.push({
+            key: issue.key,
+            summary: issue.fields.summary,
+            issueType: issue.fields.issuetype.name,
+            status: issue.fields.status?.name || 'Unknown',
+            statusCategory: issue.fields.status?.statusCategory?.name || 'Unknown',
+            points,
+            category: category as UserIssue['category'],
+            parentKey: issue.fields.parent?.key,
+            parentSummary: issue.fields.parent?.fields?.summary,
+            ...(() => { const r = isAddedDuringSprint(issue); return { addedDuringSprint: r.added, addedDaysAfterStart: r.daysAfter || undefined }; })(),
+        });
     };
 
-    // Count every issue's points to its assignee
+    // Build a set of issue keys that are sub-tasks (have a parent in the sprint).
+    // Then: skip any parent issue that has sub-tasks present in the sprint.
+    const subtaskParentKeys = new Set<string>();
     for (const issue of issues) {
+        if (issue.fields.issuetype.subtask && issue.fields.parent?.key) {
+            subtaskParentKeys.add(issue.fields.parent.key);
+        }
+    }
+
+    for (const issue of issues) {
+        // Skip parent issues whose sub-tasks are in the sprint
+        if (!issue.fields.issuetype.subtask && subtaskParentKeys.has(issue.key)) continue;
+
         const points = getStoryPoints(issue);
         if (points <= 0) continue; // Skip issues with no points
 
@@ -42,7 +98,7 @@ function groupByUser(issues: JiraIssue[]): Map<string, { user: User; storyPoints
 
         const typeName = issue.fields.issuetype.name;
         const category = categorizeIssueType(typeName);
-        addStats(user, points, category);
+        addStats(user, points, category, issue);
     }
 
     return userMap;
@@ -116,7 +172,7 @@ export async function calculateSprintUtilization(
     };
 
     // Group issues by user
-    const userDataMap = groupByUser(issues);
+    const userDataMap = groupByUser(issues, sprint);
 
     // Calculate utilization for each user
     const userUtilizations: UserUtilization[] = [];
@@ -137,6 +193,7 @@ export async function calculateSprintUtilization(
     let engineerTotalHours = 0;
     let qaEffectiveMandays = 0;
     let engineerEffectiveMandays = 0;
+    let totalStoryPoints = 0;
 
     // Work type stats by role
     const qaWorkTypeStats: Record<string, number> = { 'Product': 0, 'Technical Initiatives': 0, 'Incident': 0 };
@@ -210,7 +267,9 @@ export async function calculateSprintUtilization(
                 teamStandardHours,
                 availableHours,
                 effectiveMandays,
+                issues: issueData?.issues || [],
             });
+            totalStoryPoints += storyPoints;
 
             // Aggregate overall work type stats
             for (const [type, points] of Object.entries(workTypeStats)) {
@@ -286,7 +345,9 @@ export async function calculateSprintUtilization(
             teamStandardHours,
             availableHours,
             effectiveMandays,
+            issues: userDataMap.get(user.accountId)?.issues || [],
         });
+        totalStoryPoints += storyPoints;
 
         // Non-roster points still count in overall work type stats
         for (const [type, points] of Object.entries(workTypeStats)) {
@@ -317,12 +378,6 @@ export async function calculateSprintUtilization(
 
     // Sort by utilization percentage (descending)
     userUtilizations.sort((a, b) => b.utilizationPercent - a.utilizationPercent);
-
-    // Calculate totals
-    const totalStoryPoints = userUtilizations.reduce(
-        (sum, u) => sum + u.storyPoints,
-        0
-    );
 
     // Team-level calculation
     const teamSize = userUtilizations.length;

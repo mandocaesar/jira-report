@@ -133,13 +133,8 @@ export async function GET(request: NextRequest) {
 
         // Fetch issues WITH changelog for all sprints in parallel
         const sprintDataPromises = sprints.map(async (sprint) => {
-            const [issues, utilization] = await Promise.all([
-                jiraClient.getSprintIssuesWithChangelog(sprint.id, boardId),
-                (async () => {
-                    const issuesForUtil = await jiraClient.getSprintIssues(sprint.id, boardId);
-                    return calculateSprintUtilization(sprint, issuesForUtil, boardId);
-                })(),
-            ]);
+            const issues = await jiraClient.getSprintIssuesWithChangelog(sprint.id, boardId);
+            const utilization = await calculateSprintUtilization(sprint, issues, boardId);
             return { sprint, issues, utilization };
         });
 

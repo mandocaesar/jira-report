@@ -124,6 +124,27 @@ async function getMemberLeaveDates(
   return map;
 }
 
+/** Build a Set of working day strings excluding weekends, holidays, and non-dev days */
+function buildBaseWorkingDaySet(
+  startStr: string,
+  endStr: string,
+  holidayDates: Set<string>,
+  nonDevDates: Set<string>
+): Set<string> {
+  const set = new Set<string>();
+  const [sy, sm, sd] = startStr.split('-').map(Number);
+  const cur = new Date(sy, sm - 1, sd);
+  let curStr = startStr;
+  while (curStr <= endStr) {
+    if (!isWeekend(curStr) && !holidayDates.has(curStr) && !nonDevDates.has(curStr)) {
+      set.add(curStr);
+    }
+    cur.setDate(cur.getDate() + 1);
+    curStr = toLocalDateString(cur);
+  }
+  return set;
+}
+
 /** Count working days in a date range excluding weekends, holidays, and non-dev days */
 function countWorkingDays(
   startStr: string,
@@ -131,45 +152,40 @@ function countWorkingDays(
   holidayDates: Set<string>,
   nonDevDates: Set<string>
 ): number {
-  let count = 0;
-  const [sy, sm, sd] = startStr.split('-').map(Number);
-  const cur = new Date(sy, sm - 1, sd);
-  let curStr = startStr;
-  while (curStr <= endStr) {
-    if (!isWeekend(curStr) && !holidayDates.has(curStr) && !nonDevDates.has(curStr)) {
-      count++;
-    }
-    cur.setDate(cur.getDate() + 1);
-    curStr = toLocalDateString(cur);
-  }
-  return count;
+  return buildBaseWorkingDaySet(startStr, endStr, holidayDates, nonDevDates).size;
 }
 
-/** Count working days for a member (additionally excludes leave) */
-function countMemberAvailableDays(
-  startStr: string,
-  endStr: string,
-  holidayDates: Set<string>,
-  nonDevDates: Set<string>,
+/** Count member available days using pre-built base working day set */
+function countMemberAvailableDaysFromSet(
+  baseWorkingDays: Set<string>,
   leaveDates: Set<string>
 ): { availableDays: number; leaveDays: number } {
   let availableDays = 0;
   let leaveDays = 0;
-  const [sy, sm, sd] = startStr.split('-').map(Number);
-  const cur = new Date(sy, sm - 1, sd);
-  let curStr = startStr;
-  while (curStr <= endStr) {
-    if (!isWeekend(curStr) && !holidayDates.has(curStr) && !nonDevDates.has(curStr)) {
-      if (leaveDates.has(curStr)) {
-        leaveDays++;
-      } else {
-        availableDays++;
-      }
+  for (const d of baseWorkingDays) {
+    if (leaveDates.has(d)) {
+      leaveDays++;
+    } else {
+      availableDays++;
     }
-    cur.setDate(cur.getDate() + 1);
-    curStr = toLocalDateString(cur);
   }
   return { availableDays, leaveDays };
+}
+
+/** Count working days in overlap window using pre-built base working day set */
+function countOverlapWorkingDays(
+  overlapStart: string,
+  overlapEnd: string,
+  baseWorkingDays: Set<string>,
+  leaveDates: Set<string>
+): number {
+  let count = 0;
+  for (const d of baseWorkingDays) {
+    if (d >= overlapStart && d <= overlapEnd && !leaveDates.has(d)) {
+      count++;
+    }
+  }
+  return count;
 }
 
 // ─── Prorated Allocation Calculator ────────────────────────────────────────────
@@ -197,32 +213,18 @@ function calculateProratedHours(
   sprintStartStr: string,
   sprintEndStr: string,
   workingHoursPerDay: number,
-  holidayDates: Set<string>,
-  nonDevDates: Set<string>,
+  baseWorkingDays: Set<string>,
   leaveDates: Set<string>
 ): number {
   const allocStartStr = toLocalDateString(allocation.startDate);
   const allocEndStr = toLocalDateString(allocation.endDate);
 
-  // Calculate overlap between allocation and sprint
   const overlapStart = allocStartStr > sprintStartStr ? allocStartStr : sprintStartStr;
   const overlapEnd = allocEndStr < sprintEndStr ? allocEndStr : sprintEndStr;
 
-  if (overlapStart > overlapEnd) return 0; // No overlap
+  if (overlapStart > overlapEnd) return 0;
 
-  // Count working days in overlap, excluding leave
-  let workingDaysInOverlap = 0;
-  const [sy, sm, sd] = overlapStart.split('-').map(Number);
-  const cur = new Date(sy, sm - 1, sd);
-  let curStr = overlapStart;
-  while (curStr <= overlapEnd) {
-    if (!isWeekend(curStr) && !holidayDates.has(curStr) && !nonDevDates.has(curStr) && !leaveDates.has(curStr)) {
-      workingDaysInOverlap++;
-    }
-    cur.setDate(cur.getDate() + 1);
-    curStr = toLocalDateString(cur);
-  }
-
+  const workingDaysInOverlap = countOverlapWorkingDays(overlapStart, overlapEnd, baseWorkingDays, leaveDates);
   return workingDaysInOverlap * workingHoursPerDay * (allocation.capacityPercent / 100);
 }
 
@@ -283,7 +285,9 @@ export async function calculateSprintCapacity(
   }
 
   // Sprint-level working days (before per-member leave)
-  const sprintWorkingDays = countWorkingDays(sprintStartStr, sprintEndStr, holidayDates, nonDevDates);
+  // Pre-compute base working day set once for O(d) instead of O(d) per member
+  const baseWorkingDays = buildBaseWorkingDaySet(sprintStartStr, sprintEndStr, holidayDates, nonDevDates);
+  const sprintWorkingDays = baseWorkingDays.size;
 
   const members: MemberCapacity[] = [];
 
@@ -291,13 +295,7 @@ export async function calculateSprintCapacity(
     const memberHoursPerDay = member.workingHoursPerDay ?? teamStandardHours;
     const leaveDates = memberLeaveMap.get(member.id) || new Set<string>();
 
-    const { availableDays, leaveDays } = countMemberAvailableDays(
-      sprintStartStr,
-      sprintEndStr,
-      holidayDates,
-      nonDevDates,
-      leaveDates
-    );
+    const { availableDays, leaveDays } = countMemberAvailableDaysFromSet(baseWorkingDays, leaveDates);
 
     const availableHours = availableDays * memberHoursPerDay;
     const effectiveMandays = teamStandardHours > 0 ? availableHours / teamStandardHours : availableDays;
@@ -316,8 +314,7 @@ export async function calculateSprintCapacity(
           sprintStartStr,
           sprintEndStr,
           memberHoursPerDay,
-          holidayDates,
-          nonDevDates,
+          baseWorkingDays,
           leaveDates
         );
       }

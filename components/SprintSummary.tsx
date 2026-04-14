@@ -1,7 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { SprintSummary, SprintReportData } from '@/types';
+import { WORK_TYPE_COLORS, StatusColorSet } from '@/lib/ui-colors';
+import { useAiSummary } from '@/hooks/useAiSummary';
+import { downloadSprintCSV } from '@/lib/csv-export';
+import RoleBreakdownCard from '@/components/sprint/RoleBreakdownCard';
 
 interface SprintSummaryProps {
     summary: SprintSummary;
@@ -12,106 +15,13 @@ interface SprintSummaryProps {
 export default function SprintSummaryComponent({ summary, reportData, onAiSummaryGenerate }: SprintSummaryProps) {
     const { sprint, totalStoryPoints, totalWorkingDays, averageUtilization, userUtilizations, workTypeStats } = summary;
 
-    const [aiSummary, setAiSummary] = useState<string | null>(null);
-    const [isGeneratingAI, setIsGeneratingAI] = useState(false);
-    const [aiError, setAiError] = useState<string | null>(null);
-    const [epicBreakdowns, setEpicBreakdowns] = useState<any[]>([]);
+    const { epicBreakdowns, aiSummary, isGeneratingAI, aiError } = useAiSummary({
+        summary,
+        reportData: reportData ?? undefined,
+        onGenerate: onAiSummaryGenerate,
+    });
 
-    useEffect(() => {
-        if (sprint.originBoardId) {
-            fetch(`/api/epic-breakdown?sprintId=${sprint.id}&boardId=${sprint.originBoardId}`)
-                .then(res => res.json())
-                .then(data => {
-                    const breakdowns = data.epicBreakdowns || [];
-                    setEpicBreakdowns(breakdowns);
-                    if (!aiSummary && !isGeneratingAI && !aiError) {
-                        // Tricky: we need the breakdowns to be passed or accessed correctly.
-                        // We will call the function explicitly after setting it, but relying on state in same tick is bad.
-                    }
-                })
-                .catch(console.error);
-        }
-    }, [sprint.id, sprint.originBoardId]);
-
-    useEffect(() => {
-        if (epicBreakdowns.length > 0 && !aiSummary && !isGeneratingAI && !aiError) {
-            generateAiSummary();
-        }
-    }, [epicBreakdowns, aiSummary, isGeneratingAI, aiError]);
-
-    const handleDownloadCSV = () => {
-        const rows = [
-            ['Member Name', 'Role', 'Title', 'Available Days', 'Completed Points', 'Utilization %'],
-        ];
-
-        [...userUtilizations].sort((a, b) => {
-            if (a.role !== b.role) return a.role === 'engineer' ? -1 : 1;
-            return a.user.displayName.localeCompare(b.user.displayName);
-        }).forEach(u => {
-            rows.push([
-                u.user.displayName,
-                u.role.toUpperCase(),
-                u.title || '',
-                (u.workingDays - u.leaveDays).toString(),
-                u.storyPoints.toString(),
-                u.utilizationPercent.toFixed(1) + '%'
-            ]);
-        });
-
-        if (epicBreakdowns.length > 0) {
-            rows.push([]);
-            rows.push(['Epic Key', 'Epic Name', 'Total Points', 'Completed Points', 'Completion %']);
-            epicBreakdowns.forEach(e => {
-                rows.push([
-                    e.epicKey,
-                    e.epicName,
-                    e.totalPoints.toString(),
-                    e.completedPoints.toString(),
-                    e.completionPercent.toFixed(1) + '%'
-                ]);
-            });
-        }
-
-        const csvContent = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `Sprint_Metrics_${sprint.name.replace(/ /g, '_')}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    };
-
-    const generateAiSummary = async () => {
-        setIsGeneratingAI(true);
-        setAiError(null);
-        try {
-            // Now send it all to the AI
-            const response = await fetch('/api/ai-summary', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    summary,
-                    reportData,
-                    epicBreakdowns
-                })
-            });
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to generate summary');
-            }
-
-            setAiSummary(data.summary);
-            onAiSummaryGenerate?.(data.summary);
-        } catch (err) {
-            setAiError(err instanceof Error ? err.message : 'An error occurred');
-        } finally {
-            setIsGeneratingAI(false);
-        }
-    };
+    const handleDownloadCSV = () => downloadSprintCSV(userUtilizations, epicBreakdowns, sprint.name);
 
     const totalMandays = (summary.engineerStats?.mandays || 0) + (summary.qaStats?.mandays || 0);
     const totalLeaveDays = (summary.engineerStats?.leaveDays || 0) + (summary.qaStats?.leaveDays || 0);
@@ -161,12 +71,8 @@ export default function SprintSummaryComponent({ summary, reportData, onAiSummar
     const daysRemaining = Math.max(totalWorkingDays - daysElapsed, 0);
 
     // Work type colors
-    const workTypeColors: Record<string, { bg: string; border: string; text: string; bar: string }> = {
-        'Product': { bg: 'bg-emerald-500/15', border: 'border-emerald-500/30', text: 'text-emerald-400', bar: 'bg-emerald-500' },
-        'Technical Initiatives': { bg: 'bg-blue-500/15', border: 'border-blue-500/30', text: 'text-blue-400', bar: 'bg-blue-500' },
-        'Incident': { bg: 'bg-red-500/15', border: 'border-red-500/30', text: 'text-red-400', bar: 'bg-red-500' },
-    };
-    const defaultColor = { bg: 'bg-gray-500/15', border: 'border-gray-500/30', text: 'text-gray-400', bar: 'bg-gray-500' };
+    const workTypeColors = WORK_TYPE_COLORS;
+    const defaultColor: StatusColorSet = { bg: 'bg-gray-500/15', border: 'border-gray-500/30', text: 'text-gray-400', bar: 'bg-gray-500' };
 
     // Scope changes calculation
     const scopeChanges = reportData?.scopeChanges || [];
@@ -397,97 +303,8 @@ export default function SprintSummaryComponent({ summary, reportData, onAiSummar
 
             {/* Row 3: QA vs Engineer Breakdown */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5 px-2 pb-2">
-                {/* Engineers Stats */}
-                <div className="bg-muted/50 rounded-lg px-3 py-2 border border-border" title="Engineers breakdown">
-                    <div className="flex items-center gap-4">
-                        <h3 className="text-sm font-bold text-blue-400 flex items-center gap-1.5 shrink-0">
-                            <span className="w-2 h-2 rounded-full bg-blue-400"></span>
-                            Engineers ({summary.engineerStats?.count || 0})
-                        </h3>
-                        <div className="flex items-center gap-5">
-                            <div>
-                                <span className="text-[11px] text-muted-foreground">Mandays </span>
-                                <span className="text-base font-bold text-foreground">{summary.engineerStats?.effectiveMandays != null && summary.engineerStats.effectiveMandays !== summary.engineerStats.mandays ? summary.engineerStats.effectiveMandays.toFixed(1) : (summary.engineerStats?.mandays || 0)}</span>
-                                {summary.engineerStats?.leaveDays > 0 && (
-                                    <span className="text-[10px] text-red-500 ml-1 font-medium">-{summary.engineerStats.leaveDays}</span>
-                                )}
-                            </div>
-                            <div>
-                                <span className="text-[11px] text-muted-foreground">Points </span>
-                                <span className="text-base font-bold text-foreground">{summary.engineerStats?.storyPoints || 0}</span>
-                            </div>
-                            <div>
-                                <span className="text-[11px] text-muted-foreground">Util </span>
-                                <span className="text-base font-bold text-blue-300">
-                                    {(() => {
-                                        const denom = summary.engineerStats?.effectiveMandays ?? summary.engineerStats?.mandays ?? 0;
-                                        return (denom > 0 ? (summary.engineerStats!.storyPoints / denom * 100) : 0).toFixed(0);
-                                    })()}%
-                                </span>
-                            </div>
-                        </div>
-                        {/* Work type badges inline */}
-                        {summary.engineerStats?.workTypeStats && (
-                            <div className="flex gap-2 ml-auto">
-                                {summary.engineerStats.workTypeStats['Product'] > 0 && (
-                                    <span className="text-[10px] px-2 py-0.5 rounded bg-green-500/20 text-green-300 border border-green-500/30 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>{summary.engineerStats.workTypeStats['Product']}</span>
-                                )}
-                                {summary.engineerStats.workTypeStats['Technical Initiatives'] > 0 && (
-                                    <span className="text-[10px] px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>{summary.engineerStats.workTypeStats['Technical Initiatives']}</span>
-                                )}
-                                {summary.engineerStats.workTypeStats['Incident'] > 0 && (
-                                    <span className="text-[10px] px-2 py-0.5 rounded bg-red-500/20 text-red-300 border border-red-500/30 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>{summary.engineerStats.workTypeStats['Incident']}</span>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* QA Stats */}
-                <div className="bg-muted/50 rounded-lg px-3 py-2 border border-border" title="QA breakdown">
-                    <div className="flex items-center gap-4">
-                        <h3 className="text-sm font-bold text-indigo-400 flex items-center gap-1.5 shrink-0">
-                            <span className="w-2 h-2 rounded-full bg-indigo-400"></span>
-                            QA ({summary.qaStats?.count || 0})
-                        </h3>
-                        <div className="flex items-center gap-5">
-                            <div>
-                                <span className="text-[11px] text-muted-foreground">Mandays </span>
-                                <span className="text-base font-bold text-foreground">{summary.qaStats?.effectiveMandays != null && summary.qaStats.effectiveMandays !== summary.qaStats.mandays ? summary.qaStats.effectiveMandays.toFixed(1) : (summary.qaStats?.mandays || 0)}</span>
-                                {summary.qaStats?.leaveDays > 0 && (
-                                    <span className="text-[10px] text-red-500 ml-1 font-medium">-{summary.qaStats.leaveDays}</span>
-                                )}
-                            </div>
-                            <div>
-                                <span className="text-[11px] text-muted-foreground">Points </span>
-                                <span className="text-base font-bold text-foreground">{summary.qaStats?.storyPoints || 0}</span>
-                            </div>
-                            <div>
-                                <span className="text-[11px] text-muted-foreground">Util </span>
-                                <span className="text-base font-bold text-indigo-300">
-                                    {(() => {
-                                        const denom = summary.qaStats?.effectiveMandays ?? summary.qaStats?.mandays ?? 0;
-                                        return (denom > 0 ? (summary.qaStats!.storyPoints / denom * 100) : 0).toFixed(0);
-                                    })()}%
-                                </span>
-                            </div>
-                        </div>
-                        {/* Work type badges inline */}
-                        {summary.qaStats?.workTypeStats && (
-                            <div className="flex gap-2 ml-auto">
-                                {summary.qaStats.workTypeStats['Product'] > 0 && (
-                                    <span className="text-[10px] px-2 py-0.5 rounded bg-green-500/20 text-green-300 border border-green-500/30 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>{summary.qaStats.workTypeStats['Product']}</span>
-                                )}
-                                {summary.qaStats.workTypeStats['Technical Initiatives'] > 0 && (
-                                    <span className="text-[10px] px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>{summary.qaStats.workTypeStats['Technical Initiatives']}</span>
-                                )}
-                                {summary.qaStats.workTypeStats['Incident'] > 0 && (
-                                    <span className="text-[10px] px-2 py-0.5 rounded bg-red-500/20 text-red-300 border border-red-500/30 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>{summary.qaStats.workTypeStats['Incident']}</span>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                </div>
+                <RoleBreakdownCard roleName="Engineers" stats={summary.engineerStats} accentColor="blue" />
+                <RoleBreakdownCard roleName="QA" stats={summary.qaStats} accentColor="indigo" />
             </div>
 
 

@@ -4,21 +4,10 @@ import { createJiraClient } from '@/lib/jira-client';
 import { calculateSprintCapacity } from '@/lib/capacity-pipeline';
 import { computeVelocity, calculateSprintKPIs } from '@/lib/sprint-performance-metrics';
 import { WorklogReportData, MemberWorklog, DailyWorklog, Sprint } from '@/types';
+import { generateDateRange } from '@/lib/date-utils';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
-
-function generateDateRange(startIso: string, endIso: string): string[] {
-  const dates: string[] = [];
-  const s = new Date(startIso); s.setHours(0, 0, 0, 0);
-  const e = new Date(endIso); e.setHours(23, 59, 59, 999);
-  const c = new Date(s);
-  while (c <= e) {
-    dates.push(`${c.getFullYear()}-${String(c.getMonth() + 1).padStart(2, '0')}-${String(c.getDate()).padStart(2, '0')}`);
-    c.setDate(c.getDate() + 1);
-  }
-  return dates;
-}
 
 async function getWorklogDataForSprint(
   sprint: Sprint,
@@ -31,11 +20,16 @@ async function getWorklogDataForSprint(
     if (!sprint.startDate || !sprint.endDate) return null;
     const dates = generateDateRange(sprint.startDate, sprint.endDate);
     const map = new Map<string, MemberWorklog>();
+    const logIndex = new Map<string, Map<string, DailyWorklog>>();
     for (const m of teamMembers) {
+      const dailyLogs = dates.map(d => ({ date: d, hours: 0 }));
+      const idx = new Map<string, DailyWorklog>();
+      for (const dl of dailyLogs) idx.set(dl.date, dl);
+      logIndex.set(m.accountId, idx);
       map.set(m.accountId, {
         accountId: m.accountId, displayName: m.name, avatarUrl: '',
         role: m.role as 'qa' | 'engineer', title: m.title,
-        dailyLogs: dates.map(d => ({ date: d, hours: 0 })), totalHours: 0,
+        dailyLogs, totalHours: 0,
       });
     }
     for (const issue of issues) {
@@ -48,7 +42,7 @@ async function getWorklogDataForSprint(
         const d = new Date(log.started);
         const dk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         if (dates.includes(dk)) {
-          const dl = member.dailyLogs.find(x => x.date === dk);
+          const dl = logIndex.get(aid)?.get(dk);
           if (dl) { const h = log.timeSpentSeconds / 3600; dl.hours += h; member.totalHours += h; }
         }
       }
@@ -89,46 +83,52 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
       .slice(0, maxSprints);
 
-    // Process each sprint for history row data
+    // Process sprints in parallel (chunked to avoid API rate limits)
+    const chunkSize = 3;
     const history = [];
-    for (const sprint of closedSprints) {
-      try {
-        const issues = await jiraClient.getSprintIssuesWithChangelog(sprint.id, boardId);
-        const velocity = computeVelocity(sprint, issues);
+    for (let i = 0; i < closedSprints.length; i += chunkSize) {
+      const chunk = closedSprints.slice(i, i + chunkSize);
+      const chunkResults = await Promise.all(chunk.map(async (sprint) => {
+        try {
+          const issues = await jiraClient.getSprintIssuesWithChangelog(sprint.id, boardId);
+          const velocity = computeVelocity(sprint, issues);
 
-        const [capacity, worklogData] = await Promise.all([
-          teamId ? calculateSprintCapacity(sprint, teamId) : Promise.resolve(null),
-          getWorklogDataForSprint(sprint, boardId, teamMembers),
-        ]);
+          const [capacity, worklogData] = await Promise.all([
+            teamId ? calculateSprintCapacity(sprint, teamId) : Promise.resolve(null),
+            getWorklogDataForSprint(sprint, boardId, teamMembers),
+          ]);
 
-        const kpis = calculateSprintKPIs(sprint, issues, capacity, worklogData, velocity);
-        const completedIssues = issues.filter(i => i.fields.status?.statusCategory?.name === 'Done').length;
+          const kpis = calculateSprintKPIs(sprint, issues, capacity, worklogData, velocity);
+          const completedIssues = issues.filter(i => i.fields.status?.statusCategory?.name === 'Done').length;
 
-        history.push({
-          sprintId: sprint.id,
-          name: sprint.name,
-          state: sprint.state,
-          startDate: sprint.startDate,
-          endDate: sprint.endDate,
-          workingDays: capacity?.sprintWorkingDays ?? 0,
-          committedPoints: velocity.committedPoints,
-          actualPoints: velocity.actualPoints,
-          addedMidSprint: velocity.addedMidSprintPoints,
-          commitmentAccuracy: velocity.commitmentAccuracy,
-          capacityHours: kpis.capacityHours,
-          committedHours: kpis.committedHours,
-          loggedHours: kpis.loggedHours,
-          plannedUtilisation: kpis.plannedUtilisation,
-          executionUtilisation: kpis.executionUtilisation,
-          completionRate: kpis.completionRate,
-          avgCycleTime: kpis.avgCycleTime,
-          totalIssues: issues.length,
-          completedIssues,
-          memberCount: capacity?.members.length ?? teamMembers.length,
-        });
-      } catch (err) {
-        console.warn(`Failed to process sprint ${sprint.id} for history:`, err);
-      }
+          return {
+            sprintId: sprint.id,
+            name: sprint.name,
+            state: sprint.state,
+            startDate: sprint.startDate,
+            endDate: sprint.endDate,
+            workingDays: capacity?.sprintWorkingDays ?? 0,
+            committedPoints: velocity.committedPoints,
+            actualPoints: velocity.actualPoints,
+            addedMidSprint: velocity.addedMidSprintPoints,
+            commitmentAccuracy: velocity.commitmentAccuracy,
+            capacityHours: kpis.capacityHours,
+            committedHours: kpis.committedHours,
+            loggedHours: kpis.loggedHours,
+            plannedUtilisation: kpis.plannedUtilisation,
+            executionUtilisation: kpis.executionUtilisation,
+            completionRate: kpis.completionRate,
+            avgCycleTime: kpis.avgCycleTime,
+            totalIssues: issues.length,
+            completedIssues,
+            memberCount: capacity?.members.length ?? teamMembers.length,
+          };
+        } catch (err) {
+          console.warn(`Failed to process sprint ${sprint.id} for history:`, err);
+          return null;
+        }
+      }));
+      history.push(...chunkResults.filter(Boolean));
     }
 
     return NextResponse.json({ success: true, data: { history } });

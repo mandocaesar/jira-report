@@ -1,6 +1,6 @@
 import { JiraIssue, Sprint, SprintVelocityEntry, SprintCommitmentCategory, WorklogReportData } from '@/types';
 import { SprintCapacity } from './capacity-pipeline';
-import { getStoryPoints, isStoryPointField, sprintFieldContainsId } from './issue-helpers';
+import { getStoryPoints, isStoryPointField, sprintFieldContainsId, classifyStatus, calculateIssueTimes } from './issue-helpers';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -85,7 +85,7 @@ function getPointsAtStart(issue: JiraIssue, sprintStartDayEnd: number): number {
   if (!issue.changelog?.histories) return current;
   const laterChanges: Array<{ time: number; fromVal: string }> = [];
   for (const h of issue.changelog.histories) {
-    const t = new Date(h.created).getTime();
+    const t = Date.parse(h.created);
     if (t <= sprintStartDayEnd) continue;
     for (const item of h.items) {
       if (isStoryPointField(item.fieldId, item.field)) {
@@ -99,10 +99,10 @@ function getPointsAtStart(issue: JiraIssue, sprintStartDayEnd: number): number {
 }
 
 function isAddedMidSprint(issue: JiraIssue, sprint: Sprint, sprintStartDayEnd: number): boolean {
-  if (issue.fields.created && new Date(issue.fields.created).getTime() > sprintStartDayEnd) return true;
+  if (issue.fields.created && Date.parse(issue.fields.created) > sprintStartDayEnd) return true;
   if (issue.changelog?.histories) {
     for (const h of issue.changelog.histories) {
-      const t = new Date(h.created).getTime();
+      const t = Date.parse(h.created);
       if (t <= sprintStartDayEnd) continue;
       for (const item of h.items) {
         if (item.field === 'Sprint' || item.fieldId === 'customfield_10020') {
@@ -114,17 +114,69 @@ function isAddedMidSprint(issue: JiraIssue, sprint: Sprint, sprintStartDayEnd: n
   return false;
 }
 
+/**
+ * Single-pass changelog analysis: computes both addedMidSprint and pointsAtStart
+ * in one traversal instead of two separate passes.
+ */
+function analyzeIssueChangelog(
+  issue: JiraIssue,
+  sprint: Sprint,
+  sprintStartDayEnd: number
+): { addedMidSprint: boolean; pointsAtStart: number } {
+  const current = getStoryPoints(issue);
+
+  if (Date.parse(issue.fields.created) > sprintStartDayEnd) {
+    return { addedMidSprint: true, pointsAtStart: 0 };
+  }
+
+  if (!issue.changelog?.histories) {
+    return { addedMidSprint: false, pointsAtStart: current };
+  }
+
+  let addedMidSprint = false;
+  const laterPointChanges: Array<{ time: number; fromVal: string }> = [];
+
+  for (const h of issue.changelog.histories) {
+    const t = Date.parse(h.created);
+    if (t <= sprintStartDayEnd) continue;
+
+    for (const item of h.items) {
+      if (!addedMidSprint && (item.field === 'Sprint' || item.fieldId === 'customfield_10020')) {
+        if (sprintFieldContainsId(item.to, sprint.id) || item.toString?.includes(sprint.name)) {
+          addedMidSprint = true;
+        }
+      }
+      if (isStoryPointField(item.fieldId, item.field)) {
+        laterPointChanges.push({ time: t, fromVal: item.fromString || '0' });
+      }
+    }
+  }
+
+  if (addedMidSprint) {
+    return { addedMidSprint: true, pointsAtStart: 0 };
+  }
+
+  let pointsAtStart = current;
+  if (laterPointChanges.length > 0) {
+    laterPointChanges.sort((a, b) => a.time - b.time);
+    pointsAtStart = parseFloat(laterPointChanges[0].fromVal || '0');
+  }
+
+  return { addedMidSprint: false, pointsAtStart };
+}
+
 export function computeVelocity(sprint: Sprint, issues: JiraIssue[]): SprintVelocityEntry {
   const startDayEnd = (() => { const d = new Date(sprint.startDate); d.setHours(23, 59, 59, 999); return d.getTime(); })();
   const mkCat = (): SprintCommitmentCategory => ({ committed: 0, actual: 0, count: 0, addedMidSprint: 0, addedMidSprintCount: 0 });
   const breakdown: Record<CategoryKey, SprintCommitmentCategory> = { stories: mkCat(), subTasks: mkCat(), subChores: mkCat(), incidents: mkCat() };
 
   let committedPoints = 0, actualPoints = 0, addedMidSprintPoints = 0, addedMidSprintCount = 0;
+  let totalPoints = 0;
   for (const issue of issues) {
     const cat = getCategory(issue);
-    const added = isAddedMidSprint(issue, sprint, startDayEnd);
     const currentPts = getStoryPoints(issue);
-    const committedPts = added ? 0 : getPointsAtStart(issue, startDayEnd);
+    totalPoints += currentPts;
+    const { addedMidSprint: added, pointsAtStart: committedPts } = analyzeIssueChangelog(issue, sprint, startDayEnd);
     const done = issue.fields.status?.statusCategory?.name === 'Done';
     breakdown[cat].count++;
     breakdown[cat].committed += committedPts;
@@ -133,8 +185,6 @@ export function computeVelocity(sprint: Sprint, issues: JiraIssue[]): SprintVelo
     else { committedPoints += committedPts; }
     if (done) actualPoints += currentPts;
   }
-
-  const totalPoints = issues.reduce((s, i) => s + getStoryPoints(i), 0);
   const commitmentAccuracy = committedPoints > 0 ? Math.round((actualPoints / committedPoints) * 100) : 0;
 
   return {
@@ -149,44 +199,6 @@ export function computeVelocity(sprint: Sprint, issues: JiraIssue[]): SprintVelo
     committedDelta: null,
     actualDelta: null,
   };
-}
-
-// ─── Cycle / Lead Time ─────────────────────────────────────────────────────────
-
-function classifyStatus(statusName: string): string {
-  const lower = statusName.toLowerCase();
-  if (['to do', 'open', 'backlog', 'new', 'reopened', 'funnel', 'selected for development'].some(s => lower === s)) return 'To Do';
-  if (['done', 'closed', 'resolved', 'released', 'completed'].some(s => lower === s)) return 'Done';
-  return 'In Progress';
-}
-
-function businessDaysBetween(start: Date, end: Date): number {
-  if (end <= start) return 0;
-  let count = 0;
-  const current = new Date(start); current.setHours(0, 0, 0, 0);
-  const endNorm = new Date(end); endNorm.setHours(0, 0, 0, 0);
-  while (current <= endNorm) { const day = current.getDay(); if (day !== 0 && day !== 6) count++; current.setDate(current.getDate() + 1); }
-  return Math.max(count, 1);
-}
-
-function calculateIssueTimes(issue: JiraIssue): { cycleTimeDays: number; leadTimeDays: number } | null {
-  if (issue.fields.status?.statusCategory?.name !== 'Done') return null;
-  const histories = issue.changelog?.histories || [];
-  let firstInProgressDate: Date | null = null;
-  let doneDate: Date | null = null;
-  const sorted = [...histories].sort((a, b) => new Date(a.created).getTime() - new Date(b.created).getTime());
-  for (const history of sorted) {
-    for (const item of history.items) {
-      if (item.field !== 'status') continue;
-      if (!firstInProgressDate && item.toString && classifyStatus(item.toString) === 'In Progress') firstInProgressDate = new Date(history.created);
-      if (item.toString && classifyStatus(item.toString) === 'Done') doneDate = new Date(history.created);
-    }
-  }
-  if (!doneDate) return null;
-  const createdDate = new Date(issue.fields.created);
-  const leadTimeDays = businessDaysBetween(createdDate, doneDate);
-  const cycleTimeDays = firstInProgressDate ? businessDaysBetween(firstInProgressDate, doneDate) : leadTimeDays;
-  return { cycleTimeDays, leadTimeDays };
 }
 
 // ─── KPI Calculator ────────────────────────────────────────────────────────────

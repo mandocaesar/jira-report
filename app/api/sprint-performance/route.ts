@@ -9,28 +9,12 @@ import {
 } from '@/lib/sprint-performance-metrics';
 import { calculateSprintReport } from '@/lib/sprint-report-calculator';
 import { WorklogReportData, MemberWorklog, DailyWorklog } from '@/types';
+import { generateDateRange } from '@/lib/date-utils';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 // ─── Inline worklog aggregation (same logic as /api/worklogs) ──────────────────
-
-function generateDateRange(startIso: string, endIso: string): string[] {
-  const dates: string[] = [];
-  const startDate = new Date(startIso);
-  const endDate = new Date(endIso);
-  startDate.setHours(0, 0, 0, 0);
-  endDate.setHours(23, 59, 59, 999);
-  const current = new Date(startDate);
-  while (current <= endDate) {
-    const year = current.getFullYear();
-    const month = String(current.getMonth() + 1).padStart(2, '0');
-    const day = String(current.getDate()).padStart(2, '0');
-    dates.push(`${year}-${month}-${day}`);
-    current.setDate(current.getDate() + 1);
-  }
-  return dates;
-}
 
 async function getWorklogData(
   sprintId: number,
@@ -48,8 +32,12 @@ async function getWorklogData(
     const dates = generateDateRange(sprint.startDate, sprint.endDate);
 
     const memberWorklogsMap = new Map<string, MemberWorklog>();
+    const memberDailyLogIndex = new Map<string, Map<string, DailyWorklog>>();
     for (const member of teamMembers) {
       const dailyLogs: DailyWorklog[] = dates.map(date => ({ date, hours: 0 }));
+      const logIndex = new Map<string, DailyWorklog>();
+      for (const dl of dailyLogs) logIndex.set(dl.date, dl);
+      memberDailyLogIndex.set(member.accountId, logIndex);
       memberWorklogsMap.set(member.accountId, {
         accountId: member.accountId,
         displayName: member.name,
@@ -81,7 +69,7 @@ async function getWorklogData(
         const dateKey = `${year}-${month}-${day}`;
         if (dates.includes(dateKey)) {
           const hours = log.timeSpentSeconds / 3600;
-          const dailyLog = member.dailyLogs.find(dl => dl.date === dateKey);
+          const dailyLog = memberDailyLogIndex.get(authorId)?.get(dateKey);
           if (dailyLog) {
             dailyLog.hours += hours;
             member.totalHours += hours;

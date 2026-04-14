@@ -10,24 +10,7 @@ import SprintReportPDF from '@/components/SprintReportPDF';
 import teamRoster from '@/config/team-roster.json';
 import { prisma, isDatabaseAvailable } from '@/lib/db';
 import { WorklogReportData } from '@/types';
-
-// Helper to generate date range
-function generateDateRange(startIso: string, endIso: string): string[] {
-    const dates: string[] = [];
-    const startDate = new Date(startIso);
-    const endDate = new Date(endIso);
-    startDate.setHours(0, 0, 0, 0);
-    endDate.setHours(23, 59, 59, 999);
-    const currentDate = new Date(startDate);
-    while (currentDate <= endDate) {
-        const year = currentDate.getFullYear();
-        const month = String(currentDate.getMonth() + 1).padStart(2, '0');
-        const day = String(currentDate.getDate()).padStart(2, '0');
-        dates.push(`${year}-${month}-${day}`);
-        currentDate.setDate(currentDate.getDate() + 1);
-    }
-    return dates;
-}
+import { generateDateRange } from '@/lib/date-utils';
 
 // POST /api/report/pdf
 export async function POST(request: NextRequest) {
@@ -257,14 +240,19 @@ export async function POST(request: NextRequest) {
                 if (teamMembersMap.size > 0 && sprint.startDate && sprint.endDate) {
                     const dates = generateDateRange(sprint.startDate, sprint.endDate);
                     const memberWorklogsMap = new Map<string, any>();
+                    const memberLogIndex = new Map<string, Map<string, any>>();
                     for (const [accountId, member] of teamMembersMap.entries()) {
+                        const dailyLogs = dates.map(date => ({ date, hours: 0 }));
+                        const idx = new Map<string, any>();
+                        for (const dl of dailyLogs) idx.set(dl.date, dl);
+                        memberLogIndex.set(accountId, idx);
                         memberWorklogsMap.set(accountId, {
                             accountId,
                             displayName: member.name,
                             avatarUrl: '',
                             role: member.role as 'qa' | 'engineer',
                             title: member.title,
-                            dailyLogs: dates.map(date => ({ date, hours: 0 })),
+                            dailyLogs,
                             totalHours: 0
                         });
                     }
@@ -287,7 +275,7 @@ export async function POST(request: NextRequest) {
                             const tDate = `${startedDate.getFullYear()}-${String(startedDate.getMonth() + 1).padStart(2, '0')}-${String(startedDate.getDate()).padStart(2, '0')}`;
                             if (dates.includes(tDate)) {
                                 const hours = log.timeSpentSeconds / 3600;
-                                const dailyLog = member.dailyLogs.find((dl: any) => dl.date === tDate);
+                                const dailyLog = memberLogIndex.get(authorId)?.get(tDate);
                                 if (dailyLog) {
                                     dailyLog.hours += hours;
                                     member.totalHours += hours;

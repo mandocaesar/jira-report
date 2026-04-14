@@ -4,9 +4,6 @@ import { useState, useEffect, useCallback } from 'react';
 import BoardSelector from '@/components/BoardSelector';
 import SprintSelector from '@/components/SprintSelector';
 import CollapsibleSection from '@/components/CollapsibleSection';
-import SprintReport from '@/components/SprintReport';
-import { EpicBreakdownComponent } from '@/components/EpicBreakdown';
-import WorklogReport from '@/components/WorklogReport';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -468,27 +465,6 @@ function ReportTab({ data, loading, error, selectedBoardId, selectedSprintId }: 
           </table>
         </div>
       </CollapsibleSection>
-
-      {/* Sprint Completion Report (reuse existing component) */}
-      {report && (
-        <CollapsibleSection title="Sprint Completion (Sub-tasks)" defaultOpen={false}>
-          <SprintReport report={report} jiraDomain={jiraDomain} />
-        </CollapsibleSection>
-      )}
-
-      {/* Epic Breakdown */}
-      {selectedBoardId && selectedSprintId && (
-        <CollapsibleSection title="Epic Breakdown" defaultOpen={false}>
-          <EpicBreakdownComponent boardId={selectedBoardId} sprintId={selectedSprintId} jiraDomain={jiraDomain} />
-        </CollapsibleSection>
-      )}
-
-      {/* Worklog Heatmap */}
-      {selectedBoardId && selectedSprintId && (
-        <CollapsibleSection title="Worklog Heatmap" defaultOpen={false}>
-          <WorklogReport boardId={selectedBoardId} sprintId={selectedSprintId} />
-        </CollapsibleSection>
-      )}
     </div>
   );
 }

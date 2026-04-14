@@ -13,6 +13,15 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async redirects() {
+    return [
+      { source: '/squads', destination: '/metrics', permanent: true },
+      { source: '/squads/:id', destination: '/organisation/squads/:id', permanent: true },
+      { source: '/settings/leave', destination: '/planning/capacity', permanent: true },
+      { source: '/settings/team', destination: '/organisation/squads', permanent: true },
+      { source: '/reports/team', destination: '/organisation/squads', permanent: true },
+    ];
+  },
 };
 
 export default nextConfig;

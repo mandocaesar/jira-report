@@ -25,10 +25,9 @@ export async function GET() {
         });
 
         const jiraClient = createJiraClient();
-        const squads: SquadOverview[] = [];
 
-        // Process each team — fetch current sprint info
-        for (const team of teams) {
+        // Process all teams in parallel for speed
+        const squadPromises = teams.map(async (team): Promise<SquadOverview> => {
             const squad: SquadOverview = {
                 id: team.id,
                 name: team.name,
@@ -61,7 +60,7 @@ export async function GET() {
                         name: activeSprint.name,
                         state: activeSprint.state,
                         progress: Math.round(progress),
-                        committedPoints: utilization.totalStoryPoints + (utilization.totalEffectiveMandays > 0 ? 0 : 0), // total assigned
+                        committedPoints: utilization.totalStoryPoints + (utilization.totalEffectiveMandays > 0 ? 0 : 0),
                         completedPoints: utilization.userUtilizations.reduce((sum, u) => sum + u.storyPoints, 0),
                         completionPercent: utilization.totalStoryPoints > 0
                             ? Math.round((utilization.userUtilizations.reduce((sum, u) => sum + u.storyPoints, 0) / utilization.totalStoryPoints) * 100)
@@ -90,7 +89,6 @@ export async function GET() {
                     const avgCommitted = velocities.reduce((s, v) => s + v.committed, 0) / velocities.length;
                     const avgActual = velocities.reduce((s, v) => s + v.actual, 0) / velocities.length;
 
-                    // Trend: compare last sprint vs average of older ones
                     let trend: 'up' | 'down' | 'stable' = 'stable';
                     if (velocities.length >= 2) {
                         const latest = velocities[0].actual;
@@ -108,12 +106,13 @@ export async function GET() {
                     };
                 }
             } catch (err) {
-                // If Jira fetch fails for this team, still include basic info
                 console.warn(`Failed to fetch Jira data for team ${team.name}:`, err);
             }
 
-            squads.push(squad);
-        }
+            return squad;
+        });
+
+        const squads = await Promise.all(squadPromises);
 
         return NextResponse.json({ success: true, data: squads });
     } catch (error) {

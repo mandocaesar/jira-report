@@ -1,13 +1,13 @@
-'use client';
-
+import React from 'react';
 import { UserUtilization } from '@/types';
 import Image from 'next/image';
 
 interface UserUtilizationCardProps {
     utilization: UserUtilization;
+    onClick?: () => void;
 }
 
-export default function UserUtilizationCard({ utilization }: UserUtilizationCardProps) {
+const UserUtilizationCard = React.memo(function UserUtilizationCard({ utilization, onClick }: UserUtilizationCardProps) {
     const { user, storyPoints, workingDays, leaveDays, availableDays, utilizationPercent, status, role, title, workTypeStats, isUnrecognized } = utilization;
     const effectiveMandays = utilization.effectiveMandays;
     const workingHoursPerDay = utilization.workingHoursPerDay;
@@ -30,7 +30,10 @@ export default function UserUtilizationCard({ utilization }: UserUtilizationCard
     const initials = user.displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 
     return (
-        <div className="relative rounded-lg border border-border bg-background overflow-hidden transition-all duration-200 hover:border-muted-foreground/30">
+        <div
+            className="relative rounded-lg border border-border bg-background overflow-hidden transition-all duration-200 hover:border-muted-foreground/30 cursor-pointer"
+            onClick={onClick}
+        >
             <div className={`h-px ${cfg.accent}`} />
 
             <div className="px-3 py-2.5 space-y-2">
@@ -129,4 +132,6 @@ export default function UserUtilizationCard({ utilization }: UserUtilizationCard
             </div>
         </div>
     );
-}
+});
+
+export default UserUtilizationCard;

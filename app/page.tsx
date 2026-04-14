@@ -4,8 +4,10 @@ import { useState } from 'react';
 import BoardSelector from '@/components/BoardSelector';
 import SprintSelector from '@/components/SprintSelector';
 import UserUtilizationCard from '@/components/UserUtilizationCard';
+import EngineerDetailModal from '@/components/EngineerDetailModal';
 import SprintSummaryComponent from '@/components/SprintSummary';
 import { SprintSummary } from '@/types';
+import type { UserUtilization } from '@/types';
 import { EpicBreakdownComponent } from '@/components/EpicBreakdown';
 import SprintReport from '@/components/SprintReport';
 import WorklogReport from '@/components/WorklogReport';
@@ -22,6 +24,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfAiSummary, setPdfAiSummary] = useState<string | null>(null);
+  const [selectedEngineer, setSelectedEngineer] = useState<UserUtilization | null>(null);
 
   const handleExportPDF = async () => {
     if (!selectedSprintId) return;
@@ -308,6 +311,7 @@ export default function Home() {
                         <UserUtilizationCard
                           key={utilization.user.accountId}
                           utilization={utilization}
+                          onClick={() => setSelectedEngineer(utilization)}
                         />
                       ))}
                   </div>
@@ -339,6 +343,7 @@ export default function Home() {
                         <UserUtilizationCard
                           key={utilization.user.accountId}
                           utilization={utilization}
+                          onClick={() => setSelectedEngineer(utilization)}
                         />
                       ))}
                   </div>
@@ -397,6 +402,15 @@ export default function Home() {
           <p>Powered by Jira API and Indonesian Holiday API</p>
         </div>
       </footer>
+
+      {/* Engineer Detail Modal */}
+      {selectedEngineer && (
+        <EngineerDetailModal
+          utilization={selectedEngineer}
+          jiraDomain={jiraDomain}
+          onClose={() => setSelectedEngineer(null)}
+        />
+      )}
     </div>
   );
 }

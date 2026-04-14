@@ -28,6 +28,8 @@ export async function GET(request: Request) {
         return NextResponse.json({
             success: true,
             data: holidays,
+        }, {
+            headers: { 'Cache-Control': 'public, max-age=86400, s-maxage=86400' },
         });
     } catch (error) {
         console.error('Error fetching holidays:', error);

@@ -162,6 +162,21 @@ export interface WorkTypeStats {
   [type: string]: number;
 }
 
+// Individual issue assigned to a user in the sprint
+export interface UserIssue {
+  key: string;
+  summary: string;
+  issueType: string;
+  status: string;
+  statusCategory: string;
+  points: number;
+  category: 'Product' | 'Technical Initiatives' | 'Incident';
+  parentKey?: string;
+  parentSummary?: string;
+  addedDuringSprint?: boolean;
+  addedDaysAfterStart?: number;
+}
+
 // User utilization data
 export interface UserUtilization {
   user: User;
@@ -180,6 +195,8 @@ export interface UserUtilization {
   teamStandardHours: number;       // Team's standard hours/day
   availableHours: number;          // availableDays × workingHoursPerDay
   effectiveMandays: number;        // availableHours / teamStandardHours (normalized)
+  // Per-issue breakdown
+  issues?: UserIssue[];
 }
 
 // Sprint summary

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { WorklogReportData } from '@/types';
+import { getHeatmapColor } from '@/lib/ui-colors';
 
 interface WorklogReportProps {
     boardId: number;
@@ -13,15 +14,6 @@ function formatDay(dateStr: string) {
     const d = new Date(dateStr);
     const options: Intl.DateTimeFormatOptions = { weekday: 'short', day: 'numeric' };
     return d.toLocaleDateString('en-US', options);
-}
-
-// Heatmap colors based on hours logged
-function getHeatmapColor(hours: number) {
-    if (hours === 0) return 'bg-muted/30 text-muted-foreground';
-    if (hours < 4) return 'bg-red-500/20 text-red-400 border-red-500/30';
-    if (hours < 7) return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
-    if (hours < 9) return 'bg-green-500/20 text-green-400 border-green-500/30';
-    return 'bg-blue-500/20 text-blue-400 border-blue-500/30'; // Over 8 hours
 }
 
 export default function WorklogReport({ boardId, sprintId }: WorklogReportProps) {
