@@ -89,6 +89,14 @@ export async function POST(request: NextRequest) {
       return apiError('name, email, and teamId are required', 400);
     }
 
+    // Validate workingHoursPerDay
+    if (workingHoursPerDay != null) {
+      const parsed = parseFloat(workingHoursPerDay);
+      if (isNaN(parsed) || parsed < 1 || parsed > 24) {
+        return apiError('workingHoursPerDay must be a number between 1 and 24', 400);
+      }
+    }
+
     // Generate accountId if not provided (for manually-added engineers)
     const finalAccountId = accountId || `manual-${Date.now()}`;
 
@@ -141,6 +149,14 @@ export async function PUT(request: NextRequest) {
 
     if (!id) {
       return apiError('id is required', 400);
+    }
+
+    // Validate workingHoursPerDay
+    if (workingHoursPerDay !== undefined && workingHoursPerDay !== null) {
+      const parsed = parseFloat(workingHoursPerDay);
+      if (isNaN(parsed) || parsed < 1 || parsed > 24) {
+        return apiError('workingHoursPerDay must be a number between 1 and 24', 400);
+      }
     }
 
     const engineer = await prisma!.teamMember.update({
