@@ -29,6 +29,7 @@ interface Engineer {
   nik: string | null;
   gender: string | null;
   workingHoursPerDay: number | null;
+  excludeFromUtilization: boolean;
   teamId: string;
   team: TeamInfo;
 }
@@ -373,6 +374,15 @@ export default function EngineersPage() {
                 <option value="">Select Squad *</option>
                 {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
+              <label className="flex items-center gap-2 px-4 py-3 bg-muted border border-border rounded-xl cursor-pointer hover:bg-muted/80 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={!!(formData as Record<string, unknown>).excludeFromUtilization}
+                  onChange={(e) => setFormData(p => ({ ...p, excludeFromUtilization: e.target.checked }))}
+                  className="w-4 h-4 rounded border-border accent-red-500"
+                />
+                <span className="text-sm text-foreground">Exclude from Utilization</span>
+              </label>
             </div>
             <div className="flex gap-3">
               <button
@@ -419,9 +429,14 @@ export default function EngineersPage() {
                   {engineers.map((eng) => (
                     <tr key={eng.id} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
                       <td className="px-4 py-3">
-                        <Link href={`/organisation/engineers/${eng.id}`} className="text-foreground hover:text-blue-400 font-medium transition-colors">
-                          {eng.name}
-                        </Link>
+                        <div className="flex items-center gap-1.5">
+                          <Link href={`/organisation/engineers/${eng.id}`} className="text-foreground hover:text-blue-400 font-medium transition-colors">
+                            {eng.name}
+                          </Link>
+                          {eng.excludeFromUtilization && (
+                            <span className="text-[8px] font-bold text-red-400 bg-red-500/10 border border-red-500/30 px-1.5 py-px rounded" title="Excluded from utilization calculation">EXCL</span>
+                          )}
+                        </div>
                         <div className="text-xs text-muted-foreground">{eng.email}</div>
                       </td>
                       <td className="px-4 py-3 font-mono text-xs text-muted-foreground">

@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server';
-import { prisma, isDatabaseAvailable } from '@/lib/db';
+import { prisma } from '@/lib/db';
+import { apiSuccess, apiError, requireDatabase } from '@/lib/api-helpers';
 import { createJiraClient } from '@/lib/jira-client';
 
 interface SyncMember {
@@ -17,20 +17,12 @@ interface SyncResult {
 // POST /api/settings/teams/sync — compare/sync team roster with Jira sprint assignees
 export async function POST(request: Request) {
     try {
-        if (!isDatabaseAvailable() || !prisma) {
-            return NextResponse.json(
-                { success: false, error: 'Database not configured' },
-                { status: 503 }
-            );
-        }
+        const dbErr = requireDatabase(); if (dbErr) return dbErr;
 
         const { boardId, sprintId, apply } = await request.json();
 
         if (!boardId) {
-            return NextResponse.json(
-                { success: false, error: 'boardId is required' },
-                { status: 400 }
-            );
+            return apiError('boardId is required', 400);
         }
 
         const jiraClient = createJiraClient();
@@ -47,10 +39,7 @@ export async function POST(request: Request) {
             targetSprintId = activeSprint?.id || latestClosed?.id;
 
             if (!targetSprintId) {
-                return NextResponse.json(
-                    { success: false, error: 'No sprints found for this board' },
-                    { status: 404 }
-                );
+                return apiError('No sprints found for this board', 404);
             }
         }
 
@@ -71,7 +60,7 @@ export async function POST(request: Request) {
         }
 
         // Get current team roster from DB
-        let team = await prisma.team.findUnique({
+        let team = await prisma!.team.findUnique({
             where: { boardId: parseInt(boardId) },
             include: { members: true },
         });
@@ -90,7 +79,7 @@ export async function POST(request: Request) {
                 console.warn('Could not fetch board name from Jira, using default:', err);
             }
 
-            team = await prisma.team.create({
+            team = await prisma!.team.create({
                 data: {
                     name: teamName,
                     boardId: parseInt(boardId),
@@ -145,7 +134,7 @@ export async function POST(request: Request) {
         let addedCount = 0;
         if (apply && result.toAdd.length > 0) {
             for (const member of result.toAdd) {
-                await prisma.teamMember.upsert({
+                await prisma!.teamMember.upsert({
                     where: {
                         teamId_accountId: {
                             teamId: team.id,
@@ -169,24 +158,18 @@ export async function POST(request: Request) {
             }
         }
 
-        return NextResponse.json({
-            success: true,
-            data: {
-                sprintId: targetSprintId,
-                teamId: team.id,
-                teamName: team.name,
-                totalJiraAssignees: jiraAssignees.size,
-                totalRosterMembers: team.members.length,
-                ...result,
-                applied: apply ? true : false,
-                addedCount,
-            },
+        return apiSuccess({
+            sprintId: targetSprintId,
+            teamId: team.id,
+            teamName: team.name,
+            totalJiraAssignees: jiraAssignees.size,
+            totalRosterMembers: team.members.length,
+            ...result,
+            applied: apply ? true : false,
+            addedCount,
         });
     } catch (error) {
         console.error('Error syncing team:', error);
-        return NextResponse.json(
-            { success: false, error: error instanceof Error ? error.message : 'Failed to sync team' },
-            { status: 500 }
-        );
+        return apiError(error instanceof Error ? error.message : 'Failed to sync team', 500);
     }
 }

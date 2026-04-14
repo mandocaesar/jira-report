@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
+import { apiSuccess, apiError } from '@/lib/api-helpers';
 import { getTeamByBoardIdFromDb } from '@/lib/team-roster';
 import { getHolidaysInRange, isWeekend, toLocalDateString } from '@/lib/holiday-service';
 import { createJiraClient } from '@/lib/jira-client';
@@ -64,10 +65,7 @@ export async function GET(request: NextRequest) {
         const monthsParam = searchParams.get('months') || '6';
 
         if (!boardIdParam) {
-            return NextResponse.json(
-                { success: false, error: 'boardId is required' },
-                { status: 400 }
-            );
+            return apiError('boardId is required', 400);
         }
 
         const boardId = parseInt(boardIdParam);
@@ -76,10 +74,7 @@ export async function GET(request: NextRequest) {
         // Get team for this board (DB-first, falls back to static JSON)
         const teamData = await getTeamByBoardIdFromDb(boardId);
         if (!teamData) {
-            return NextResponse.json(
-                { success: false, error: 'Team not found for board' },
-                { status: 404 }
-            );
+            return apiError('Team not found for board', 404);
         }
         const team = teamData.config;
 
@@ -99,10 +94,7 @@ export async function GET(request: NextRequest) {
         });
 
         if (relevantSprints.length === 0) {
-            return NextResponse.json({
-                success: true,
-                data: { boardId, teamName: team.name, sprints: [], engineers: team.members.map((m) => ({ accountId: m.accountId, name: m.name })) },
-            });
+            return apiSuccess({ boardId, teamName: team.name, sprints: [], engineers: team.members.map((m) => ({ accountId: m.accountId, name: m.name })) });
         }
 
         // ── Fetch sprint issues in parallel ──
@@ -293,23 +285,17 @@ export async function GET(request: NextRequest) {
             };
         });
 
-        return NextResponse.json({
-            success: true,
-            data: {
-                boardId,
-                teamName: team.name,
-                sprints: forecasts,
-                engineers: team.members.map((m) => ({
-                    accountId: m.accountId,
-                    name: m.name,
-                })),
-            },
+        return apiSuccess({
+            boardId,
+            teamName: team.name,
+            sprints: forecasts,
+            engineers: team.members.map((m) => ({
+                accountId: m.accountId,
+                name: m.name,
+            })),
         });
     } catch (error) {
         console.error('Error generating forecast:', error);
-        return NextResponse.json(
-            { success: false, error: 'Failed to generate forecast' },
-            { status: 500 }
-        );
+        return apiError('Failed to generate forecast', 500);
     }
 }

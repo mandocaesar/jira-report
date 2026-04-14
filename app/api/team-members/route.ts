@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server';
 import { teamRoster, TeamMember } from '@/lib/team-roster';
-import { prisma, isDatabaseAvailable } from '@/lib/db';
+import { prisma } from '@/lib/db';
+import { apiSuccess, apiError } from '@/lib/api-helpers';
 
 export async function GET(request: Request) {
     try {
@@ -13,7 +13,7 @@ export async function GET(request: Request) {
 
         // Try DB first (consistent with utilization calculator)
         let usedDb = false;
-        if (isDatabaseAvailable() && prisma) {
+        if (prisma) {
             try {
                 const whereClause = boardIdParam
                     ? { boardId: parseInt(boardIdParam) }
@@ -94,27 +94,20 @@ export async function GET(request: Request) {
         const engineerCount = filteredMembers.filter(m => m.role === 'engineer').length;
         const qaCount = filteredMembers.filter(m => m.role === 'qa').length;
 
-        return NextResponse.json({
-            success: true,
-            data: {
-                teams: Object.values(groupedByTeam),
-                summary: {
-                    totalMembers,
-                    engineerCount,
-                    qaCount,
-                },
+        return apiSuccess({
+            teams: Object.values(groupedByTeam),
+            summary: {
+                totalMembers,
+                engineerCount,
+                qaCount,
             },
         }, {
             headers: { 'Cache-Control': 'public, max-age=300, s-maxage=300' },
         });
     } catch (error) {
         console.error('Error fetching team members:', error);
-        return NextResponse.json(
-            {
-                success: false,
-                error: error instanceof Error ? error.message : 'Failed to fetch team members',
-            },
-            { status: 500 }
+        return apiError(
+            error instanceof Error ? error.message : 'Failed to fetch team members'
         );
     }
 }

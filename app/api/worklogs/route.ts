@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { createJiraClient } from '@/lib/jira-client';
 import { WorklogReportData, MemberWorklog, DailyWorklog } from '@/types';
-import { prisma, isDatabaseAvailable } from '@/lib/db';
+import { prisma } from '@/lib/db';
+import { apiSuccess, apiError } from '@/lib/api-helpers';
 import { teamRoster } from '@/lib/team-roster';
 import { generateDateRange } from '@/lib/date-utils';
 
@@ -14,17 +15,14 @@ export async function GET(request: NextRequest) {
         const sprintId = searchParams.get('sprintId');
 
         if (!boardId || !sprintId) {
-            return NextResponse.json(
-                { error: 'boardId and sprintId are required' },
-                { status: 400 }
-            );
+            return apiError('boardId and sprintId are required', 400);
         }
 
         // 1. Fetch team members (DB preferred, fallback to JSON)
         const teamMembersMap = new Map<string, any>();
         let usedDb = false;
 
-        if (isDatabaseAvailable() && prisma) {
+        if (prisma) {
             try {
                 const dbTeams = await prisma.team.findMany({
                     where: { boardId: parseInt(boardId) },
@@ -71,10 +69,7 @@ export async function GET(request: NextRequest) {
         ]);
 
         if (!sprint.startDate || !sprint.endDate) {
-            return NextResponse.json(
-                { error: 'Sprint does not have a start or end date' },
-                { status: 400 }
-            );
+            return apiError('Sprint does not have a start or end date', 400);
         }
 
         // 3. Generate Date Range array
@@ -158,13 +153,10 @@ export async function GET(request: NextRequest) {
             memberWorklogs
         };
 
-        return NextResponse.json({ success: true, data: reportData });
+        return apiSuccess(reportData);
 
     } catch (error) {
         console.error('Error in Worklogs API:', error);
-        return NextResponse.json(
-            { success: false, error: error instanceof Error ? error.message : 'Unknown error' },
-            { status: 500 }
-        );
+        return apiError(error instanceof Error ? error.message : 'Unknown error', 500);
     }
 }

@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma, isDatabaseAvailable } from '@/lib/db';
+import { prisma } from '@/lib/db';
+import { apiSuccess, apiError, requireDatabase } from '@/lib/api-helpers';
 
 // GET /api/organisation/engineers — list engineers with filters and search
 export async function GET(request: NextRequest) {
   try {
-    if (!isDatabaseAvailable() || !prisma) {
-      return NextResponse.json({ success: false, error: 'Database not configured' }, { status: 503 });
-    }
+    const dbErr = requireDatabase(); if (dbErr) return dbErr;
 
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search') || '';
@@ -45,7 +44,7 @@ export async function GET(request: NextRequest) {
     }
 
     const [engineers, total] = await Promise.all([
-      prisma.teamMember.findMany({
+      prisma!.teamMember.findMany({
         where,
         include: {
           team: {
@@ -64,49 +63,36 @@ export async function GET(request: NextRequest) {
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
-      prisma.teamMember.count({ where }),
+      prisma!.teamMember.count({ where }),
     ]);
 
-    return NextResponse.json({
-      success: true,
-      data: engineers,
-      pagination: {
-        page,
-        pageSize,
-        total,
-        totalPages: Math.ceil(total / pageSize),
+    return apiSuccess(engineers, {
+      extra: {
+        pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) },
       },
     });
   } catch (error) {
     console.error('Error fetching engineers:', error);
-    return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to fetch engineers' },
-      { status: 500 }
-    );
+    return apiError(error instanceof Error ? error.message : 'Failed to fetch engineers', 500);
   }
 }
 
 // POST /api/organisation/engineers — create a new engineer
 export async function POST(request: NextRequest) {
   try {
-    if (!isDatabaseAvailable() || !prisma) {
-      return NextResponse.json({ success: false, error: 'Database not configured' }, { status: 503 });
-    }
+    const dbErr = requireDatabase(); if (dbErr) return dbErr;
 
     const body = await request.json();
-    const { accountId, name, email, teamId, role, title, nik, gender, workingHoursPerDay } = body;
+    const { accountId, name, email, teamId, role, title, nik, gender, workingHoursPerDay, excludeFromUtilization } = body;
 
     if (!name || !email || !teamId) {
-      return NextResponse.json(
-        { success: false, error: 'name, email, and teamId are required' },
-        { status: 400 }
-      );
+      return apiError('name, email, and teamId are required', 400);
     }
 
     // Generate accountId if not provided (for manually-added engineers)
     const finalAccountId = accountId || `manual-${Date.now()}`;
 
-    const engineer = await prisma.teamMember.create({
+    const engineer = await prisma!.teamMember.create({
       data: {
         accountId: finalAccountId,
         name,
@@ -117,6 +103,7 @@ export async function POST(request: NextRequest) {
         nik: nik || null,
         gender: gender || null,
         ...(workingHoursPerDay != null && { workingHoursPerDay: parseFloat(workingHoursPerDay) }),
+        ...(excludeFromUtilization != null && { excludeFromUtilization: Boolean(excludeFromUtilization) }),
       },
       include: {
         team: {
@@ -138,27 +125,25 @@ export async function POST(request: NextRequest) {
     console.error('Error creating engineer:', error);
     const message = error instanceof Error ? error.message : 'Failed to create engineer';
     if (message.includes('Unique constraint')) {
-      return NextResponse.json({ success: false, error: 'An engineer with this NIK or account already exists' }, { status: 409 });
+      return apiError('An engineer with this NIK or account already exists', 409);
     }
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    return apiError(message, 500);
   }
 }
 
 // PUT /api/organisation/engineers — update an engineer
 export async function PUT(request: NextRequest) {
   try {
-    if (!isDatabaseAvailable() || !prisma) {
-      return NextResponse.json({ success: false, error: 'Database not configured' }, { status: 503 });
-    }
+    const dbErr = requireDatabase(); if (dbErr) return dbErr;
 
     const body = await request.json();
-    const { id, name, email, teamId, role, title, nik, gender, workingHoursPerDay } = body;
+    const { id, name, email, teamId, role, title, nik, gender, workingHoursPerDay, excludeFromUtilization } = body;
 
     if (!id) {
-      return NextResponse.json({ success: false, error: 'id is required' }, { status: 400 });
+      return apiError('id is required', 400);
     }
 
-    const engineer = await prisma.teamMember.update({
+    const engineer = await prisma!.teamMember.update({
       where: { id },
       data: {
         ...(name !== undefined && { name }),
@@ -171,6 +156,7 @@ export async function PUT(request: NextRequest) {
         ...(workingHoursPerDay !== undefined && {
           workingHoursPerDay: workingHoursPerDay === null ? null : parseFloat(workingHoursPerDay),
         }),
+        ...(excludeFromUtilization !== undefined && { excludeFromUtilization: Boolean(excludeFromUtilization) }),
       },
       include: {
         team: {
@@ -187,55 +173,44 @@ export async function PUT(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ success: true, data: engineer });
+    return apiSuccess(engineer);
   } catch (error) {
     console.error('Error updating engineer:', error);
     const message = error instanceof Error ? error.message : 'Failed to update engineer';
     if (message.includes('Unique constraint')) {
-      return NextResponse.json({ success: false, error: 'An engineer with this NIK already exists' }, { status: 409 });
+      return apiError('An engineer with this NIK already exists', 409);
     }
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    return apiError(message, 500);
   }
 }
 
 // DELETE /api/organisation/engineers — delete an engineer (with cascade check)
 export async function DELETE(request: NextRequest) {
   try {
-    if (!isDatabaseAvailable() || !prisma) {
-      return NextResponse.json({ success: false, error: 'Database not configured' }, { status: 503 });
-    }
+    const dbErr = requireDatabase(); if (dbErr) return dbErr;
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
     if (!id) {
-      return NextResponse.json({ success: false, error: 'id query param is required' }, { status: 400 });
+      return apiError('id query param is required', 400);
     }
 
     // Check for related records
     const [leaveCount, allocationCount] = await Promise.all([
-      prisma.leave.count({ where: { teamMemberId: id } }),
-      prisma.capacityAllocation.count({ where: { teamMemberId: id } }),
+      prisma!.leave.count({ where: { teamMemberId: id } }),
+      prisma!.capacityAllocation.count({ where: { teamMemberId: id } }),
     ]);
 
     if (leaveCount > 0 || allocationCount > 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Cannot delete: engineer has ${leaveCount} leave record(s) and ${allocationCount} allocation(s). Remove those first.`,
-        },
-        { status: 409 }
-      );
+      return apiError(`Cannot delete: engineer has ${leaveCount} leave record(s) and ${allocationCount} allocation(s). Remove those first.`, 409);
     }
 
-    await prisma.teamMember.delete({ where: { id } });
+    await prisma!.teamMember.delete({ where: { id } });
 
-    return NextResponse.json({ success: true, message: 'Engineer deleted' });
+    return apiSuccess({ message: 'Engineer deleted' });
   } catch (error) {
     console.error('Error deleting engineer:', error);
-    return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to delete engineer' },
-      { status: 500 }
-    );
+    return apiError(error instanceof Error ? error.message : 'Failed to delete engineer', 500);
   }
 }

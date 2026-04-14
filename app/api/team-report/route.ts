@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { createJiraClient } from '@/lib/jira-client';
 import { calculateSprintUtilization } from '@/lib/utilization-calculator';
 import { JiraIssue } from '@/types';
+import { apiSuccess, apiError } from '@/lib/api-helpers';
 
 /**
  * Calculate cycle time (In Progress → Done) and lead time (Created → Done) in business days.
@@ -111,7 +112,7 @@ export async function GET(request: NextRequest) {
         const sprintCountParam = searchParams.get('sprintCount') || '5';
 
         if (!boardIdParam) {
-            return NextResponse.json({ success: false, error: 'boardId is required' }, { status: 400 });
+            return apiError('boardId is required', 400);
         }
 
         const boardId = parseInt(boardIdParam);
@@ -128,7 +129,7 @@ export async function GET(request: NextRequest) {
         const sprints = [...activeSprints, ...closedSprints].slice(0, sprintCount);
 
         if (sprints.length === 0) {
-            return NextResponse.json({ success: true, data: { boardId, sprints: [], members: [] } });
+            return apiSuccess({ boardId, sprints: [], members: [] });
         }
 
         // Fetch issues WITH changelog for all sprints in parallel
@@ -301,20 +302,14 @@ export async function GET(request: NextRequest) {
         // Sort by name
         members.sort((a, b) => a.name.localeCompare(b.name));
 
-        return NextResponse.json({
-            success: true,
-            data: {
-                boardId,
-                sprintCount: sprints.length,
-                sprintNames: sprints.map(s => s.name),
-                members,
-            },
+        return apiSuccess({
+            boardId,
+            sprintCount: sprints.length,
+            sprintNames: sprints.map(s => s.name),
+            members,
         });
     } catch (error) {
         console.error('Error generating team report:', error);
-        return NextResponse.json(
-            { success: false, error: error instanceof Error ? error.message : 'Failed to generate report' },
-            { status: 500 }
-        );
+        return apiError(error instanceof Error ? error.message : 'Failed to generate report', 500);
     }
 }

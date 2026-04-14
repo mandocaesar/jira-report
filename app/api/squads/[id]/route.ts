@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma, isDatabaseAvailable } from '@/lib/db';
+import { NextRequest } from 'next/server';
+import { prisma } from '@/lib/db';
+import { apiSuccess, apiError, requireDatabase } from '@/lib/api-helpers';
 import { createJiraClient } from '@/lib/jira-client';
 import { calculateSprintUtilization } from '@/lib/utilization-calculator';
 import { getStoryPoints, isStoryPointField, sprintFieldContainsId } from '@/lib/issue-helpers';
@@ -126,17 +127,16 @@ export async function GET(
     try {
         const { id } = await params;
 
-        if (!isDatabaseAvailable() || !prisma) {
-            return NextResponse.json({ success: false, error: 'Database not configured' }, { status: 503 });
-        }
+        const dbErr = requireDatabase();
+        if (dbErr) return dbErr;
 
-        const team = await prisma.team.findUnique({
+        const team = await prisma!.team.findUnique({
             where: { id },
             include: { members: true, department: { select: { name: true } } },
         });
 
         if (!team) {
-            return NextResponse.json({ success: false, error: 'Squad not found' }, { status: 404 });
+            return apiError('Squad not found', 404);
         }
 
         const sprintCount = parseInt(new URL(request.url).searchParams.get('sprintCount') || '5');
@@ -318,12 +318,9 @@ export async function GET(
         });
 
         const data: SquadHealthData = { squad, velocity, memberPerformance, workloadDistribution };
-        return NextResponse.json({ success: true, data });
+        return apiSuccess(data);
     } catch (error) {
         console.error('Error fetching squad detail:', error);
-        return NextResponse.json(
-            { success: false, error: error instanceof Error ? error.message : 'Failed to fetch squad detail' },
-            { status: 500 }
-        );
+        return apiError(error instanceof Error ? error.message : 'Failed to fetch squad detail', 500);
     }
 }

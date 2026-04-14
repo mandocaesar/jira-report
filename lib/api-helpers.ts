@@ -4,11 +4,15 @@ import { isDatabaseAvailable } from './db';
 /**
  * Standard success response wrapper.
  */
-export function apiSuccess<T>(data: T, pagination?: { page: number; pageSize: number; total: number }) {
-  if (pagination) {
-    return NextResponse.json({ success: true, data, pagination });
-  }
-  return NextResponse.json({ success: true, data });
+export function apiSuccess<T>(data: T, options?: {
+  pagination?: { page: number; pageSize: number; total: number };
+  headers?: Record<string, string>;
+  extra?: Record<string, unknown>;
+}) {
+  const body: Record<string, unknown> = { success: true, data };
+  if (options?.pagination) body.pagination = options.pagination;
+  if (options?.extra) Object.assign(body, options.extra);
+  return NextResponse.json(body, options?.headers ? { headers: options.headers } : undefined);
 }
 
 /**

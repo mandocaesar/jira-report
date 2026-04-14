@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server';
-import { prisma, isDatabaseAvailable } from '@/lib/db';
+import { prisma } from '@/lib/db';
+import { apiSuccess, apiError, requireDatabase } from '@/lib/api-helpers';
 import { createJiraClient } from '@/lib/jira-client';
 import { calculateSprintUtilization } from '@/lib/utilization-calculator';
 import { SquadOverview } from '@/types';
@@ -9,14 +9,10 @@ export const dynamic = 'force-dynamic';
 // GET /api/squads — list all squads with health summary
 export async function GET() {
     try {
-        if (!isDatabaseAvailable() || !prisma) {
-            return NextResponse.json(
-                { success: false, error: 'Database not configured' },
-                { status: 503 }
-            );
-        }
+        const dbErr = requireDatabase();
+        if (dbErr) return dbErr;
 
-        const teams = await prisma.team.findMany({
+        const teams = await prisma!.team.findMany({
             include: {
                 members: true,
                 department: { select: { name: true } },
@@ -114,12 +110,9 @@ export async function GET() {
 
         const squads = await Promise.all(squadPromises);
 
-        return NextResponse.json({ success: true, data: squads });
+        return apiSuccess(squads);
     } catch (error) {
         console.error('Error fetching squads:', error);
-        return NextResponse.json(
-            { success: false, error: error instanceof Error ? error.message : 'Failed to fetch squads' },
-            { status: 500 }
-        );
+        return apiError(error instanceof Error ? error.message : 'Failed to fetch squads', 500);
     }
 }

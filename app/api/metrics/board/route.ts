@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server';
 import { createJiraClient } from '@/lib/jira-client';
 import { calculateMetrics } from '@/lib/metrics-calculator';
 import { BoardMetricsData, MetricsData } from '@/types';
+import { apiSuccess, apiError } from '@/lib/api-helpers';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -13,10 +13,7 @@ export async function GET(request: Request) {
         const yearParam = searchParams.get('year') || '2026'; // Default to 2026 as requested
 
         if (!boardId) {
-            return NextResponse.json(
-                { success: false, error: 'Missing boardId parameter' },
-                { status: 400 }
-            );
+            return apiError('Missing boardId parameter', 400);
         }
 
         const year = parseInt(yearParam, 10);
@@ -70,16 +67,10 @@ export async function GET(request: Request) {
             sprintMetrics: sprintMetricsData,
         };
 
-        return NextResponse.json({
-            success: true,
-            data: responseData,
-        });
+        return apiSuccess(responseData);
 
     } catch (error) {
         console.error('Error fetching board metrics:', error);
-        return NextResponse.json(
-            { success: false, error: error instanceof Error ? error.message : 'Failed to fetch board metrics' },
-            { status: 500 }
-        );
+        return apiError(error instanceof Error ? error.message : 'Failed to fetch board metrics');
     }
 }

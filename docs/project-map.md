@@ -10,6 +10,13 @@
 - `app/settings/leave/page.tsx` — Manage sprint leave
 - `app/settings/team/page.tsx` — View team members
 - `app/settings/title-days/page.tsx` — Title-based day settings
+- `app/organisation/engineers/page.tsx` — Engineer list (with exclude flag)
+- `app/organisation/engineers/[id]/page.tsx` — Engineer detail/edit
+- `app/organisation/leaves/page.tsx` — Leave management + Sprint Exclusions tab
+- `app/organisation/squads/page.tsx` — Squad management
+- `app/organisation/structure/page.tsx` — Organisation hierarchy
+- `app/squads/page.tsx` — Squad overview
+- `app/sprint-performance/page.tsx` — Sprint performance metrics
 
 ## Components
 - `BoardSelector.tsx` — Board dropdown
@@ -63,8 +70,12 @@
 - `settings/title-days` — Title-based day config
 - `settings/seed` — Seed data
 - `cron` — Scheduled tasks
+- `organisation/engineers` — Engineer CRUD (supports excludeFromUtilization)
+- `organisation/engineers/[id]` — Individual engineer detail
+- `squads` — Squad management
+- `sprint-performance` — Sprint performance data
 
 ## Config
 - `config/team-roster.json` — Team definitions (members, roles, boards)
 - `middleware.ts` — JWT auth guard
-- `prisma/schema.prisma` — DB schema
+- `prisma/schema.prisma` — DB schema (TeamMember has `excludeFromUtilization` flag)

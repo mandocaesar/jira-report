@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma, isDatabaseAvailable } from '@/lib/db';
+import { NextRequest } from 'next/server';
+import { prisma } from '@/lib/db';
+import { apiSuccess, apiError, requireDatabase } from '@/lib/api-helpers';
 
 // GET /api/organisation/engineers/[id] — engineer detail with leaves, allocations
 export async function GET(
@@ -7,13 +8,11 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    if (!isDatabaseAvailable() || !prisma) {
-      return NextResponse.json({ success: false, error: 'Database not configured' }, { status: 503 });
-    }
+    const dbErr = requireDatabase(); if (dbErr) return dbErr;
 
     const { id } = await params;
 
-    const engineer = await prisma.teamMember.findUnique({
+    const engineer = await prisma!.teamMember.findUnique({
       where: { id },
       include: {
         team: {
@@ -38,15 +37,12 @@ export async function GET(
     });
 
     if (!engineer) {
-      return NextResponse.json({ success: false, error: 'Engineer not found' }, { status: 404 });
+      return apiError('Engineer not found', 404);
     }
 
-    return NextResponse.json({ success: true, data: engineer });
+    return apiSuccess(engineer);
   } catch (error) {
     console.error('Error fetching engineer detail:', error);
-    return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to fetch engineer' },
-      { status: 500 }
-    );
+    return apiError(error instanceof Error ? error.message : 'Failed to fetch engineer', 500);
   }
 }

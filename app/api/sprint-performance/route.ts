@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma, isDatabaseAvailable } from '@/lib/db';
+import { NextRequest } from 'next/server';
+import { prisma } from '@/lib/db';
+import { apiSuccess, apiError } from '@/lib/api-helpers';
 import { createJiraClient } from '@/lib/jira-client';
 import { calculateSprintCapacity } from '@/lib/capacity-pipeline';
 import {
@@ -97,17 +98,14 @@ export async function GET(request: NextRequest) {
     const boardId = parseInt(url.searchParams.get('boardId') || '');
 
     if (isNaN(sprintId) || isNaN(boardId)) {
-      return NextResponse.json(
-        { success: false, error: 'sprintId and boardId are required' },
-        { status: 400 },
-      );
+      return apiError('sprintId and boardId are required', 400);
     }
 
     // Resolve team from DB
     let teamId: string | null = null;
     let teamMembers: Array<{ accountId: string; name: string; role: string; title: string }> = [];
 
-    if (isDatabaseAvailable() && prisma) {
+    if (prisma) {
       const team = await prisma.team.findUnique({
         where: { boardId },
         include: { members: true },
@@ -150,7 +148,7 @@ export async function GET(request: NextRequest) {
 
     // Non-dev days
     let nonDevDays: Array<{ date: string; reason: string | null }> = [];
-    if (isDatabaseAvailable() && prisma && teamId) {
+    if (prisma && teamId) {
       const ndd = await prisma.nonDevDay.findMany({
         where: { teamId, sprintId },
         orderBy: { date: 'asc' },
@@ -164,7 +162,7 @@ export async function GET(request: NextRequest) {
 
     // Capacity allocations
     let allocations: Array<{ memberName: string; type: string; capacityPercent: number; startDate: string; endDate: string }> = [];
-    if (isDatabaseAvailable() && prisma && teamId) {
+    if (prisma && teamId) {
       const allocs = await prisma.capacityAllocation.findMany({
         where: {
           teamId,
@@ -184,9 +182,7 @@ export async function GET(request: NextRequest) {
       }));
     }
 
-    return NextResponse.json({
-      success: true,
-      data: {
+    return apiSuccess({
         sprint,
         kpis,
         velocity,
@@ -203,13 +199,9 @@ export async function GET(request: NextRequest) {
         nonDevDays,
         allocations,
         jiraDomain: process.env.JIRA_DOMAIN || '',
-      },
     });
   } catch (error) {
     console.error('Error in sprint performance API:', error);
-    return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to fetch sprint performance' },
-      { status: 500 },
-    );
+    return apiError(error instanceof Error ? error.message : 'Failed to fetch sprint performance', 500);
   }
 }

@@ -7,6 +7,7 @@ export interface TeamMember {
     role: 'qa' | 'engineer';
     title: string;
     workingHoursPerDay?: number; // Override team default; null/undefined = inherit
+    excludeFromUtilization?: boolean; // Auto-exclude from utilization (e.g. EMs)
 }
 
 export interface TeamConfig {
@@ -188,6 +189,7 @@ export async function getTeamByBoardIdFromDb(
                             role: m.role as 'qa' | 'engineer',
                             title: m.title,
                             workingHoursPerDay: m.workingHoursPerDay ?? undefined,
+                            excludeFromUtilization: m.excludeFromUtilization,
                         })),
                     },
                 };

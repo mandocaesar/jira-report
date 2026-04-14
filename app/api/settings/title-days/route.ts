@@ -1,52 +1,38 @@
-import { NextResponse } from 'next/server';
-import { prisma, isDatabaseAvailable } from '@/lib/db';
+import { prisma } from '@/lib/db';
+import { apiSuccess, apiError, requireDatabase } from '@/lib/api-helpers';
 
 // GET /api/settings/title-days — list all title available days
 export async function GET() {
     try {
-        if (!isDatabaseAvailable() || !prisma) {
-            return NextResponse.json(
-                { success: false, error: 'Database not configured' },
-                { status: 503 }
-            );
-        }
+        const dbErr = requireDatabase();
+        if (dbErr) return dbErr;
 
-        const titleDays = await prisma.titleAvailableDays.findMany({
+        const titleDays = await prisma!.titleAvailableDays.findMany({
             orderBy: { title: 'asc' },
         });
 
-        return NextResponse.json({ success: true, data: titleDays });
+        return apiSuccess(titleDays);
     } catch (error) {
         console.error('Error fetching title days:', error);
-        return NextResponse.json(
-            { success: false, error: error instanceof Error ? error.message : 'Failed to fetch title days' },
-            { status: 500 }
-        );
+        return apiError(error instanceof Error ? error.message : 'Failed to fetch title days');
     }
 }
 
 // PUT /api/settings/title-days — upsert title available days (bulk)
 export async function PUT(request: Request) {
     try {
-        if (!isDatabaseAvailable() || !prisma) {
-            return NextResponse.json(
-                { success: false, error: 'Database not configured' },
-                { status: 503 }
-            );
-        }
+        const dbErr = requireDatabase();
+        if (dbErr) return dbErr;
 
         const { entries } = await request.json() as {
             entries: Array<{ title: string; availableDays: number }>;
         };
 
         if (!entries || !Array.isArray(entries)) {
-            return NextResponse.json(
-                { success: false, error: 'entries array is required' },
-                { status: 400 }
-            );
+            return apiError('entries array is required', 400);
         }
 
-        const db = prisma;
+        const db = prisma!;
         await db.$transaction(
             entries.map((entry) =>
                 db.titleAvailableDays.upsert({
@@ -57,12 +43,9 @@ export async function PUT(request: Request) {
             )
         );
 
-        return NextResponse.json({ success: true, message: 'Title days saved' });
+        return apiSuccess({ message: 'Title days saved' });
     } catch (error) {
         console.error('Error saving title days:', error);
-        return NextResponse.json(
-            { success: false, error: error instanceof Error ? error.message : 'Failed to save title days' },
-            { status: 500 }
-        );
+        return apiError(error instanceof Error ? error.message : 'Failed to save title days');
     }
 }

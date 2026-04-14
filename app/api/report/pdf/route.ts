@@ -8,7 +8,8 @@ import { calculateSprintUtilization } from '@/lib/utilization-calculator';
 import { calculateSprintReport } from '@/lib/sprint-report-calculator';
 import SprintReportPDF from '@/components/SprintReportPDF';
 import teamRoster from '@/config/team-roster.json';
-import { prisma, isDatabaseAvailable } from '@/lib/db';
+import { prisma } from '@/lib/db';
+import { apiError } from '@/lib/api-helpers';
 import { WorklogReportData } from '@/types';
 import { generateDateRange } from '@/lib/date-utils';
 
@@ -21,10 +22,7 @@ export async function POST(request: NextRequest) {
         const aiSummary = body.aiSummary || null;
 
         if (!sprintIdParam) {
-            return NextResponse.json(
-                { success: false, error: 'sprintId is required' },
-                { status: 400 }
-            );
+            return apiError('sprintId is required', 400);
         }
 
         const sprintId = parseInt(sprintIdParam, 10);
@@ -214,7 +212,7 @@ export async function POST(request: NextRequest) {
             try {
                 const teamMembersMap = new Map<string, any>();
                 let usedDb = false;
-                if (isDatabaseAvailable() && prisma) {
+                if (prisma) {
                     try {
                         const dbTeams = await prisma.team.findMany({ where: { boardId }, include: { members: true } });
                         if (dbTeams.length > 0) {
@@ -394,9 +392,6 @@ ${JSON.stringify(
         });
     } catch (error) {
         console.error('Error generating PDF report:', error);
-        return NextResponse.json(
-            { success: false, error: error instanceof Error ? error.message : 'Failed to generate PDF' },
-            { status: 500 }
-        );
+        return apiError(error instanceof Error ? error.message : 'Failed to generate PDF', 500);
     }
 }

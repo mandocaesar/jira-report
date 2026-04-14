@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server';
-import { prisma, isDatabaseAvailable } from '@/lib/db';
+import { prisma } from '@/lib/db';
+import { apiSuccess, apiError, requireDatabase } from '@/lib/api-helpers';
 import teamRosterData from '@/config/team-roster.json';
 
 interface TeamRosterJson {
@@ -20,15 +20,10 @@ interface TeamRosterJson {
 // POST /api/settings/seed — seed database from team-roster.json
 export async function POST() {
     try {
-        if (!isDatabaseAvailable() || !prisma) {
-            return NextResponse.json(
-                { success: false, error: 'Database not configured' },
-                { status: 503 }
-            );
-        }
+        const dbErr = requireDatabase(); if (dbErr) return dbErr;
 
         const roster = teamRosterData as TeamRosterJson;
-        const db = prisma;
+        const db = prisma!;
 
         let teamsCreated = 0;
         let membersCreated = 0;
@@ -86,15 +81,9 @@ export async function POST() {
             }
         }
 
-        return NextResponse.json({
-            success: true,
-            message: `Seeded ${teamsCreated} teams, ${membersCreated} members, ${titleDaysCreated} title day configs`,
-        });
+        return apiSuccess({ message: `Seeded ${teamsCreated} teams, ${membersCreated} members, ${titleDaysCreated} title day configs` });
     } catch (error) {
         console.error('Error seeding data:', error);
-        return NextResponse.json(
-            { success: false, error: error instanceof Error ? error.message : 'Failed to seed data' },
-            { status: 500 }
-        );
+        return apiError(error instanceof Error ? error.message : 'Failed to seed data', 500);
     }
 }

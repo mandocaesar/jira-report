@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import BoardSelector from '@/components/BoardSelector';
+import SprintSelector from '@/components/SprintSelector';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -77,6 +79,7 @@ const LEAVE_TYPE_COLORS: Record<string, string> = {
 export default function LeavesPage() {
   const searchParams = useSearchParams();
   const presetEngineerId = searchParams.get('engineerId') || '';
+  const [activeTab, setActiveTab] = useState<'leaves' | 'exclusions'>('leaves');
 
   const [leaves, setLeaves] = useState<LeaveRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -258,6 +261,25 @@ export default function LeavesPage() {
         </div>
       </header>
 
+      {/* Tab Navigation */}
+      <div className="px-3 sm:px-4 md:px-6 pt-4">
+        <div className="flex gap-1 bg-muted/30 border border-border rounded-xl p-1 w-fit">
+          <button
+            onClick={() => setActiveTab('leaves')}
+            className={`px-4 py-2 text-sm rounded-lg transition-all ${activeTab === 'leaves' ? 'bg-foreground text-background font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            Leave Records
+          </button>
+          <button
+            onClick={() => setActiveTab('exclusions')}
+            className={`px-4 py-2 text-sm rounded-lg transition-all ${activeTab === 'exclusions' ? 'bg-foreground text-background font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            Sprint Exclusions
+          </button>
+        </div>
+      </div>
+
+      {activeTab === 'leaves' && (
       <main className="px-3 sm:px-4 md:px-6 py-4 md:py-8 max-w-full space-y-6">
         {/* Status Messages */}
         {error && (
@@ -528,6 +550,228 @@ export default function LeavesPage() {
           </div>
         )}
       </main>
+      )}
+
+      {activeTab === 'exclusions' && (
+        <SprintExclusionsTab />
+      )}
     </div>
+  );
+}
+
+// ─── Sprint Exclusions Tab ──────────────────────────────────────────────────
+
+interface SprintMember {
+  accountId: string;
+  name: string;
+  role: string;
+  title: string;
+}
+
+function SprintExclusionsTab() {
+  const [boardId, setBoardId] = useState<number | null>(null);
+  const [sprintId, setSprintId] = useState<number | null>(null);
+  const [members, setMembers] = useState<SprintMember[]>([]);
+  const [leaveData, setLeaveData] = useState<Record<string, number>>({});
+  const [loadingMembers, setLoadingMembers] = useState(false);
+  const [loadingLeave, setLoadingLeave] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
+
+  // Fetch team members when board changes
+  useEffect(() => {
+    if (!boardId) { setMembers([]); return; }
+    setLoadingMembers(true);
+    fetch(`/api/team-members?boardId=${boardId}`)
+      .then(r => r.json())
+      .then(json => {
+        if (json.success && json.data?.teams?.length > 0) {
+          const allMembers: SprintMember[] = [];
+          for (const team of json.data.teams) {
+            for (const m of team.members) {
+              allMembers.push({ accountId: m.accountId, name: m.name, role: m.role, title: m.title });
+            }
+          }
+          setMembers(allMembers);
+        } else {
+          setMembers([]);
+        }
+      })
+      .catch(() => setMembers([]))
+      .finally(() => setLoadingMembers(false));
+  }, [boardId]);
+
+  // Fetch leave data when sprint changes
+  useEffect(() => {
+    if (!sprintId) { setLeaveData({}); setDirty(false); return; }
+    setLoadingLeave(true);
+    fetch(`/api/leave?sprintId=${sprintId}`)
+      .then(r => r.json())
+      .then(json => {
+        if (json.success) {
+          const map: Record<string, number> = {};
+          if (json.data) {
+            for (const [accountId, days] of Object.entries(json.data)) {
+              map[accountId] = days as number;
+            }
+          }
+          setLeaveData(map);
+        }
+      })
+      .catch(() => {})
+      .finally(() => { setLoadingLeave(false); setDirty(false); });
+  }, [sprintId]);
+
+  const toggleExclude = (accountId: string) => {
+    setLeaveData(prev => ({
+      ...prev,
+      [accountId]: prev[accountId] === -1 ? 0 : -1,
+    }));
+    setDirty(true);
+  };
+
+  const updateLeaveDays = (accountId: string, days: number) => {
+    setLeaveData(prev => ({ ...prev, [accountId]: days }));
+    setDirty(true);
+  };
+
+  const handleSave = async () => {
+    if (!sprintId) return;
+    setSaving(true);
+    try {
+      const res = await fetch('/api/leave', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sprintId, leaveData }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        setDirty(false);
+        setSaveMsg('Saved');
+        setTimeout(() => setSaveMsg(null), 2000);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const excludedCount = members.filter(m => leaveData[m.accountId] === -1).length;
+  const activeMembers = members.filter(m => leaveData[m.accountId] !== -1);
+  const totalLeaveDays = activeMembers.reduce((sum, m) => sum + (leaveData[m.accountId] || 0), 0);
+
+  return (
+    <main className="px-3 sm:px-4 md:px-6 py-4 md:py-8 max-w-full space-y-6">
+      {/* Selectors */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <BoardSelector selectedBoardId={boardId} onBoardChange={(id) => { setBoardId(id); setSprintId(null); }} />
+        {boardId && (
+          <SprintSelector boardId={boardId} selectedSprintId={sprintId} onSprintChange={setSprintId} />
+        )}
+      </div>
+
+      {!boardId && (
+        <div className="py-8 text-center text-muted-foreground text-sm">Select a board to manage sprint exclusions</div>
+      )}
+      {boardId && !sprintId && (
+        <div className="py-8 text-center text-muted-foreground text-sm">Select a sprint to manage exclusions and leave days</div>
+      )}
+
+      {sprintId && (loadingMembers || loadingLeave) && (
+        <div className="flex items-center justify-center py-12">
+          <div className="w-8 h-8 border-2 border-foreground/30 border-t-foreground rounded-full animate-spin" />
+        </div>
+      )}
+
+      {sprintId && !loadingMembers && !loadingLeave && members.length > 0 && (
+        <div className="space-y-4">
+          {/* Summary */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-muted/30 border border-border rounded-xl p-3 text-center">
+              <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Active</p>
+              <p className="text-lg font-bold text-foreground">{members.length - excludedCount}</p>
+            </div>
+            <div className="bg-muted/30 border border-border rounded-xl p-3 text-center">
+              <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Total Leave Days</p>
+              <p className="text-lg font-bold text-amber-400">{totalLeaveDays}</p>
+            </div>
+            <div className="bg-muted/30 border border-border rounded-xl p-3 text-center">
+              <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Excluded</p>
+              <p className="text-lg font-bold text-red-400">{excludedCount}</p>
+            </div>
+          </div>
+
+          {/* Member list */}
+          <div className="bg-card border border-border rounded-2xl overflow-hidden">
+            <div className="p-3 border-b border-border flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-foreground">Team Members</h3>
+              <div className="flex items-center gap-2">
+                {saveMsg && <span className="text-xs text-green-400">✓ {saveMsg}</span>}
+                <button
+                  onClick={handleSave}
+                  disabled={!dirty || saving}
+                  className="px-4 py-1.5 text-xs bg-foreground text-background rounded-lg disabled:opacity-30 hover:bg-foreground/90 transition-all"
+                >
+                  {saving ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </div>
+            <div className="divide-y divide-border">
+              {members.map(member => {
+                const isExcluded = leaveData[member.accountId] === -1;
+                const days = leaveData[member.accountId] || 0;
+
+                return (
+                  <div
+                    key={member.accountId}
+                    className={`flex items-center justify-between p-3 transition-all ${isExcluded ? 'bg-red-900/10 opacity-60' : ''}`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className={`font-medium text-sm ${isExcluded ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
+                        {member.name}
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className={`text-[9px] font-semibold uppercase tracking-wider px-1 py-px rounded ring-1 ${member.role === 'qa' ? 'bg-indigo-500/15 text-indigo-400 ring-indigo-500/20' : 'bg-blue-500/15 text-blue-400 ring-blue-500/20'}`}>
+                          {member.role}
+                        </span>
+                        {member.title && <span className="text-[10px] text-muted-foreground">{member.title}</span>}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {isExcluded ? (
+                        <span className="text-xs font-bold text-red-400 bg-red-500/10 border border-red-500/30 px-3 py-1 rounded-lg">
+                          EXCLUDED
+                        </span>
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="number"
+                            min={0}
+                            max={30}
+                            value={days}
+                            onChange={e => updateLeaveDays(member.accountId, Math.max(0, parseInt(e.target.value) || 0))}
+                            className="w-16 px-2 py-1 text-center bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:border-blue-500 text-sm"
+                          />
+                          <span className="text-sm text-muted-foreground w-12">day{days !== 1 ? 's' : ''}</span>
+                        </div>
+                      )}
+                      <button
+                        onClick={() => toggleExclude(member.accountId)}
+                        title={isExcluded ? 'Include in sprint' : 'Exclude from sprint'}
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors text-sm ${isExcluded ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30' : 'bg-red-500/10 text-red-400/60 hover:bg-red-500/20 hover:text-red-400'}`}
+                      >
+                        {isExcluded ? '✓' : '✕'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+    </main>
   );
 }

@@ -49,6 +49,7 @@ interface EngineerDetail {
   nik: string | null;
   gender: string | null;
   workingHoursPerDay: number | null;
+  excludeFromUtilization: boolean;
   teamId: string;
   team: TeamInfo;
   leaves: LeaveRecord[];
@@ -95,7 +96,7 @@ export default function EngineerDetailPage() {
 
   // Editing state
   const [editing, setEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ name: '', email: '', nik: '', gender: '', role: '', title: '', workingHoursPerDay: '' });
+  const [editForm, setEditForm] = useState({ name: '', email: '', nik: '', gender: '', role: '', title: '', workingHoursPerDay: '', excludeFromUtilization: false });
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -125,6 +126,7 @@ export default function EngineerDetailPage() {
       role: engineer.role,
       title: engineer.title,
       workingHoursPerDay: engineer.workingHoursPerDay != null ? String(engineer.workingHoursPerDay) : '',
+      excludeFromUtilization: engineer.excludeFromUtilization || false,
     });
     setEditing(true);
   };
@@ -139,6 +141,7 @@ export default function EngineerDetailPage() {
           id,
           ...editForm,
           workingHoursPerDay: editForm.workingHoursPerDay === '' ? null : parseFloat(editForm.workingHoursPerDay),
+          excludeFromUtilization: editForm.excludeFromUtilization,
         }),
       });
       const result = await res.json();
@@ -296,6 +299,18 @@ export default function EngineerDetailPage() {
                     className="w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-foreground focus:outline-none focus:border-blue-500/50"
                   />
                 </div>
+                <div className="col-span-2">
+                  <label className="flex items-center gap-2 px-4 py-3 bg-muted border border-border rounded-xl cursor-pointer hover:bg-muted/80 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={editForm.excludeFromUtilization}
+                      onChange={(e) => setEditForm(p => ({ ...p, excludeFromUtilization: e.target.checked }))}
+                      className="w-4 h-4 rounded border-border accent-red-500"
+                    />
+                    <span className="text-sm text-foreground">Exclude from Utilization</span>
+                    <span className="text-xs text-muted-foreground ml-1">(for EMs and non-contributing roles)</span>
+                  </label>
+                </div>
               </div>
               <div className="flex gap-3">
                 <button
@@ -320,6 +335,9 @@ export default function EngineerDetailPage() {
               <InfoItem label="Squad" value={engineer.team?.name || '—'} />
               <InfoItem label="Hours/Day" value={engineer.workingHoursPerDay != null ? String(engineer.workingHoursPerDay) : '8 (default)'} />
               <InfoItem label="Jira Account" value={engineer.accountId.startsWith('manual-') ? 'Manual' : engineer.accountId.slice(0, 12) + '...'} mono />
+              {engineer.excludeFromUtilization && (
+                <InfoItem label="Utilization" value="Excluded" badge badgeClass="bg-red-500/20 text-red-400" />
+              )}
             </div>
           )}
         </div>

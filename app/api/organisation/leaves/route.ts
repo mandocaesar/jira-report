@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma, isDatabaseAvailable } from '@/lib/db';
+import { prisma } from '@/lib/db';
+import { apiSuccess, apiError, requireDatabase } from '@/lib/api-helpers';
 
 // GET /api/organisation/leaves — list leaves with filters
 export async function GET(request: NextRequest) {
   try {
-    if (!isDatabaseAvailable() || !prisma) {
-      return NextResponse.json({ success: false, error: 'Database not configured' }, { status: 503 });
-    }
+    const dbErr = requireDatabase(); if (dbErr) return dbErr;
 
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search') || '';
@@ -57,7 +56,7 @@ export async function GET(request: NextRequest) {
     }
 
     const [leaves, total] = await Promise.all([
-      prisma.leave.findMany({
+      prisma!.leave.findMany({
         where,
         include: {
           teamMember: {
@@ -78,62 +77,46 @@ export async function GET(request: NextRequest) {
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
-      prisma.leave.count({ where }),
+      prisma!.leave.count({ where }),
     ]);
 
-    return NextResponse.json({
-      success: true,
-      data: leaves,
-      pagination: {
-        page,
-        pageSize,
-        total,
-        totalPages: Math.ceil(total / pageSize),
+    return apiSuccess(leaves, {
+      extra: {
+        pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) },
       },
     });
   } catch (error) {
     console.error('Error fetching leaves:', error);
-    return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to fetch leaves' },
-      { status: 500 }
-    );
+    return apiError(error instanceof Error ? error.message : 'Failed to fetch leaves', 500);
   }
 }
 
 // POST /api/organisation/leaves — create a leave record
 export async function POST(request: NextRequest) {
   try {
-    if (!isDatabaseAvailable() || !prisma) {
-      return NextResponse.json({ success: false, error: 'Database not configured' }, { status: 503 });
-    }
+    const dbErr = requireDatabase(); if (dbErr) return dbErr;
 
     const body = await request.json();
     const { teamMemberId, startDate, endDate, type, notes } = body;
 
     if (!teamMemberId || !startDate || !endDate) {
-      return NextResponse.json(
-        { success: false, error: 'teamMemberId, startDate, and endDate are required' },
-        { status: 400 }
-      );
+      return apiError('teamMemberId, startDate, and endDate are required', 400);
     }
 
     const start = new Date(startDate);
     const end = new Date(endDate);
 
     if (end < start) {
-      return NextResponse.json(
-        { success: false, error: 'endDate must be on or after startDate' },
-        { status: 400 }
-      );
+      return apiError('endDate must be on or after startDate', 400);
     }
 
     // Verify engineer exists
-    const member = await prisma.teamMember.findUnique({ where: { id: teamMemberId } });
+    const member = await prisma!.teamMember.findUnique({ where: { id: teamMemberId } });
     if (!member) {
-      return NextResponse.json({ success: false, error: 'Engineer not found' }, { status: 404 });
+      return apiError('Engineer not found', 404);
     }
 
-    const leave = await prisma.leave.create({
+    const leave = await prisma!.leave.create({
       data: {
         teamMemberId,
         startDate: start,
@@ -159,25 +142,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, data: leave }, { status: 201 });
   } catch (error) {
     console.error('Error creating leave:', error);
-    return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to create leave' },
-      { status: 500 }
-    );
+    return apiError(error instanceof Error ? error.message : 'Failed to create leave', 500);
   }
 }
 
 // PUT /api/organisation/leaves — update a leave record
 export async function PUT(request: NextRequest) {
   try {
-    if (!isDatabaseAvailable() || !prisma) {
-      return NextResponse.json({ success: false, error: 'Database not configured' }, { status: 503 });
-    }
+    const dbErr = requireDatabase(); if (dbErr) return dbErr;
 
     const body = await request.json();
     const { id, teamMemberId, startDate, endDate, type, notes } = body;
 
     if (!id) {
-      return NextResponse.json({ success: false, error: 'id is required' }, { status: 400 });
+      return apiError('id is required', 400);
     }
 
     const data: Record<string, unknown> = {};
@@ -189,13 +167,10 @@ export async function PUT(request: NextRequest) {
 
     // Validate date range if both provided or changed
     if (data.startDate && data.endDate && (data.endDate as Date) < (data.startDate as Date)) {
-      return NextResponse.json(
-        { success: false, error: 'endDate must be on or after startDate' },
-        { status: 400 }
-      );
+      return apiError('endDate must be on or after startDate', 400);
     }
 
-    const leave = await prisma.leave.update({
+    const leave = await prisma!.leave.update({
       where: { id },
       data,
       include: {
@@ -213,38 +188,30 @@ export async function PUT(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ success: true, data: leave });
+    return apiSuccess(leave);
   } catch (error) {
     console.error('Error updating leave:', error);
-    return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to update leave' },
-      { status: 500 }
-    );
+    return apiError(error instanceof Error ? error.message : 'Failed to update leave', 500);
   }
 }
 
 // DELETE /api/organisation/leaves?id=xxx — delete a leave record
 export async function DELETE(request: NextRequest) {
   try {
-    if (!isDatabaseAvailable() || !prisma) {
-      return NextResponse.json({ success: false, error: 'Database not configured' }, { status: 503 });
-    }
+    const dbErr = requireDatabase(); if (dbErr) return dbErr;
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
     if (!id) {
-      return NextResponse.json({ success: false, error: 'id query param is required' }, { status: 400 });
+      return apiError('id query param is required', 400);
     }
 
-    await prisma.leave.delete({ where: { id } });
+    await prisma!.leave.delete({ where: { id } });
 
-    return NextResponse.json({ success: true, message: 'Leave deleted' });
+    return apiSuccess({ message: 'Leave deleted' });
   } catch (error) {
     console.error('Error deleting leave:', error);
-    return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to delete leave' },
-      { status: 500 }
-    );
+    return apiError(error instanceof Error ? error.message : 'Failed to delete leave', 500);
   }
 }

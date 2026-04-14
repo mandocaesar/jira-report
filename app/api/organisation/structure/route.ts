@@ -1,17 +1,12 @@
-import { NextResponse } from 'next/server';
-import { prisma, isDatabaseAvailable } from '@/lib/db';
+import { prisma } from '@/lib/db';
+import { apiSuccess, apiError, requireDatabase } from '@/lib/api-helpers';
 
 // GET /api/organisation/structure — full org tree
 export async function GET() {
   try {
-    if (!isDatabaseAvailable() || !prisma) {
-      return NextResponse.json(
-        { success: false, error: 'Database not configured' },
-        { status: 503 }
-      );
-    }
+    const dbErr = requireDatabase(); if (dbErr) return dbErr;
 
-    const groups = await prisma.orgGroup.findMany({
+    const groups = await prisma!.orgGroup.findMany({
       include: {
         divisions: {
           include: {
@@ -31,12 +26,9 @@ export async function GET() {
       orderBy: { name: 'asc' },
     });
 
-    return NextResponse.json({ success: true, data: groups });
+    return apiSuccess(groups);
   } catch (error) {
     console.error('Error fetching org structure:', error);
-    return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to fetch organisation structure' },
-      { status: 500 }
-    );
+    return apiError(error instanceof Error ? error.message : 'Failed to fetch organisation structure', 500);
   }
 }

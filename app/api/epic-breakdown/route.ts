@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { createJiraClient } from '@/lib/jira-client';
 import { calculateEpicBreakdowns } from '@/lib/epic-breakdown-calculator';
+import { apiSuccess, apiError } from '@/lib/api-helpers';
 
 export async function GET(request: NextRequest) {
     try {
@@ -9,10 +10,7 @@ export async function GET(request: NextRequest) {
         const sprintId = searchParams.get('sprintId');
 
         if (!boardId || !sprintId) {
-            return NextResponse.json(
-                { error: 'boardId and sprintId are required' },
-                { status: 400 }
-            );
+            return apiError('boardId and sprintId are required', 400);
         }
 
         const client = createJiraClient();
@@ -24,12 +22,11 @@ export async function GET(request: NextRequest) {
 
         const result = calculateEpicBreakdowns(epics, issues);
 
-        return NextResponse.json({ epicBreakdowns: result });
+        return apiSuccess(result);
     } catch (error) {
         console.error('Error fetching epic breakdown:', error);
-        return NextResponse.json(
-            { error: error instanceof Error ? error.message : 'Unknown error' },
-            { status: 500 }
+        return apiError(
+            error instanceof Error ? error.message : 'Unknown error'
         );
     }
 }

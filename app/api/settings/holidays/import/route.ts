@@ -1,26 +1,18 @@
-import { NextResponse } from 'next/server';
-import { prisma, isDatabaseAvailable } from '@/lib/db';
+import { prisma } from '@/lib/db';
+import { apiSuccess, apiError, requireDatabase } from '@/lib/api-helpers';
 
 const HOLIDAY_API_URL = 'https://libur.deno.dev/api';
 
 // POST /api/settings/holidays/import — import holidays from external API for a given year
 export async function POST(request: Request) {
     try {
-        if (!isDatabaseAvailable() || !prisma) {
-            return NextResponse.json(
-                { success: false, error: 'Database not configured' },
-                { status: 503 }
-            );
-        }
+        const dbErr = requireDatabase(); if (dbErr) return dbErr;
 
         const body = await request.json();
         const { year } = body;
 
         if (!year || typeof year !== 'number') {
-            return NextResponse.json(
-                { success: false, error: 'year (number) is required' },
-                { status: 400 }
-            );
+            return apiError('year (number) is required', 400);
         }
 
         // Fetch from external holiday API
@@ -29,19 +21,13 @@ export async function POST(request: Request) {
         });
 
         if (!response.ok) {
-            return NextResponse.json(
-                { success: false, error: `Holiday API returned ${response.status}` },
-                { status: 502 }
-            );
+            return apiError(`Holiday API returned ${response.status}`, 502);
         }
 
         const rawData: Array<{ date: string; name: string }> = await response.json();
 
         if (!Array.isArray(rawData) || rawData.length === 0) {
-            return NextResponse.json(
-                { success: false, error: 'No holidays returned from API' },
-                { status: 404 }
-            );
+            return apiError('No holidays returned from API', 404);
         }
 
         let imported = 0;
@@ -50,7 +36,7 @@ export async function POST(request: Request) {
         for (const item of rawData) {
             const parsedDate = new Date(item.date + 'T00:00:00');
             try {
-                await prisma.holiday.upsert({
+                await prisma!.holiday.upsert({
                     where: { date: parsedDate },
                     update: {}, // Skip — don't overwrite existing
                     create: {
@@ -66,15 +52,9 @@ export async function POST(request: Request) {
             }
         }
 
-        return NextResponse.json({
-            success: true,
-            data: { imported, skipped, total: rawData.length },
-        });
+        return apiSuccess({ imported, skipped, total: rawData.length });
     } catch (error) {
         console.error('Error importing holidays:', error);
-        return NextResponse.json(
-            { success: false, error: error instanceof Error ? error.message : 'Failed to import holidays' },
-            { status: 500 }
-        );
+        return apiError(error instanceof Error ? error.message : 'Failed to import holidays', 500);
     }
 }

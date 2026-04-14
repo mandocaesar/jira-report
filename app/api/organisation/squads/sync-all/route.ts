@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server';
-import { prisma, isDatabaseAvailable } from '@/lib/db';
+import { prisma } from '@/lib/db';
+import { apiSuccess, apiError, requireDatabase } from '@/lib/api-helpers';
 import { createJiraClient } from '@/lib/jira-client';
 
 export const dynamic = 'force-dynamic';
@@ -8,16 +8,14 @@ export const maxDuration = 60;
 // POST /api/organisation/squads/sync-all — discover all boards and sync squads
 export async function POST() {
     try {
-        if (!isDatabaseAvailable() || !prisma) {
-            return NextResponse.json({ success: false, error: 'Database not configured' }, { status: 503 });
-        }
+        const dbErr = requireDatabase(); if (dbErr) return dbErr;
 
         const jira = createJiraClient();
         const boardsResponse = await jira.getBoards();
         const boards: Array<{ id: number; name: string }> = boardsResponse.values || [];
 
         if (boards.length === 0) {
-            return NextResponse.json({ success: false, error: 'No Jira boards found' }, { status: 404 });
+            return apiError('No Jira boards found', 404);
         }
 
         const results: Array<{
@@ -36,7 +34,7 @@ export async function POST() {
                 const jiraMembers = await jira.discoverBoardMembers(board.id);
 
                 // Check if team already exists for this board
-                const existingTeam = await prisma.team.findUnique({
+                const existingTeam = await prisma!.team.findUnique({
                     where: { boardId: board.id },
                     include: { members: true },
                 });
@@ -47,7 +45,7 @@ export async function POST() {
                     const newMembers = jiraMembers.filter(m => !existingAccountIds.has(m.accountId));
 
                     if (newMembers.length > 0) {
-                        await prisma.teamMember.createMany({
+                        await prisma!.teamMember.createMany({
                             data: newMembers.map(m => ({
                                 accountId: m.accountId,
                                 name: m.displayName,
@@ -60,7 +58,7 @@ export async function POST() {
                         });
                     }
 
-                    await prisma.team.update({
+                    await prisma!.team.update({
                         where: { id: existingTeam.id },
                         data: { lastSyncedAt: new Date() },
                     });
@@ -75,7 +73,7 @@ export async function POST() {
                     });
                 } else {
                     // Create new team
-                    const team = await prisma.team.create({
+                    const team = await prisma!.team.create({
                         data: {
                             name: board.name,
                             boardId: board.id,
@@ -115,20 +113,14 @@ export async function POST() {
             }
         }
 
-        return NextResponse.json({
-            success: true,
-            data: {
+        return apiSuccess({
                 totalBoards: boards.length,
                 synced: results.filter(r => !r.error).length,
                 errors: results.filter(r => r.error).length,
                 results,
-            },
-        });
+            });
     } catch (error) {
         console.error('Error syncing all squads:', error);
-        return NextResponse.json(
-            { success: false, error: error instanceof Error ? error.message : 'Failed to sync squads' },
-            { status: 500 }
-        );
+        return apiError(error instanceof Error ? error.message : 'Failed to sync squads', 500);
     }
 }

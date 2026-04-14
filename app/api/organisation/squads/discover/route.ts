@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma, isDatabaseAvailable } from '@/lib/db';
+import { NextRequest } from 'next/server';
+import { prisma } from '@/lib/db';
+import { apiSuccess, apiError, requireDatabase } from '@/lib/api-helpers';
 import { createJiraClient } from '@/lib/jira-client';
 
 export const dynamic = 'force-dynamic';
@@ -7,13 +8,11 @@ export const dynamic = 'force-dynamic';
 // GET /api/organisation/squads/discover?boardId=X
 export async function GET(request: NextRequest) {
     try {
-        if (!isDatabaseAvailable() || !prisma) {
-            return NextResponse.json({ success: false, error: 'Database not configured' }, { status: 503 });
-        }
+        const dbErr = requireDatabase(); if (dbErr) return dbErr;
 
         const boardId = Number(request.nextUrl.searchParams.get('boardId'));
         if (!boardId || isNaN(boardId)) {
-            return NextResponse.json({ success: false, error: 'boardId is required' }, { status: 400 });
+            return apiError('boardId is required', 400);
         }
 
         const jira = createJiraClient();
@@ -22,7 +21,7 @@ export async function GET(request: NextRequest) {
         const jiraMembers = await jira.discoverBoardMembers(boardId);
 
         // Check existing team for this board
-        const existingTeam = await prisma.team.findUnique({
+        const existingTeam = await prisma!.team.findUnique({
             where: { boardId },
             include: { members: true },
         });
@@ -67,9 +66,7 @@ export async function GET(request: NextRequest) {
                 notInJira: true,
             })) || [];
 
-        return NextResponse.json({
-            success: true,
-            data: {
+        return apiSuccess({
                 boardId,
                 existingTeamId: existingTeam?.id || null,
                 existingTeamName: existingTeam?.name || null,
@@ -77,13 +74,9 @@ export async function GET(request: NextRequest) {
                 discovered,
                 removedFromJira,
                 totalJiraMembers: jiraMembers.length,
-            },
-        });
+            });
     } catch (error) {
         console.error('Error discovering board members:', error);
-        return NextResponse.json(
-            { success: false, error: error instanceof Error ? error.message : 'Failed to discover members' },
-            { status: 500 }
-        );
+        return apiError(error instanceof Error ? error.message : 'Failed to discover members', 500);
     }
 }

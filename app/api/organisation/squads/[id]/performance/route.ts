@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma, isDatabaseAvailable } from '@/lib/db';
+import { NextRequest } from 'next/server';
+import { prisma } from '@/lib/db';
+import { apiSuccess, apiError, requireDatabase } from '@/lib/api-helpers';
 import { createJiraClient } from '@/lib/jira-client';
 import { calculateSprintUtilization } from '@/lib/utilization-calculator';
 import { getStoryPoints, isStoryPointField, sprintFieldContainsId } from '@/lib/issue-helpers';
@@ -125,21 +126,19 @@ export async function GET(
 ) {
     try {
         const { id } = await params;
-        if (!isDatabaseAvailable() || !prisma) {
-            return NextResponse.json({ success: false, error: 'Database not configured' }, { status: 503 });
-        }
+        const dbErr = requireDatabase(); if (dbErr) return dbErr;
 
         const url = new URL(request.url);
         const startDate = url.searchParams.get('startDate');
         const endDate = url.searchParams.get('endDate');
         const maxSprints = parseInt(url.searchParams.get('maxSprints') || '10');
 
-        const team = await prisma.team.findUnique({
+        const team = await prisma!.team.findUnique({
             where: { id },
             include: { members: true },
         });
         if (!team) {
-            return NextResponse.json({ success: false, error: 'Squad not found' }, { status: 404 });
+            return apiError('Squad not found', 404);
         }
 
         const jiraClient = createJiraClient();
@@ -390,12 +389,9 @@ export async function GET(
             labelDistribution: Object.values(labelDistribution).sort((a, b) => b.points - a.points),
         };
 
-        return NextResponse.json({ success: true, data });
+        return apiSuccess(data);
     } catch (error) {
         console.error('Error fetching squad performance:', error);
-        return NextResponse.json(
-            { success: false, error: error instanceof Error ? error.message : 'Failed to fetch performance data' },
-            { status: 500 }
-        );
+        return apiError(error instanceof Error ? error.message : 'Failed to fetch performance data', 500);
     }
 }

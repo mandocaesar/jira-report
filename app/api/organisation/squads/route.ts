@@ -1,14 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma, isDatabaseAvailable } from '@/lib/db';
+import { NextRequest } from 'next/server';
+import { prisma } from '@/lib/db';
+import { apiSuccess, apiError, requireDatabase } from '@/lib/api-helpers';
 
 export const dynamic = 'force-dynamic';
 
 // GET /api/organisation/squads — list all squads with hierarchy & member counts
 export async function GET(request: NextRequest) {
     try {
-        if (!isDatabaseAvailable() || !prisma) {
-            return NextResponse.json({ success: false, error: 'Database not configured' }, { status: 503 });
-        }
+        const dbErr = requireDatabase(); if (dbErr) return dbErr;
 
         const url = new URL(request.url);
         const search = url.searchParams.get('search') || '';
@@ -29,7 +28,7 @@ export async function GET(request: NextRequest) {
         if (divisionId) where.department = { divisionId };
         if (groupId) where.department = { division: { groupId } };
 
-        const teams = await prisma.team.findMany({
+        const teams = await prisma!.team.findMany({
             where,
             include: {
                 _count: { select: { members: true, dataSources: true, capacityAllocations: true } },
@@ -75,12 +74,9 @@ export async function GET(request: NextRequest) {
                 : null,
         }));
 
-        return NextResponse.json({ success: true, data });
+        return apiSuccess(data);
     } catch (error) {
         console.error('Error fetching squads:', error);
-        return NextResponse.json(
-            { success: false, error: error instanceof Error ? error.message : 'Failed to fetch squads' },
-            { status: 500 }
-        );
+        return apiError(error instanceof Error ? error.message : 'Failed to fetch squads', 500);
     }
 }

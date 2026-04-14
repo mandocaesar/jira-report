@@ -160,10 +160,11 @@ model TeamMember {
   email               String
   role                String               @default("engineer") // "engineer" or "qa"
   title               String               @default("Associate")
-  nik                 String?              @unique // Employee number (unique identifier)
-  gender              String?              // "male" or "female"
-  workingHoursPerDay  Float?
-  teamId              String
+  nik                      String?  @unique // Employee number (unique identifier)
+  gender                   String?  // "male" or "female"
+  workingHoursPerDay       Float?
+  excludeFromUtilization   Boolean  @default(false) // Auto-exclude from utilization (e.g. EMs)
+  teamId                   String
   team                Team                 @relation(fields: [teamId], references: [id], onDelete: Cascade)
   capacityAllocations CapacityAllocation[]
   leaves              Leave[]

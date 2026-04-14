@@ -1,22 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma, isDatabaseAvailable } from '@/lib/db';
-
-function dbUnavailable() {
-  return NextResponse.json(
-    { success: false, error: 'Database not configured' },
-    { status: 503 }
-  );
-}
+import { prisma } from '@/lib/db';
+import { apiSuccess, apiError, requireDatabase } from '@/lib/api-helpers';
 
 // GET /api/organisation/departments?divisionId=X — list departments (optionally filtered)
 export async function GET(request: NextRequest) {
   try {
-    if (!isDatabaseAvailable() || !prisma) return dbUnavailable();
+    const dbErr = requireDatabase(); if (dbErr) return dbErr;
 
     const divisionId = request.nextUrl.searchParams.get('divisionId');
     const where = divisionId ? { divisionId } : {};
 
-    const departments = await prisma.department.findMany({
+    const departments = await prisma!.department.findMany({
       where,
       include: {
         division: { select: { id: true, name: true, group: { select: { id: true, name: true } } } },
@@ -25,31 +19,25 @@ export async function GET(request: NextRequest) {
       orderBy: { name: 'asc' },
     });
 
-    return NextResponse.json({ success: true, data: departments });
+    return apiSuccess(departments);
   } catch (error) {
     console.error('Error fetching departments:', error);
-    return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to fetch departments' },
-      { status: 500 }
-    );
+    return apiError(error instanceof Error ? error.message : 'Failed to fetch departments', 500);
   }
 }
 
 // POST /api/organisation/departments — create a department
 export async function POST(request: NextRequest) {
   try {
-    if (!isDatabaseAvailable() || !prisma) return dbUnavailable();
+    const dbErr = requireDatabase(); if (dbErr) return dbErr;
 
     const { name, code, divisionId } = await request.json();
 
     if (!name?.trim() || !code?.trim() || !divisionId) {
-      return NextResponse.json(
-        { success: false, error: 'name, code, and divisionId are required' },
-        { status: 400 }
-      );
+      return apiError('name, code, and divisionId are required', 400);
     }
 
-    const department = await prisma.department.create({
+    const department = await prisma!.department.create({
       data: { name: name.trim(), code: code.trim().toUpperCase(), divisionId },
     });
 
@@ -58,22 +46,19 @@ export async function POST(request: NextRequest) {
     console.error('Error creating department:', error);
     const message = error instanceof Error ? error.message : 'Failed to create department';
     const status = message.includes('Unique constraint') ? 409 : 500;
-    return NextResponse.json({ success: false, error: message }, { status });
+    return apiError(message, status);
   }
 }
 
 // PUT /api/organisation/departments — update a department
 export async function PUT(request: NextRequest) {
   try {
-    if (!isDatabaseAvailable() || !prisma) return dbUnavailable();
+    const dbErr = requireDatabase(); if (dbErr) return dbErr;
 
     const { id, name, code, isActive, divisionId } = await request.json();
 
     if (!id) {
-      return NextResponse.json(
-        { success: false, error: 'id is required' },
-        { status: 400 }
-      );
+      return apiError('id is required', 400);
     }
 
     const data: Record<string, unknown> = {};
@@ -82,47 +67,35 @@ export async function PUT(request: NextRequest) {
     if (isActive !== undefined) data.isActive = isActive;
     if (divisionId !== undefined) data.divisionId = divisionId;
 
-    const department = await prisma.department.update({ where: { id }, data });
+    const department = await prisma!.department.update({ where: { id }, data });
 
-    return NextResponse.json({ success: true, data: department });
+    return apiSuccess(department);
   } catch (error) {
     console.error('Error updating department:', error);
-    return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to update department' },
-      { status: 500 }
-    );
+    return apiError(error instanceof Error ? error.message : 'Failed to update department', 500);
   }
 }
 
 // DELETE /api/organisation/departments?id=X — delete a department
 export async function DELETE(request: NextRequest) {
   try {
-    if (!isDatabaseAvailable() || !prisma) return dbUnavailable();
+    const dbErr = requireDatabase(); if (dbErr) return dbErr;
 
     const id = request.nextUrl.searchParams.get('id');
     if (!id) {
-      return NextResponse.json(
-        { success: false, error: 'id query parameter is required' },
-        { status: 400 }
-      );
+      return apiError('id query parameter is required', 400);
     }
 
-    const teamCount = await prisma.team.count({ where: { departmentId: id } });
+    const teamCount = await prisma!.team.count({ where: { departmentId: id } });
     if (teamCount > 0) {
-      return NextResponse.json(
-        { success: false, error: `Cannot delete department: it has ${teamCount} squad(s). Remove them first.` },
-        { status: 409 }
-      );
+      return apiError(`Cannot delete department: it has ${teamCount} squad(s). Remove them first.`, 409);
     }
 
-    await prisma.department.delete({ where: { id } });
+    await prisma!.department.delete({ where: { id } });
 
-    return NextResponse.json({ success: true });
+    return apiSuccess(null);
   } catch (error) {
     console.error('Error deleting department:', error);
-    return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to delete department' },
-      { status: 500 }
-    );
+    return apiError(error instanceof Error ? error.message : 'Failed to delete department', 500);
   }
 }

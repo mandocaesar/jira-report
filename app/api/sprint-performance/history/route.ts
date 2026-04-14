@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma, isDatabaseAvailable } from '@/lib/db';
+import { NextRequest } from 'next/server';
+import { prisma } from '@/lib/db';
+import { apiSuccess, apiError } from '@/lib/api-helpers';
 import { createJiraClient } from '@/lib/jira-client';
 import { calculateSprintCapacity } from '@/lib/capacity-pipeline';
 import { computeVelocity, calculateSprintKPIs } from '@/lib/sprint-performance-metrics';
@@ -58,12 +59,12 @@ export async function GET(request: NextRequest) {
     const maxSprints = parseInt(url.searchParams.get('maxSprints') || '10');
 
     if (isNaN(boardId)) {
-      return NextResponse.json({ success: false, error: 'boardId is required' }, { status: 400 });
+      return apiError('boardId is required', 400);
     }
 
     let teamId: string | null = null;
     let teamMembers: Array<{ accountId: string; name: string; role: string; title: string }> = [];
-    if (isDatabaseAvailable() && prisma) {
+    if (prisma) {
       const team = await prisma.team.findUnique({
         where: { boardId },
         include: { members: true },
@@ -131,12 +132,9 @@ export async function GET(request: NextRequest) {
       history.push(...chunkResults.filter(Boolean));
     }
 
-    return NextResponse.json({ success: true, data: { history } });
+    return apiSuccess({ history });
   } catch (error) {
     console.error('Error in sprint history API:', error);
-    return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Failed to fetch sprint history' },
-      { status: 500 },
-    );
+    return apiError(error instanceof Error ? error.message : 'Failed to fetch sprint history', 500);
   }
 }
