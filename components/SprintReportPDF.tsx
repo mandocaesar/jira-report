@@ -1,6 +1,7 @@
 import React from 'react';
 import { Document, Page, View, Text, StyleSheet, Font } from '@react-pdf/renderer';
 import { SprintSummary, SprintReportData, WorklogReportData } from '@/types';
+import { computeRoleStats } from '@/lib/utilization-calculator';
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -322,7 +323,9 @@ function getHeatmapStyles(hours: number) {
 // ── Main Document ────────────────────────────────────────────────────────
 
 export default function SprintReportPDF({ summary, report, epicBreakdowns, teamName, aiSummary, worklogData, teamPerformanceData }: SprintReportPDFProps) {
-    const { sprint, totalStoryPoints, totalWorkingDays, averageUtilization, userUtilizations, qaStats, engineerStats, holidays } = summary;
+    const { sprint, totalStoryPoints, totalWorkingDays, averageUtilization, userUtilizations, holidays } = summary;
+    const engineerStats = summary.engineerStats ?? computeRoleStats(userUtilizations, 'engineer');
+    const qaStats = summary.qaStats ?? computeRoleStats(userUtilizations, 'qa');
     const engineers = userUtilizations.filter(u => u.role !== 'qa');
     const qas = userUtilizations.filter(u => u.role === 'qa');
 

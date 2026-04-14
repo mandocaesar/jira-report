@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server';
 import { getHolidaysForYear, getHolidaysInRange } from '@/lib/holiday-service';
+import { apiSuccess, apiError } from '@/lib/api-helpers';
 
 export async function GET(request: Request) {
     try {
@@ -25,19 +25,14 @@ export async function GET(request: Request) {
             holidays = await getHolidaysForYear(currentYear);
         }
 
-        return NextResponse.json({
-            success: true,
-            data: holidays,
+        return apiSuccess(holidays, {
+            headers: { 'Cache-Control': 'public, max-age=86400, s-maxage=86400' },
         });
     } catch (error) {
         console.error('Error fetching holidays:', error);
 
-        return NextResponse.json(
-            {
-                success: false,
-                error: error instanceof Error ? error.message : 'Failed to fetch holidays',
-            },
-            { status: 500 }
+        return apiError(
+            error instanceof Error ? error.message : 'Failed to fetch holidays'
         );
     }
 }

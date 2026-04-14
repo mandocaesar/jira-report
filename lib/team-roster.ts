@@ -6,12 +6,15 @@ export interface TeamMember {
     email: string;
     role: 'qa' | 'engineer';
     title: string;
+    workingHoursPerDay?: number; // Override team default; null/undefined = inherit
+    excludeFromUtilization?: boolean; // Auto-exclude from utilization (e.g. EMs)
 }
 
 export interface TeamConfig {
     name: string;
     boardId: number;
     members: TeamMember[];
+    workingHoursPerDay?: number; // Team standard hours/day (default 8 if not set)
 }
 
 export interface TeamRosterConfig {
@@ -22,6 +25,21 @@ export interface TeamRosterConfig {
 
 const teamRoster = teamRosterData as TeamRosterConfig;
 
+// ─── Reverse Index Maps (O(1) lookups) ─────────────────────────────────────────
+
+const boardIdToTeam = new Map<number, { teamId: string; config: TeamConfig }>();
+const accountIdToMember = new Map<string, { teamId: string; member: TeamMember }>();
+
+for (const [teamId, config] of Object.entries(teamRoster.teams)) {
+    boardIdToTeam.set(config.boardId, {
+        teamId,
+        config: { ...config, workingHoursPerDay: config.workingHoursPerDay ?? 8 },
+    });
+    for (const member of config.members) {
+        accountIdToMember.set(member.accountId, { teamId, member });
+    }
+}
+
 /**
  * Get team configuration by team ID
  */
@@ -30,28 +48,17 @@ export function getTeamByTeamId(teamId: string): TeamConfig | null {
 }
 
 /**
- * Get team configuration by board ID
+ * Get team configuration by board ID — O(1) via reverse index
  */
 export function getTeamByBoardId(boardId: number): { teamId: string; config: TeamConfig } | null {
-    for (const [teamId, config] of Object.entries(teamRoster.teams)) {
-        if (config.boardId === boardId) {
-            return { teamId, config };
-        }
-    }
-    return null;
+    return boardIdToTeam.get(boardId) || null;
 }
 
 /**
- * Get member info by account ID
+ * Get member info by account ID — O(1) via reverse index
  */
 export function getMemberByAccountId(accountId: string): { teamId: string; member: TeamMember } | null {
-    for (const [teamId, config] of Object.entries(teamRoster.teams)) {
-        const member = config.members.find(m => m.accountId === accountId);
-        if (member) {
-            return { teamId, member };
-        }
-    }
-    return null;
+    return accountIdToMember.get(accountId) || null;
 }
 
 /**
@@ -174,12 +181,15 @@ export async function getTeamByBoardIdFromDb(
                     config: {
                         name: team.name,
                         boardId: team.boardId,
+                        workingHoursPerDay: team.workingHoursPerDay,
                         members: team.members.map((m) => ({
                             accountId: m.accountId,
                             name: m.name,
                             email: m.email,
                             role: m.role as 'qa' | 'engineer',
                             title: m.title,
+                            workingHoursPerDay: m.workingHoursPerDay ?? undefined,
+                            excludeFromUtilization: m.excludeFromUtilization,
                         })),
                     },
                 };

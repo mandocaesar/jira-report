@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
+import { apiSuccess, apiError } from '@/lib/api-helpers';
 import { getTeamByBoardIdFromDb } from '@/lib/team-roster';
 import { getHolidaysInRange, isWeekend, toLocalDateString } from '@/lib/holiday-service';
 import { createJiraClient } from '@/lib/jira-client';
@@ -20,6 +21,10 @@ interface SprintForecast {
         totalLeaveDays: number;
         adjustmentLoss: number;
         holidayCount: number;
+        // Hours-based fields
+        teamStandardHours: number;
+        totalAvailableHours: number;
+        totalEffectiveMandays: number;
     };
     engineers: Array<{
         accountId: string;
@@ -28,6 +33,7 @@ interface SprintForecast {
         reason?: string;
         leaveDays?: number;
         excluded?: boolean;
+        workingHoursPerDay?: number;
     }>;
     holidays?: Array<{
         date: string;
@@ -59,10 +65,7 @@ export async function GET(request: NextRequest) {
         const monthsParam = searchParams.get('months') || '6';
 
         if (!boardIdParam) {
-            return NextResponse.json(
-                { success: false, error: 'boardId is required' },
-                { status: 400 }
-            );
+            return apiError('boardId is required', 400);
         }
 
         const boardId = parseInt(boardIdParam);
@@ -71,10 +74,7 @@ export async function GET(request: NextRequest) {
         // Get team for this board (DB-first, falls back to static JSON)
         const teamData = await getTeamByBoardIdFromDb(boardId);
         if (!teamData) {
-            return NextResponse.json(
-                { success: false, error: 'Team not found for board' },
-                { status: 404 }
-            );
+            return apiError('Team not found for board', 404);
         }
         const team = teamData.config;
 
@@ -94,10 +94,7 @@ export async function GET(request: NextRequest) {
         });
 
         if (relevantSprints.length === 0) {
-            return NextResponse.json({
-                success: true,
-                data: { boardId, teamName: team.name, sprints: [], engineers: team.members.map((m) => ({ accountId: m.accountId, name: m.name })) },
-            });
+            return apiSuccess({ boardId, teamName: team.name, sprints: [], engineers: team.members.map((m) => ({ accountId: m.accountId, name: m.name })) });
         }
 
         // ── Fetch sprint issues in parallel ──
@@ -187,6 +184,9 @@ export async function GET(request: NextRequest) {
             let totalManDays = 0;
             let totalLeaveDays = 0;
             let adjustmentLoss = 0;
+            let totalAvailableHours = 0;
+            let totalEffectiveMandays = 0;
+            const teamStandardHours = team.workingHoursPerDay ?? 8;
             const engineerDetails: any[] = [];
             const leavesList: Array<{ name: string; leaveDays: number }> = [];
             const excludedList: Array<{ name: string }> = [];
@@ -196,9 +196,10 @@ export async function GET(request: NextRequest) {
                 const accountId = member.accountId;
                 const leave = leaveData.find((l) => l.accountId === accountId);
                 const leaveDays = leave?.leaveDays || 0;
+                const memberHours = member.workingHoursPerDay ?? teamStandardHours;
 
                 if (leaveDays === -1) {
-                    engineerDetails.push({ accountId, name: member.name, capacity: 0, excluded: true, leaveDays: -1 });
+                    engineerDetails.push({ accountId, name: member.name, capacity: 0, excluded: true, leaveDays: -1, workingHoursPerDay: memberHours });
                     excludedList.push({ name: member.name });
                     continue;
                 }
@@ -214,13 +215,21 @@ export async function GET(request: NextRequest) {
                     adjustmentLoss += availableDays * (1 - capacityPercent / 100);
                 }
 
-                engineerDetails.push({ accountId, name: member.name, capacity: capacityPercent, reason: adjustment?.reason, leaveDays });
+                // Hours-based calculation
+                const memberAvailableHours = availableDays * memberHours * (capacityPercent / 100);
+                const memberEffectiveMandays = teamStandardHours > 0
+                    ? memberAvailableHours / teamStandardHours
+                    : effectiveDays;
+                totalAvailableHours += memberAvailableHours;
+                totalEffectiveMandays += memberEffectiveMandays;
+
+                engineerDetails.push({ accountId, name: member.name, capacity: capacityPercent, reason: adjustment?.reason, leaveDays, workingHoursPerDay: memberHours });
                 if (leaveDays > 0) leavesList.push({ name: member.name, leaveDays });
             }
 
-            const effectiveEngineers = workingDays > 0 ? totalManDays / workingDays : 0;
+            const effectiveEngineers = workingDays > 0 ? totalEffectiveMandays / workingDays : 0;
             const pointsPerManDay = 1.8;
-            const forecastedPoints = Math.floor(totalManDays * pointsPerManDay);
+            const forecastedPoints = Math.floor(totalEffectiveMandays * pointsPerManDay);
 
             const formattedHolidays = sprintHolidays
                 .filter(h => !isWeekend(h.holiday_date))
@@ -245,6 +254,9 @@ export async function GET(request: NextRequest) {
                     totalLeaveDays,
                     adjustmentLoss: Math.round(adjustmentLoss * 10) / 10,
                     holidayCount,
+                    teamStandardHours,
+                    totalAvailableHours: Math.round(totalAvailableHours * 10) / 10,
+                    totalEffectiveMandays: Math.round(totalEffectiveMandays * 10) / 10,
                 },
                 engineers: engineerDetails,
                 holidays: formattedHolidays.length > 0 ? formattedHolidays : undefined,
@@ -273,23 +285,17 @@ export async function GET(request: NextRequest) {
             };
         });
 
-        return NextResponse.json({
-            success: true,
-            data: {
-                boardId,
-                teamName: team.name,
-                sprints: forecasts,
-                engineers: team.members.map((m) => ({
-                    accountId: m.accountId,
-                    name: m.name,
-                })),
-            },
+        return apiSuccess({
+            boardId,
+            teamName: team.name,
+            sprints: forecasts,
+            engineers: team.members.map((m) => ({
+                accountId: m.accountId,
+                name: m.name,
+            })),
         });
     } catch (error) {
         console.error('Error generating forecast:', error);
-        return NextResponse.json(
-            { success: false, error: 'Failed to generate forecast' },
-            { status: 500 }
-        );
+        return apiError('Failed to generate forecast', 500);
     }
 }

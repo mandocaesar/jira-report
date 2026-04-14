@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server';
 import { createJiraClient } from '@/lib/jira-client';
 import { calculateSprintUtilization } from '@/lib/utilization-calculator';
 import { calculateSprintReport } from '@/lib/sprint-report-calculator';
+import { apiSuccess, apiError } from '@/lib/api-helpers';
 
 export async function GET(
     request: Request,
@@ -12,10 +12,7 @@ export async function GET(
         const sprintId = parseInt(id, 10);
 
         if (isNaN(sprintId)) {
-            return NextResponse.json(
-                { success: false, error: 'Invalid sprint ID' },
-                { status: 400 }
-            );
+            return apiError('Invalid sprint ID', 400);
         }
 
         // Get optional boardId for team filtering
@@ -36,21 +33,14 @@ export async function GET(
             calculateSprintReport(sprint, issues, boardId ? parseInt(boardId, 10) : undefined),
         ]);
 
-        return NextResponse.json({
-            success: true,
-            data: utilization,
-            report: sprintReport,
-            jiraDomain: process.env.JIRA_DOMAIN || '',
+        return apiSuccess(utilization, {
+            extra: { report: sprintReport, jiraDomain: process.env.JIRA_DOMAIN || '' },
         });
     } catch (error) {
         console.error('Error fetching sprint details:', error);
 
-        return NextResponse.json(
-            {
-                success: false,
-                error: error instanceof Error ? error.message : 'Failed to fetch sprint details',
-            },
-            { status: 500 }
+        return apiError(
+            error instanceof Error ? error.message : 'Failed to fetch sprint details'
         );
     }
 }

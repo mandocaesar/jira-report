@@ -2,6 +2,7 @@
 import { generateText } from 'ai';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { apiError } from '@/lib/api-helpers';
 
 export async function POST(req: Request) {
     try {
@@ -108,9 +109,6 @@ ${JSON.stringify(
         return NextResponse.json({ summary: text });
     } catch (error) {
         console.error('Error generating AI summary:', error);
-        return NextResponse.json(
-            { error: 'Failed to generate summary.' },
-            { status: 500 }
-        );
+        return apiError('Failed to generate summary.', 500);
     }
 }

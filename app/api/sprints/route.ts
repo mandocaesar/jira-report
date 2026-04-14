@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server';
 import { createJiraClient } from '@/lib/jira-client';
+import { apiSuccess, apiError } from '@/lib/api-helpers';
 
 export async function GET(request: Request) {
     try {
@@ -11,19 +11,12 @@ export async function GET(request: Request) {
             boardId ? parseInt(boardId, 10) : undefined
         );
 
-        return NextResponse.json({
-            success: true,
-            data: sprints
-        });
+        return apiSuccess(sprints);
     } catch (error) {
         console.error('Error fetching sprints:', error);
 
-        return NextResponse.json(
-            {
-                success: false,
-                error: error instanceof Error ? error.message : 'Failed to fetch sprints'
-            },
-            { status: 500 }
+        return apiError(
+            error instanceof Error ? error.message : 'Failed to fetch sprints'
         );
     }
 }

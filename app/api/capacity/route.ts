@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
+import { apiSuccess, apiError, requireDatabase } from '@/lib/api-helpers';
 import teamRoster from '@/config/team-roster.json';
 
 // Helper to find engineer name by accountId
@@ -25,12 +26,8 @@ export async function GET(request: NextRequest) {
         const endDate = searchParams.get('endDate');
         const boardId = searchParams.get('boardId');
 
-        if (!prisma) {
-            return NextResponse.json(
-                { success: false, error: 'Database not available' },
-                { status: 503 }
-            );
-        }
+        const dbErr = requireDatabase();
+        if (dbErr) return dbErr;
 
         const where: any = {};
 
@@ -68,7 +65,7 @@ export async function GET(request: NextRequest) {
             ];
         }
 
-        const capacityAdjustments = await prisma.engineerCapacity.findMany({
+        const capacityAdjustments = await prisma!.engineerCapacity.findMany({
             where,
             orderBy: [{ startDate: 'asc' }],
         });
@@ -85,22 +82,19 @@ export async function GET(request: NextRequest) {
             notes: adj.notes,
         }));
 
-        return NextResponse.json({
-            success: true,
-            data: enrichedData,
-        });
+        return apiSuccess(enrichedData);
     } catch (error) {
         console.error('Error fetching capacity adjustments:', error);
-        return NextResponse.json(
-            { success: false, error: 'Failed to fetch capacity adjustments' },
-            { status: 500 }
-        );
+        return apiError('Failed to fetch capacity adjustments');
     }
 }
 
 // POST /api/capacity
 export async function POST(request: NextRequest) {
     try {
+        const dbErr = requireDatabase();
+        if (dbErr) return dbErr;
+
         const body = await request.json();
         // Support both old and new field names
         const accountId = body.accountId || body.engineerId;
@@ -108,27 +102,14 @@ export async function POST(request: NextRequest) {
         const { startDate, endDate, reason, notes } = body;
 
         if (!accountId || !startDate || !endDate || capacity === undefined) {
-            return NextResponse.json(
-                { success: false, error: 'Missing required fields' },
-                { status: 400 }
-            );
+            return apiError('Missing required fields', 400);
         }
 
         if (capacity < 0 || capacity > 100) {
-            return NextResponse.json(
-                { success: false, error: 'Capacity must be between 0 and 100' },
-                { status: 400 }
-            );
+            return apiError('Capacity must be between 0 and 100', 400);
         }
 
-        if (!prisma) {
-            return NextResponse.json(
-                { success: false, error: 'Database not available' },
-                { status: 503 }
-            );
-        }
-
-        const capacityAdjustment = await prisma.engineerCapacity.create({
+        const capacityAdjustment = await prisma!.engineerCapacity.create({
             data: {
                 accountId,
                 startDate: new Date(startDate),
@@ -140,60 +121,44 @@ export async function POST(request: NextRequest) {
         });
 
         // Return enriched data for UI
-        return NextResponse.json({
-            success: true,
-            data: {
-                id: capacityAdjustment.id,
-                engineerId: capacityAdjustment.accountId,
-                engineerName: getEngineerName(capacityAdjustment.accountId),
-                capacityPercentage: capacityAdjustment.capacity,
-                startDate: capacityAdjustment.startDate.toISOString(),
-                endDate: capacityAdjustment.endDate.toISOString(),
-                reason: capacityAdjustment.reason,
-                notes: capacityAdjustment.notes,
-            },
+        return apiSuccess({
+            id: capacityAdjustment.id,
+            engineerId: capacityAdjustment.accountId,
+            engineerName: getEngineerName(capacityAdjustment.accountId),
+            capacityPercentage: capacityAdjustment.capacity,
+            startDate: capacityAdjustment.startDate.toISOString(),
+            endDate: capacityAdjustment.endDate.toISOString(),
+            reason: capacityAdjustment.reason,
+            notes: capacityAdjustment.notes,
         });
     } catch (error) {
         console.error('Error creating capacity adjustment:', error);
-        return NextResponse.json(
-            { success: false, error: 'Failed to create capacity adjustment' },
-            { status: 500 }
-        );
+        return apiError('Failed to create capacity adjustment');
     }
 }
 
-// PUT /api/capacity (update)
+// PUT /api/capacity — backward-compatible: delegates to /api/capacity/[id]
 export async function PUT(request: NextRequest) {
     try {
+        const dbErr = requireDatabase();
+        if (dbErr) return dbErr;
+
         const body = await request.json();
         const { searchParams } = new URL(request.url);
         const idFromUrl = searchParams.get('id');
         const id = body.id || idFromUrl;
+
+        if (!id) {
+            return apiError('Missing capacity adjustment ID', 400);
+        }
 
         // Support both old and new field names
         const accountId = body.accountId || body.engineerId;
         const capacity = body.capacity ?? body.capacityPercentage;
         const { startDate, endDate, reason, notes } = body;
 
-        if (!id) {
-            return NextResponse.json(
-                { success: false, error: 'Missing capacity adjustment ID' },
-                { status: 400 }
-            );
-        }
-
         if (capacity !== undefined && (capacity < 0 || capacity > 100)) {
-            return NextResponse.json(
-                { success: false, error: 'Capacity must be between 0 and 100' },
-                { status: 400 }
-            );
-        }
-
-        if (!prisma) {
-            return NextResponse.json(
-                { success: false, error: 'Database not available' },
-                { status: 503 }
-            );
+            return apiError('Capacity must be between 0 and 100', 400);
         }
 
         const updateData: any = {};
@@ -204,67 +169,47 @@ export async function PUT(request: NextRequest) {
         if (reason) updateData.reason = reason;
         if (notes !== undefined) updateData.notes = notes;
 
-        const capacityAdjustment = await prisma.engineerCapacity.update({
+        const capacityAdjustment = await prisma!.engineerCapacity.update({
             where: { id },
             data: updateData,
         });
 
-        // Return enriched data for UI
-        return NextResponse.json({
-            success: true,
-            data: {
-                id: capacityAdjustment.id,
-                engineerId: capacityAdjustment.accountId,
-                engineerName: getEngineerName(capacityAdjustment.accountId),
-                capacityPercentage: capacityAdjustment.capacity,
-                startDate: capacityAdjustment.startDate.toISOString(),
-                endDate: capacityAdjustment.endDate.toISOString(),
-                reason: capacityAdjustment.reason,
-                notes: capacityAdjustment.notes,
-            },
+        return apiSuccess({
+            id: capacityAdjustment.id,
+            engineerId: capacityAdjustment.accountId,
+            engineerName: getEngineerName(capacityAdjustment.accountId),
+            capacityPercentage: capacityAdjustment.capacity,
+            startDate: capacityAdjustment.startDate.toISOString(),
+            endDate: capacityAdjustment.endDate.toISOString(),
+            reason: capacityAdjustment.reason,
+            notes: capacityAdjustment.notes,
         });
     } catch (error) {
         console.error('Error updating capacity adjustment:', error);
-        return NextResponse.json(
-            { success: false, error: 'Failed to update capacity adjustment' },
-            { status: 500 }
-        );
+        return apiError('Failed to update capacity adjustment');
     }
 }
 
-// DELETE /api/capacity
+// DELETE /api/capacity — backward-compatible: delegates to /api/capacity/[id]
 export async function DELETE(request: NextRequest) {
     try {
+        const dbErr = requireDatabase();
+        if (dbErr) return dbErr;
+
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
 
         if (!id) {
-            return NextResponse.json(
-                { success: false, error: 'Missing capacity adjustment ID' },
-                { status: 400 }
-            );
+            return apiError('Missing capacity adjustment ID', 400);
         }
 
-        if (!prisma) {
-            return NextResponse.json(
-                { success: false, error: 'Database not available' },
-                { status: 503 }
-            );
-        }
-
-        await prisma.engineerCapacity.delete({
+        await prisma!.engineerCapacity.delete({
             where: { id },
         });
 
-        return NextResponse.json({
-            success: true,
-            message: 'Capacity adjustment deleted',
-        });
+        return apiSuccess({ message: 'Capacity adjustment deleted' });
     } catch (error) {
         console.error('Error deleting capacity adjustment:', error);
-        return NextResponse.json(
-            { success: false, error: 'Failed to delete capacity adjustment' },
-            { status: 500 }
-        );
+        return apiError('Failed to delete capacity adjustment');
     }
 }

@@ -4,6 +4,11 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { ThemeToggle } from './ThemeToggle';
+import {
+    IconSprintOverview, IconCapacity, IconTeam, IconOrgStructure, IconEngineer,
+    IconLeaveNav, IconLeave, IconTitleDays, IconVelocity, IconMetrics,
+    IconTeamReport, IconSquad, IconJira, IconHoliday, IconWorkType, IconSprintPerformance,
+} from './icons/NavIcons';
 
 interface NavItem {
     name: string;
@@ -17,65 +22,6 @@ interface NavSection {
     items: NavItem[];
 }
 
-const IconSprintOverview = () => (
-    <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
-        <rect x="3" y="12" width="4" height="9" rx="1" />
-        <rect x="10" y="7" width="4" height="14" rx="1" />
-        <rect x="17" y="3" width="4" height="18" rx="1" />
-    </svg>
-);
-
-const IconCapacity = () => (
-    <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
-        <path d="M12 2L2 7l10 5 10-5-10-5z" strokeLinejoin="round" />
-        <path d="M2 17l10 5 10-5" strokeLinejoin="round" />
-        <path d="M2 12l10 5 10-5" strokeLinejoin="round" />
-    </svg>
-);
-
-const IconTeam = () => (
-    <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
-        <circle cx="9" cy="7" r="3" />
-        <path d="M3 21v-2a5 5 0 0 1 5-5h2a5 5 0 0 1 5 5v2" strokeLinejoin="round" />
-        <path d="M16 3.13a4 4 0 0 1 0 7.75" strokeLinecap="round" />
-        <path d="M21 21v-2a4 4 0 0 0-3-3.85" strokeLinecap="round" />
-    </svg>
-);
-
-const IconLeave = () => (
-    <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
-        <rect x="3" y="4" width="18" height="18" rx="2" />
-        <path d="M16 2v4M8 2v4M3 10h18" strokeLinecap="round" />
-        <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01" strokeLinecap="round" strokeWidth={2.5} />
-    </svg>
-);
-
-const IconTitleDays = () => (
-    <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
-        <circle cx="12" cy="12" r="9" />
-        <path d="M12 6v6l4 2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-);
-
-const IconVelocity = () => (
-    <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
-        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" strokeLinecap="round" strokeLinejoin="round" />
-        <polyline points="17 6 23 6 23 12" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-);
-
-const IconMetrics = () => (
-    <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
-        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-);
-
-const IconTeamReport = () => (
-    <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
-        <path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-);
-
 const navigation: NavSection[] = [
     {
         title: 'Dashboard',
@@ -86,6 +32,12 @@ const navigation: NavSection[] = [
                 icon: <IconSprintOverview />,
                 description: 'View sprint progress and metrics',
             },
+            {
+                name: 'Sprint Performance',
+                href: '/sprint-performance',
+                icon: <IconSprintPerformance />,
+                description: 'Detailed metrics & capacity KPIs',
+            },
         ],
     },
     {
@@ -95,10 +47,10 @@ const navigation: NavSection[] = [
                 name: 'Capacity Planning',
                 href: '/planning/capacity',
                 icon: <IconCapacity />,
-                description: 'Forecast sprint capacity',
+                description: 'Forecast capacity & manage leave',
             },
             {
-                name: 'Sprint Velocity',
+                name: 'Velocity',
                 href: '/planning/velocity',
                 icon: <IconVelocity />,
                 description: 'Sprint-to-sprint commitment tracker',
@@ -106,25 +58,60 @@ const navigation: NavSection[] = [
         ],
     },
     {
-        title: 'Settings',
+        title: 'Organisation',
         items: [
             {
-                name: 'Team Members',
-                href: '/settings/team',
-                icon: <IconTeam />,
-                description: 'Manage team roster',
+                name: 'Structure',
+                href: '/organisation/structure',
+                icon: <IconOrgStructure />,
+                description: 'Group → Division → Dept → Squad',
             },
             {
-                name: 'Sprint Leave',
-                href: '/settings/leave',
-                icon: <IconLeave />,
-                description: 'Plan leave per sprint',
+                name: 'Squads',
+                href: '/organisation/squads',
+                icon: <IconSquad />,
+                description: 'Squad hub & performance',
             },
+            {
+                name: 'Engineers',
+                href: '/organisation/engineers',
+                icon: <IconEngineer />,
+                description: 'View and manage engineers',
+            },
+            {
+                name: 'Leaves',
+                href: '/organisation/leaves',
+                icon: <IconLeaveNav />,
+                description: 'Manage engineer leaves',
+            },
+        ],
+    },
+    {
+        title: 'Settings',
+        items: [
             {
                 name: 'Title Days',
                 href: '/settings/title-days',
                 icon: <IconTitleDays />,
                 description: 'Available days per title',
+            },
+            {
+                name: 'Jira Integration',
+                href: '/settings/jira',
+                icon: <IconJira />,
+                description: 'Connection & data sources',
+            },
+            {
+                name: 'Holidays',
+                href: '/settings/holidays',
+                icon: <IconHoliday />,
+                description: 'National holidays calendar',
+            },
+            {
+                name: 'Work Type Labels',
+                href: '/settings/work-type-labels',
+                icon: <IconWorkType />,
+                description: 'Jira label → category mapping',
             },
         ],
     },
@@ -137,13 +124,6 @@ const navigation: NavSection[] = [
                 icon: <IconMetrics />,
                 description: 'Historical performance',
             },
-            {
-                name: 'Team Report',
-                href: '/reports/team',
-                icon: <IconTeamReport />,
-                description: 'Per-member sprint metrics',
-            },
-
         ],
     },
 ];

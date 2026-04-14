@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { SignJWT } from 'jose';
+import { apiError } from '@/lib/api-helpers';
 
 if (!process.env.AUTH_PASSWORD) {
     throw new Error('AUTH_PASSWORD environment variable is required');
@@ -40,20 +41,14 @@ export async function POST(request: NextRequest) {
                    'unknown';
 
         if (isRateLimited(ip)) {
-            return NextResponse.json(
-                { error: 'Too many login attempts. Please try again later.' },
-                { status: 429 }
-            );
+            return apiError('Too many login attempts. Please try again later.', 429);
         }
 
         const { password } = await request.json();
 
         if (password !== AUTH_PASSWORD) {
             recordFailedAttempt(ip);
-            return NextResponse.json(
-                { error: 'Invalid password' },
-                { status: 401 }
-            );
+            return apiError('Invalid password', 401);
         }
 
         // Create JWT token
@@ -76,9 +71,6 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: true });
     } catch (error) {
         console.error('Login error:', error);
-        return NextResponse.json(
-            { error: 'Authentication failed' },
-            { status: 500 }
-        );
+        return apiError('Authentication failed', 500);
     }
 }

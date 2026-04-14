@@ -1,14 +1,18 @@
-'use client';
-
+import React from 'react';
 import { UserUtilization } from '@/types';
 import Image from 'next/image';
 
 interface UserUtilizationCardProps {
     utilization: UserUtilization;
+    onClick?: () => void;
 }
 
-export default function UserUtilizationCard({ utilization }: UserUtilizationCardProps) {
+const UserUtilizationCard = React.memo(function UserUtilizationCard({ utilization, onClick }: UserUtilizationCardProps) {
     const { user, storyPoints, workingDays, leaveDays, availableDays, utilizationPercent, status, role, title, workTypeStats, isUnrecognized } = utilization;
+    const effectiveMandays = utilization.effectiveMandays;
+    const workingHoursPerDay = utilization.workingHoursPerDay;
+    const teamStandardHours = utilization.teamStandardHours;
+    const hasNonStandardHours = workingHoursPerDay != null && teamStandardHours != null && workingHoursPerDay !== teamStandardHours;
 
     const statusConfig = {
         under: { text: 'text-blue-400', bar: 'bg-blue-500', accent: 'bg-blue-500', label: 'Under-utilized' },
@@ -26,7 +30,10 @@ export default function UserUtilizationCard({ utilization }: UserUtilizationCard
     const initials = user.displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 
     return (
-        <div className="relative rounded-lg border border-border bg-background overflow-hidden transition-all duration-200 hover:border-muted-foreground/30">
+        <div
+            className="relative rounded-lg border border-border bg-background overflow-hidden transition-all duration-200 hover:border-muted-foreground/30 cursor-pointer"
+            onClick={onClick}
+        >
             <div className={`h-px ${cfg.accent}`} />
 
             <div className="px-3 py-2.5 space-y-2">
@@ -54,6 +61,11 @@ export default function UserUtilizationCard({ utilization }: UserUtilizationCard
                             <span className={`text-[9px] font-semibold uppercase tracking-wider px-1 py-px rounded ring-1 ${roleBadge}`}>
                                 {role}
                             </span>
+                            {hasNonStandardHours && (
+                                <span className="text-[9px] font-semibold px-1 py-px rounded ring-1 bg-amber-500/15 text-amber-400 ring-amber-500/20" title={`Works ${workingHoursPerDay}h/day (team standard: ${teamStandardHours}h)`}>
+                                    {workingHoursPerDay}h/day
+                                </span>
+                            )}
                             {title && <span className="text-[10px] text-muted-foreground truncate">{title}</span>}
                         </div>
                     </div>
@@ -67,7 +79,7 @@ export default function UserUtilizationCard({ utilization }: UserUtilizationCard
                     </div>
                     <div className="flex items-baseline gap-1">
                         <span className="text-muted-foreground">Avail</span>
-                        <span className="text-sm font-bold text-foreground tabular-nums">{availableDays}</span>
+                        <span className="text-sm font-bold text-foreground tabular-nums">{effectiveMandays != null && effectiveMandays !== availableDays ? effectiveMandays.toFixed(1) : availableDays}</span>
                         {leaveDays > 0 ? (
                             <span className="text-red-400 font-medium">(-{leaveDays})</span>
                         ) : (
@@ -120,4 +132,6 @@ export default function UserUtilizationCard({ utilization }: UserUtilizationCard
             </div>
         </div>
     );
-}
+});
+
+export default UserUtilizationCard;

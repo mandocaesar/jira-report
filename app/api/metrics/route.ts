@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server';
 import { createJiraClient } from '@/lib/jira-client';
 import { calculateMetrics } from '@/lib/metrics-calculator';
+import { apiSuccess, apiError } from '@/lib/api-helpers';
 
 export async function GET(request: Request) {
     try {
@@ -9,10 +9,7 @@ export async function GET(request: Request) {
         const sprintId = searchParams.get('sprintId');
 
         if (!sprintId) {
-            return NextResponse.json(
-                { success: false, error: 'Missing sprintId parameter' },
-                { status: 400 }
-            );
+            return apiError('Missing sprintId parameter', 400);
         }
 
         const client = createJiraClient();
@@ -28,15 +25,9 @@ export async function GET(request: Request) {
 
         const metrics = calculateMetrics(sprint, issues);
 
-        return NextResponse.json({
-            success: true,
-            data: metrics,
-        });
+        return apiSuccess(metrics);
     } catch (error) {
         console.error('Error fetching metrics:', error);
-        return NextResponse.json(
-            { success: false, error: error instanceof Error ? error.message : 'Failed to fetch metrics' },
-            { status: 500 }
-        );
+        return apiError(error instanceof Error ? error.message : 'Failed to fetch metrics');
     }
 }

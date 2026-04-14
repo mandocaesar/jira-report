@@ -162,6 +162,21 @@ export interface WorkTypeStats {
   [type: string]: number;
 }
 
+// Individual issue assigned to a user in the sprint
+export interface UserIssue {
+  key: string;
+  summary: string;
+  issueType: string;
+  status: string;
+  statusCategory: string;
+  points: number;
+  category: 'Product' | 'Technical Initiatives' | 'Incident';
+  parentKey?: string;
+  parentSummary?: string;
+  addedDuringSprint?: boolean;
+  addedDaysAfterStart?: number;
+}
+
 // User utilization data
 export interface UserUtilization {
   user: User;
@@ -175,6 +190,13 @@ export interface UserUtilization {
   title: string;
   workTypeStats: WorkTypeStats;
   isUnrecognized?: boolean;
+  // Hours-based capacity fields
+  workingHoursPerDay: number;      // Resolved hours (member override or team default)
+  teamStandardHours: number;       // Team's standard hours/day
+  availableHours: number;          // availableDays × workingHoursPerDay
+  effectiveMandays: number;        // availableHours / teamStandardHours (normalized)
+  // Per-issue breakdown
+  issues?: UserIssue[];
 }
 
 // Sprint summary
@@ -184,25 +206,33 @@ export interface SprintSummary {
   totalWorkingDays: number;
   averageUtilization: number;
   userUtilizations: UserUtilization[];
-  // QA vs Engineer breakdown
-  qaStats: {
+  // QA vs Engineer breakdown (optional — compute on-demand via computeRoleStats)
+  qaStats?: {
     count: number;
     mandays: number;
     storyPoints: number;
     leaveDays: number;
     workTypeStats: WorkTypeStats;
+    totalHours: number;
+    effectiveMandays: number;
   };
-  engineerStats: {
+  engineerStats?: {
     count: number;
     mandays: number;
     storyPoints: number;
     leaveDays: number;
     workTypeStats: WorkTypeStats;
+    totalHours: number;
+    effectiveMandays: number;
   };
   // Overall sprint work distribution
   workTypeStats: WorkTypeStats;
   // Detected Indonesian Holidays
   holidays: Holiday[];
+  // Hours-based capacity totals
+  teamStandardHours: number;
+  totalAvailableHours: number;
+  totalEffectiveMandays: number;
 }
 
 // Indonesian holiday
@@ -346,4 +376,73 @@ export interface SprintVelocityEntry {
 export interface SprintVelocityData {
   boardId: number;
   sprints: SprintVelocityEntry[];
+}
+
+// Squad Dashboard types
+export interface SquadOverview {
+  id: string;
+  name: string;
+  boardId: number;
+  departmentName?: string;
+  memberCount: number;
+  engineerCount: number;
+  qaCount: number;
+  workingHoursPerDay: number;
+  currentSprint?: {
+    id: number;
+    name: string;
+    state: string;
+    progress: number; // % through sprint timeline
+    committedPoints: number;
+    completedPoints: number;
+    completionPercent: number;
+  };
+  recentVelocity?: {
+    avgCommitted: number;
+    avgActual: number;
+    avgAccuracy: number;
+    trend: 'up' | 'down' | 'stable';
+    sprintCount: number;
+  };
+}
+
+export interface SquadMemberPerformance {
+  accountId: string;
+  name: string;
+  role: 'qa' | 'engineer';
+  title: string;
+  avatarUrl: string;
+  workingHoursPerDay?: number;
+  sprintMetrics: Array<{
+    sprintId: number;
+    sprintName: string;
+    storyPoints: number;
+    availableDays: number;
+    effectiveMandays: number;
+    utilizationPercent: number;
+    completedIssues: number;
+    cycleTimeAvg: number | null;
+    leadTimeAvg: number | null;
+  }>;
+  averages: {
+    storyPoints: number;
+    utilization: number;
+    cycleTime: number | null;
+    leadTime: number | null;
+    throughput: number;
+  };
+}
+
+export interface SquadHealthData {
+  squad: SquadOverview;
+  velocity: SprintVelocityEntry[];
+  memberPerformance: SquadMemberPerformance[];
+  workloadDistribution: Array<{
+    accountId: string;
+    name: string;
+    role: 'qa' | 'engineer';
+    currentPoints: number;
+    currentUtilization: number;
+    status: 'under' | 'optimal' | 'over';
+  }>;
 }

@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { apiSuccess, apiError } from '@/lib/api-helpers';
 import { createJiraClient } from '@/lib/jira-client';
 import { getStoryPoints, isStoryPointField, sprintFieldContainsId } from '@/lib/issue-helpers';
 import { JiraIssue, Sprint, SprintVelocityEntry, SprintVelocityData, SprintCommitmentCategory } from '@/types';
@@ -141,7 +141,7 @@ export async function GET(request: Request) {
         const countParam = searchParams.get('count') || '8';
 
         if (!boardId) {
-            return NextResponse.json({ success: false, error: 'Missing boardId' }, { status: 400 });
+            return apiError('Missing boardId', 400);
         }
 
         const bId = parseInt(boardId, 10);
@@ -184,13 +184,10 @@ export async function GET(request: Request) {
         }));
 
         const data: SprintVelocityData = { boardId: bId, sprints: entries };
-        return NextResponse.json({ success: true, data });
+        return apiSuccess(data);
 
     } catch (error) {
         console.error('[velocity] Route error:', error);
-        return NextResponse.json(
-            { success: false, error: error instanceof Error ? error.message : 'Failed to compute sprint velocity' },
-            { status: 500 }
-        );
+        return apiError(error instanceof Error ? error.message : 'Failed to compute sprint velocity', 500);
     }
 }

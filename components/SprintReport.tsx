@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { SprintReportData } from '@/types';
+import { getStatusColors, getCompletionColor, getCompletionBarColor } from '@/lib/ui-colors';
 
 function ScopeChangeGroup({ groupKey, group, jiraDomain }: {
     groupKey: string;
@@ -101,52 +102,6 @@ function ScopeChangeGroup({ groupKey, group, jiraDomain }: {
 interface SprintReportProps {
     report: SprintReportData;
     jiraDomain?: string;
-}
-
-const statusColors: Record<string, { bg: string; border: string; text: string; bar: string }> = {
-    'Done': {
-        bg: 'bg-green-500/10',
-        border: 'border-green-500/20',
-        text: 'text-green-400',
-        bar: 'bg-green-500',
-    },
-    'In Progress': {
-        bg: 'bg-blue-500/10',
-        border: 'border-blue-500/20',
-        text: 'text-blue-400',
-        bar: 'bg-blue-500',
-    },
-    'To Do': {
-        bg: 'bg-gray-500/10',
-        border: 'border-gray-500/20',
-        text: 'text-gray-400',
-        bar: 'bg-gray-500',
-    },
-};
-
-const defaultColors = {
-    bg: 'bg-blue-500/10',
-    border: 'border-blue-500/20',
-    text: 'text-blue-400',
-    bar: 'bg-blue-500',
-};
-
-function getStatusColors(category: string) {
-    return statusColors[category] || defaultColors;
-}
-
-function getCompletionColor(percent: number): string {
-    if (percent >= 90) return 'text-green-400';
-    if (percent >= 70) return 'text-blue-400';
-    if (percent >= 50) return 'text-yellow-400';
-    return 'text-red-400';
-}
-
-function getCompletionBarColor(percent: number): string {
-    if (percent >= 90) return 'bg-green-500';
-    if (percent >= 70) return 'bg-blue-500';
-    if (percent >= 50) return 'bg-yellow-500';
-    return 'bg-red-500';
 }
 
 export default function SprintReport({ report, jiraDomain }: SprintReportProps) {

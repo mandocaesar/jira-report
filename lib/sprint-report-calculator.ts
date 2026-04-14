@@ -19,7 +19,7 @@ function calculateScopeChanges(sprint: Sprint, issues: JiraIssue[]): ScopeChange
 
         // 1. Check if the issue was created after sprint start day
         if (issue.fields.created) {
-            const createdTime = new Date(issue.fields.created).getTime();
+            const createdTime = Date.parse(issue.fields.created);
             if (createdTime > sprintStartDayEndTime) {
                 wasAddedDuringSprint = true;
                 changes.push({
@@ -39,7 +39,7 @@ function calculateScopeChanges(sprint: Sprint, issues: JiraIssue[]): ScopeChange
         // 2. Check changelog for sprint additions or point changes
         if (issue.changelog && issue.changelog.histories) {
             for (const history of issue.changelog.histories) {
-                const historyTime = new Date(history.created).getTime();
+                const historyTime = Date.parse(history.created);
                 // Skip changes on or before sprint start date (same day = part of planning)
                 if (historyTime <= sprintStartDayEndTime) continue;
 
@@ -90,7 +90,7 @@ function calculateScopeChanges(sprint: Sprint, issues: JiraIssue[]): ScopeChange
     }
 
     // Sort changes newest first
-    return changes.sort((a, b) => new Date(b.changeDate).getTime() - new Date(a.changeDate).getTime());
+    return changes.sort((a, b) => Date.parse(b.changeDate) - Date.parse(a.changeDate));
 }
 
 /**

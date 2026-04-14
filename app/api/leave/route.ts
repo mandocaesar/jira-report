@@ -1,37 +1,22 @@
-import { NextResponse } from 'next/server';
-import { prisma, isDatabaseAvailable } from '@/lib/db';
+import { prisma } from '@/lib/db';
+import { apiSuccess, apiError, requireDatabase } from '@/lib/api-helpers';
 
 // GET /api/leave?sprintId=123
 export async function GET(request: Request) {
     try {
-        if (!isDatabaseAvailable()) {
-            return NextResponse.json(
-                { success: false, error: 'Database not configured. Please set POSTGRES_PRISMA_URL in .env.local' },
-                { status: 503 }
-            );
-        }
+        const dbErr = requireDatabase();
+        if (dbErr) return dbErr;
 
         const { searchParams } = new URL(request.url);
         const sprintIdParam = searchParams.get('sprintId');
 
         if (!sprintIdParam) {
-            return NextResponse.json(
-                { success: false, error: 'sprintId is required' },
-                { status: 400 }
-            );
+            return apiError('sprintId is required', 400);
         }
 
         const sprintId = parseInt(sprintIdParam);
 
-        // Fetch all leave entries for the sprint
-        if (!prisma) {
-            return NextResponse.json(
-                { success: false, error: 'Database client not initialized' },
-                { status: 503 }
-            );
-        }
-
-        const leaveEntries = await prisma.sprintLeave.findMany({
+        const leaveEntries = await prisma!.sprintLeave.findMany({
             where: { sprintId },
         });
 
@@ -41,18 +26,11 @@ export async function GET(request: Request) {
             leaveMap[entry.accountId] = entry.leaveDays;
         });
 
-        return NextResponse.json({
-            success: true,
-            data: leaveMap,
-        });
+        return apiSuccess(leaveMap);
     } catch (error) {
         console.error('Error fetching sprint leave:', error);
-        return NextResponse.json(
-            {
-                success: false,
-                error: error instanceof Error ? error.message : 'Failed to fetch sprint leave',
-            },
-            { status: 500 }
+        return apiError(
+            error instanceof Error ? error.message : 'Failed to fetch sprint leave'
         );
     }
 }
@@ -60,21 +38,14 @@ export async function GET(request: Request) {
 // PUT /api/leave
 export async function PUT(request: Request) {
     try {
-        if (!isDatabaseAvailable()) {
-            return NextResponse.json(
-                { success: false, error: 'Database not configured. Please set POSTGRES_PRISMA_URL in .env.local' },
-                { status: 503 }
-            );
-        }
+        const dbErr = requireDatabase();
+        if (dbErr) return dbErr;
 
         const body = await request.json();
         const { sprintId, leaveData } = body;
 
         if (!sprintId || !leaveData) {
-            return NextResponse.json(
-                { success: false, error: 'sprintId and leaveData are required' },
-                { status: 400 }
-            );
+            return apiError('sprintId and leaveData are required', 400);
         }
 
         // leaveData is a map: { accountId: leaveDays, ... }
@@ -86,15 +57,8 @@ export async function PUT(request: Request) {
             })
         );
 
-        if (!prisma) {
-            return NextResponse.json(
-                { success: false, error: 'Database client not initialized' },
-                { status: 503 }
-            );
-        }
-
         // Upsert all leave entries in a transaction
-        const db = prisma; // TypeScript null check
+        const db = prisma!;
         await db.$transaction(
             updates.map((data) =>
                 db.sprintLeave.upsert({
@@ -112,18 +76,11 @@ export async function PUT(request: Request) {
             )
         );
 
-        return NextResponse.json({
-            success: true,
-            message: 'Leave data saved successfully',
-        });
+        return apiSuccess({ message: 'Leave data saved successfully' });
     } catch (error) {
         console.error('Error saving sprint leave:', error);
-        return NextResponse.json(
-            {
-                success: false,
-                error: error instanceof Error ? error.message : 'Failed to save sprint leave',
-            },
-            { status: 500 }
+        return apiError(
+            error instanceof Error ? error.message : 'Failed to save sprint leave'
         );
     }
 }

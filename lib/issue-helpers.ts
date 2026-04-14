@@ -90,3 +90,81 @@ export function sprintFieldContainsId(fieldValue: string | null | undefined, spr
     // Sprint `to` field is comma-separated IDs like "123, 456" or sometimes "123"
     return fieldValue.split(',').some(part => part.trim() === String(sprintId));
 }
+
+/**
+ * Classify a Jira status name into To Do / In Progress / Done.
+ * Shared across metrics-calculator, sprint-performance-metrics, and sprint-report-calculator.
+ */
+const TODO_STATUSES = new Set(['to do', 'open', 'backlog', 'new', 'reopened', 'funnel', 'selected for development']);
+const DONE_STATUSES = new Set(['done', 'closed', 'resolved', 'released', 'completed']);
+
+/** Cache for classifyStatus — Jira has ~10 unique statuses, avoids repeated toLowerCase + linear scans */
+const statusClassifyCache = new Map<string, 'To Do' | 'In Progress' | 'Done'>();
+
+export function classifyStatus(statusName: string): 'To Do' | 'In Progress' | 'Done' {
+    const cached = statusClassifyCache.get(statusName);
+    if (cached) return cached;
+    const lower = statusName.toLowerCase();
+    const result: 'To Do' | 'In Progress' | 'Done' = TODO_STATUSES.has(lower) ? 'To Do' : DONE_STATUSES.has(lower) ? 'Done' : 'In Progress';
+    statusClassifyCache.set(statusName, result);
+    return result;
+}
+
+/**
+ * Calculate cycle time (In Progress → Done) and lead time (Created → Done) in business days.
+ * Shared across metrics-calculator and sprint-performance-metrics.
+ */
+export function calculateIssueTimes(issue: JiraIssue): { cycleTimeDays: number; leadTimeDays: number } | null {
+    if (issue.fields.status?.statusCategory?.name !== 'Done') return null;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const changelog = (issue as unknown as { changelog?: any }).changelog;
+    const histories = changelog?.histories || [];
+    const sorted = [...histories].sort(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (a: any, b: any) => Date.parse(a.created) - Date.parse(b.created)
+    );
+
+    let firstInProgressDate: Date | null = null;
+    let doneDate: Date | null = null;
+
+    for (const history of sorted) {
+        for (const item of history.items) {
+            if (item.field !== 'status' || !item.toString) continue;
+            const cat = classifyStatus(item.toString);
+            if (!firstInProgressDate && cat === 'In Progress') {
+                firstInProgressDate = new Date(history.created);
+            }
+            if (cat === 'Done') {
+                doneDate = new Date(history.created);
+            }
+        }
+    }
+
+    if (!doneDate) return null;
+
+    // Import dynamically avoided — inline business days calculation
+    const createdDate = new Date(issue.fields.created);
+    const leadTimeDays = _businessDaysBetween(createdDate, doneDate);
+    const cycleTimeDays = firstInProgressDate
+        ? _businessDaysBetween(firstInProgressDate, doneDate)
+        : leadTimeDays;
+
+    return { cycleTimeDays, leadTimeDays };
+}
+
+/** Internal business days helper to avoid circular imports with date-utils */
+function _businessDaysBetween(start: Date, end: Date): number {
+    if (end <= start) return 0;
+    let count = 0;
+    const current = new Date(start);
+    current.setHours(0, 0, 0, 0);
+    const endNorm = new Date(end);
+    endNorm.setHours(0, 0, 0, 0);
+    while (current <= endNorm) {
+        const day = current.getDay();
+        if (day !== 0 && day !== 6) count++;
+        current.setDate(current.getDate() + 1);
+    }
+    return Math.max(count, 1);
+}

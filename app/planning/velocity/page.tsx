@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import BoardSelector from '@/components/BoardSelector';
 import { SprintVelocityData, SprintVelocityEntry } from '@/types';
+import { useFetch } from '@/hooks/useFetch';
 import {
     ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip,
     Legend, ResponsiveContainer, BarChart, ReferenceLine,
@@ -32,6 +33,44 @@ function deltaColor(v: number | null): string {
     if (v > 0) return 'text-red-400';
     if (v < 0) return 'text-green-400';
     return 'text-muted-foreground';
+}
+
+// ─── Custom Legend ────────────────────────────────────────────────────────────
+
+function CommitLegend({ payload }: any) {
+    if (!payload) return null;
+    return (
+        <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1 mt-2 text-[11px]">
+            {payload.map((entry: any) => {
+                const isLine = entry.type === 'line';
+                return (
+                    <div key={entry.value} className="flex items-center gap-1.5">
+                        {isLine ? (
+                            <>
+                                <svg width="20" height="10" className="flex-shrink-0">
+                                    <line x1="0" y1="5" x2="20" y2="5" stroke={entry.color} strokeWidth={2} />
+                                    <circle cx="10" cy="5" r="3" fill={entry.color} />
+                                </svg>
+                                <span style={{ color: entry.color }} className="font-medium">{entry.value}</span>
+                                <span className="text-muted-foreground">(right axis)</span>
+                            </>
+                        ) : (
+                            <>
+                                <span className="inline-block w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: entry.color }} />
+                                <span style={{ color: entry.color }} className="font-medium">{entry.value}</span>
+                            </>
+                        )}
+                    </div>
+                );
+            })}
+            <div className="flex items-center gap-1.5">
+                <svg width="20" height="10" className="flex-shrink-0">
+                    <line x1="0" y1="5" x2="20" y2="5" stroke="#4ade80" strokeWidth={1.5} strokeDasharray="3 3" />
+                </svg>
+                <span className="text-[#4ade80] font-medium">80% Target</span>
+            </div>
+        </div>
+    );
 }
 
 // ─── Custom Tooltip ───────────────────────────────────────────────────────────
@@ -249,28 +288,12 @@ function SprintRow({ entry, expanded, onToggle }: {
 export default function VelocityPage() {
     const [selectedBoardId, setSelectedBoardId] = useState<number | null>(null);
     const [sprintCount, setSprintCount] = useState(8);
-    const [velocityData, setVelocityData] = useState<SprintVelocityData | null>(null);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
     const [expandedSprints, setExpandedSprints] = useState<Set<number>>(new Set());
 
-    useEffect(() => {
-        if (!selectedBoardId) return;
-        setLoading(true);
-        setError(null);
-        setVelocityData(null);
-        fetch(`/api/planning/sprint-velocity?boardId=${selectedBoardId}&count=${sprintCount}`)
-            .then(r => r.json())
-            .then(json => {
-                if (json.success) {
-                    setVelocityData(json.data);
-                } else {
-                    setError(json.error || 'Unknown error');
-                }
-            })
-            .catch(() => setError('Failed to fetch velocity data'))
-            .finally(() => setLoading(false));
-    }, [selectedBoardId, sprintCount]);
+    const fetchUrl = selectedBoardId
+        ? `/api/planning/sprint-velocity?boardId=${selectedBoardId}&count=${sprintCount}`
+        : null;
+    const { data: velocityData, loading, error } = useFetch<SprintVelocityData>(fetchUrl, [sprintCount]);
 
     const sprints = velocityData?.sprints || [];
 
@@ -295,6 +318,15 @@ export default function VelocityPage() {
         added: e.addedMidSprintPoints,
         accuracy: e.commitmentAccuracy,
     })), [sprints]);
+
+    // Dynamic right-axis domain so the accuracy line is never clipped
+    const pctDomain = useMemo(() => {
+        if (!sprints.length) return [0, 150] as [number, number];
+        const maxAcc = Math.max(...sprints.map(e => e.commitmentAccuracy));
+        // Round up to nearest 20 and add headroom
+        const upper = Math.max(150, Math.ceil(maxAcc / 20) * 20 + 20);
+        return [0, upper] as [number, number];
+    }, [sprints]);
 
     // ── Chart data: committed breakdown by issue type (stacked) + mid-sprint additions
     const breakdownChart = useMemo(() => sprints.map(e => ({
@@ -425,24 +457,27 @@ export default function VelocityPage() {
                     <div className="bg-card border border-border rounded-xl p-5">
                         <h2 className="text-sm font-semibold text-foreground mb-1">Committed vs Actual</h2>
                         <p className="text-[11px] text-muted-foreground mb-4">Story points committed at sprint start vs actually delivered. Line shows commitment accuracy %.</p>
-                        <ResponsiveContainer width="100%" height={260}>
+                        <ResponsiveContainer width="100%" height={300}>
                             <ComposedChart data={commitChart} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                                 <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
-                                <YAxis yAxisId="pts" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
-                                <YAxis yAxisId="pct" orientation="right" domain={[0, 150]} tickFormatter={v => `${v}%`}
-                                    tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+                                <YAxis yAxisId="pts" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                                    label={{ value: 'Story Points', angle: -90, position: 'insideLeft', offset: 10,
+                                        style: { fontSize: 10, fill: 'hsl(var(--muted-foreground))' } }} />
+                                <YAxis yAxisId="pct" orientation="right" domain={pctDomain} tickFormatter={(v: number) => `${v}%`}
+                                    tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                                    label={{ value: 'Accuracy %', angle: 90, position: 'insideRight', offset: 10,
+                                        style: { fontSize: 10, fill: 'hsl(var(--muted-foreground))' } }} />
                                 <Tooltip content={<CommitTooltip />} />
-                                <Legend wrapperStyle={{ fontSize: 11 }} />
+                                <Legend content={<CommitLegend />} />
                                 <Bar yAxisId="pts" dataKey="committed" name="Committed" fill="#6366f1" radius={[3, 3, 0, 0]} />
                                 <Bar yAxisId="pts" dataKey="actual" name="Delivered" fill="#10b981" radius={[3, 3, 0, 0]} />
                                 <Bar yAxisId="pts" dataKey="added" name="Added Mid-Sprint" fill="#f59e0b" radius={[3, 3, 0, 0]} />
                                 <Line yAxisId="pct" type="monotone" dataKey="accuracy" name="Accuracy %" stroke="#c084fc"
                                     strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                                <ReferenceLine yAxisId="pct" y={80} stroke="#4ade80" strokeDasharray="4 4" />
+                                <ReferenceLine yAxisId="pct" y={80} stroke="#4ade80" strokeDasharray="4 4" label={{ value: '80% target', position: 'left', fill: '#4ade80', fontSize: 10 }} />
                             </ComposedChart>
                         </ResponsiveContainer>
-                        <p className="text-[10px] text-muted-foreground mt-2">Green dashed line = 80% target accuracy</p>
                     </div>
 
                     {/* Chart 2: Type Breakdown (stacked) */}

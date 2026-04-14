@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { createJiraClient } from '@/lib/jira-client';
+import { apiSuccess, apiError } from '@/lib/api-helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,7 +13,7 @@ export async function GET(request: NextRequest) {
         const sprintCountParam = searchParams.get('sprintCount') || '5';
 
         if (!boardIdParam) {
-            return NextResponse.json({ success: false, error: 'boardId is required' }, { status: 400 });
+            return apiError('boardId is required', 400);
         }
 
         const boardId = parseInt(boardIdParam);
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
         const sprints = [...activeSprints, ...closedSprints].slice(0, sprintCount);
 
         if (sprints.length === 0) {
-            return NextResponse.json({ success: true, data: { boardId, members: [] } });
+            return apiSuccess({ boardId, members: [] });
         }
 
         // Fetch issues for all sprints in parallel (batches of 3)
@@ -165,20 +166,14 @@ export async function GET(request: NextRequest) {
                     })),
             }));
 
-        return NextResponse.json({
-            success: true,
-            data: {
-                boardId,
-                sprintCount: sprints.length,
-                jiraDomain: process.env.JIRA_DOMAIN || '',
-                members,
-            },
+        return apiSuccess({
+            boardId,
+            sprintCount: sprints.length,
+            jiraDomain: process.env.JIRA_DOMAIN || '',
+            members,
         });
     } catch (error) {
         console.error('Error fetching member details:', error);
-        return NextResponse.json(
-            { success: false, error: error instanceof Error ? error.message : 'Failed to fetch member details' },
-            { status: 500 }
-        );
+        return apiError(error instanceof Error ? error.message : 'Failed to fetch member details', 500);
     }
 }

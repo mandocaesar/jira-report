@@ -1,13 +1,28 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, lazy, Suspense } from 'react';
+import Link from 'next/link';
 import BoardSelector from '@/components/BoardSelector';
 import SprintSelector from '@/components/SprintSelector';
 import { MetricsData } from '@/types';
+import { Spinner } from '@/components/ui/Spinner';
+import { ErrorAlert } from '@/components/ui/ErrorAlert';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
     LineChart, Line, ResponsiveContainer
 } from 'recharts';
+
+const TeamScorecard = lazy(() => import('@/components/metrics/TeamScorecard'));
+const SquadGrid = lazy(() => import('@/components/metrics/SquadGrid'));
+const VelocityOverview = lazy(() => import('@/components/metrics/VelocityOverview'));
+
+function SectionLoader() {
+    return (
+        <div className="flex items-center justify-center py-8">
+            <Spinner size="md" />
+        </div>
+    );
+}
 
 /**
  * Format hours into a human-readable string
@@ -388,8 +403,35 @@ export default function MetricsPage() {
                     <h1 className="text-3xl font-bold text-foreground">
                         Metrics Dashboard
                     </h1>
-                    <p className="text-muted-foreground mt-2">Track issue flow, completion rates, and delivery speed</p>
+                    <p className="text-muted-foreground mt-2">Team performance, velocity, and delivery metrics at a glance</p>
                 </div>
+            </div>
+
+            {/* === Team Scorecard (Top/Bottom 3) === */}
+            <div className="mb-8">
+                <Suspense fallback={<SectionLoader />}>
+                    <TeamScorecard />
+                </Suspense>
+            </div>
+
+            {/* === Squad Overview Grid === */}
+            <div className="mb-8">
+                <Suspense fallback={<SectionLoader />}>
+                    <SquadGrid />
+                </Suspense>
+            </div>
+
+            {/* === Velocity Overview (board-scoped) === */}
+            <div className="mb-8">
+                <Suspense fallback={<SectionLoader />}>
+                    <VelocityOverview boardId={selectedBoardId} />
+                </Suspense>
+            </div>
+
+            {/* Divider between overview and detailed metrics */}
+            <div className="border-t border-border mb-8 pt-8">
+                <h2 className="text-xl font-bold text-foreground mb-1">Detailed Sprint Metrics</h2>
+                <p className="text-sm text-muted-foreground">Select a board and sprint to view in-depth delivery metrics</p>
             </div>
 
             {/* Selectors */}
@@ -464,9 +506,7 @@ export default function MetricsPage() {
 
             {/* Error */}
             {error && (
-                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-center">
-                    <p className="text-red-400">{error}</p>
-                </div>
+                <ErrorAlert message={error} variant="card" />
             )}
 
             {/* Single Sprint Metrics Content */}
@@ -481,9 +521,14 @@ export default function MetricsPage() {
                     {/* Issue Breakdown (Sub-Tasks / Sub-Chores / Other) */}
                     <IssueBreakdownCards data={metricsData} />
 
-                    {/* Per-Member Delivery Speed */}
+                    {/* Per-Member Delivery Speed — collapsed by default, detail in squad pages */}
                     {metricsData.memberTimeMetrics && metricsData.memberTimeMetrics.length > 0 && (
-                        <MemberTimeMetricsTable data={metricsData} />
+                        <div>
+                            <div className="flex items-center justify-between mb-2">
+                                <MemberTableToggle />
+                            </div>
+                            <MemberTimeMetricsTable data={metricsData} />
+                        </div>
                     )}
 
                     {/* Issue Totals Cards */}
@@ -511,9 +556,14 @@ export default function MetricsPage() {
                             {/* Year-to-Date Issue Breakdown */}
                             <IssueBreakdownCards data={aggregateMetrics as MetricsData} />
 
-                            {/* Year-to-Date Per-Member Delivery Speed */}
+                            {/* Year-to-Date Per-Member Delivery Speed — collapsed */}
                             {aggregateMetrics.memberTimeMetrics && aggregateMetrics.memberTimeMetrics.length > 0 && (
-                                <MemberTimeMetricsTable data={aggregateMetrics as MetricsData} />
+                                <div>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <MemberTableToggle />
+                                    </div>
+                                    <MemberTimeMetricsTable data={aggregateMetrics as MetricsData} />
+                                </div>
                             )}
 
                             {/* Year-to-Date Issue Totals Cards */}
@@ -656,6 +706,21 @@ function BoardYearlyTrendChart({ data }: { data: any }) {
                 </ResponsiveContainer>
             </div>
         </div>
+    );
+}
+
+/**
+ * Squad detail link hint shown above per-member table
+ */
+function MemberTableToggle() {
+    return (
+        <Link
+            href="/organisation/squads"
+            className="text-xs text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1"
+        >
+            View detailed member metrics in squad pages
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
+        </Link>
     );
 }
 

@@ -1,20 +1,24 @@
-// Prisma schema for sprint leave tracking and metrics
+// Engineering Performance Tracker — Prisma Schema
+// Phase 1: Database schema overhaul (2026-03-19)
 datasource db {
   provider  = "postgresql"
   url       = env("POSTGRES_PRISMA_URL")
   directUrl = env("POSTGRES_URL_NON_POOLING")
 }
 
-
 generator client {
   provider = "prisma-client-js"
 }
 
-// Sprint leave per engineer
+// ============================================================
+// LEGACY MODELS — kept for backward compatibility, deprecated
+// ============================================================
+
+// @deprecated — Use Leave model instead
 model SprintLeave {
   id         String   @id @default(cuid())
   sprintId   Int
-  accountId  String   // Jira account ID
+  accountId  String
   leaveDays  Int      @default(0)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -24,14 +28,14 @@ model SprintLeave {
   @@index([accountId])
 }
 
-// Engineer capacity adjustments (training, part-time, onboarding, etc.)
+// @deprecated — Use CapacityAllocation model instead
 model EngineerCapacity {
   id          String   @id @default(cuid())
-  accountId   String   // Jira account ID
+  accountId   String
   startDate   DateTime
   endDate     DateTime
-  capacity    Int      @default(100) // Percentage: 0-100
-  reason      String   @default("other") // "training", "part-time", "onboarding", "special-project", "other"
+  capacity    Int      @default(100)
+  reason      String   @default("other")
   notes       String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -40,39 +44,33 @@ model EngineerCapacity {
   @@index([startDate, endDate])
 }
 
-// Historical sprint metrics snapshot
+// ============================================================
+// SPRINT METRICS (existing, no changes)
+// ============================================================
+
 model SprintMetrics {
   id                  String   @id @default(cuid())
-  teamId              String   // From team-roster
+  teamId              String
   boardId             Int
   sprintId            Int
   sprintName          String
   startDate           DateTime
   endDate             DateTime
-  
-  // Capacity metrics
   workingDays         Int
   totalLeave          Int
   engineerCount       Int
   qaCount             Int
   engineerMandays     Int
   qaMandays           Int
-  
-  // Delivery metrics
   totalStoryPoints    Int
   completedPoints     Int
   averageUtilization  Float
-  
-  // Work type breakdown
   productPoints       Int      @default(0)
   techInitPoints      Int      @default(0)
   incidentPoints      Int      @default(0)
-  
-  // Forecasting fields
-  forecastedCapacity  Int?     // Predicted capacity at planning time
-  forecastedPoints    Int?     // Predicted story points
-  actualCapacity      Int?     // Actual capacity used
-  
+  forecastedCapacity  Int?
+  forecastedPoints    Int?
+  actualCapacity      Int?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
@@ -82,36 +80,240 @@ model SprintMetrics {
   @@index([sprintId])
 }
 
-// Team definition (replaces static team-roster.json)
-model Team {
-  id       String       @id @default(cuid())
-  name     String
-  boardId  Int          @unique
-  members  TeamMember[]
-  reportEmailGroup String?  // Comma-separated or group email for scheduled reports
-  isSchedulingEnabled Boolean @default(false)
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
+// ============================================================
+// ORGANISATION HIERARCHY: Group → Division → Department → Team
+// ============================================================
+
+model OrgGroup {
+  id        String     @id @default(cuid())
+  name      String
+  code      String     @unique
+  isActive  Boolean    @default(true)
+  divisions Division[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
 }
 
-// Team member belonging to a team
+model Division {
+  id          String       @id @default(cuid())
+  name        String
+  code        String       @unique
+  isActive    Boolean      @default(true)
+  groupId     String
+  group       OrgGroup     @relation(fields: [groupId], references: [id])
+  departments Department[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([groupId])
+}
+
+model Department {
+  id         String   @id @default(cuid())
+  name       String
+  code       String   @unique
+  isActive   Boolean  @default(true)
+  divisionId String
+  division   Division @relation(fields: [divisionId], references: [id])
+  teams      Team[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([divisionId])
+}
+
+// ============================================================
+// TEAM (Squad) — extended with code, isActive, data sources
+// ============================================================
+
+model Team {
+  id                  String               @id @default(cuid())
+  name                String
+  code                String?              @unique // Squad code (e.g., "SQ-FT")
+  boardId             Int                  @unique
+  isActive            Boolean              @default(true)
+  status              String               @default("active") // "draft", "active", "archived"
+  lastSyncedAt        DateTime?            // Last Jira board member sync
+  members             TeamMember[]
+  departmentId        String?
+  department          Department?          @relation(fields: [departmentId], references: [id])
+  workingHoursPerDay  Float                @default(8)
+  reportEmailGroup    String?
+  isSchedulingEnabled Boolean              @default(false)
+  dataSources         DataSource[]
+  capacityAllocations CapacityAllocation[]
+  nonDevDays          NonDevDay[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  @@index([departmentId])
+}
+
+// ============================================================
+// TEAM MEMBER (Engineer) — extended with NIK, gender
+// ============================================================
+
 model TeamMember {
-  id        String   @id @default(cuid())
-  accountId String
-  name      String
-  email     String
-  role      String   @default("engineer") // "engineer" or "qa"
-  title     String   @default("Associate")
-  teamId    String
-  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                  String               @id @default(cuid())
+  accountId           String
+  name                String
+  email               String
+  role                String               @default("engineer") // "engineer" or "qa"
+  title               String               @default("Associate")
+  nik                      String?  @unique // Employee number (unique identifier)
+  gender                   String?  // "male" or "female"
+  workingHoursPerDay       Float?
+  excludeFromUtilization   Boolean  @default(false) // Auto-exclude from utilization (e.g. EMs)
+  teamId                   String
+  team                Team                 @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  capacityAllocations CapacityAllocation[]
+  leaves              Leave[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
 
   @@unique([teamId, accountId])
   @@index([accountId])
+  @@index([nik])
 }
 
-// Available days per sprint for each title/level
+// ============================================================
+// CAPACITY ALLOCATION — per engineer/team/sprint
+// ============================================================
+
+model CapacityAllocation {
+  id              String     @id @default(cuid())
+  type            String     @default("SPRINT") // "SPRINT" or "BAU"
+  teamMemberId    String
+  teamMember      TeamMember @relation(fields: [teamMemberId], references: [id], onDelete: Cascade)
+  teamId          String
+  team            Team       @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  sprintId        Int?       // Jira sprint ID (null for BAU allocations)
+  startDate       DateTime
+  endDate         DateTime
+  capacityPercent Int        @default(100) // 0–100
+  notes           String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  @@index([teamMemberId])
+  @@index([teamId])
+  @@index([sprintId])
+  @@index([startDate, endDate])
+}
+
+// ============================================================
+// NON-DEVELOPMENT DAY — days excluded from capacity in a sprint
+// ============================================================
+
+model NonDevDay {
+  id        String   @id @default(cuid())
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  sprintId  Int      // Jira sprint ID
+  date      DateTime @db.Date
+  reason    String?  // e.g., "Hackathon", "Demo Day", "Training"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([teamId, sprintId, date])
+  @@index([teamId, sprintId])
+}
+
+// ============================================================
+// HOLIDAY — stored in DB, replaces external API dependency
+// ============================================================
+
+model Holiday {
+  id        String   @id @default(cuid())
+  date      DateTime @db.Date
+  name      String
+  year      Int
+  isActive  Boolean  @default(true) // Inactive holidays are not excluded from working days
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([date])
+  @@index([year])
+  @@index([isActive, year])
+}
+
+// ============================================================
+// DATA SOURCE — Jira board/JQL sync configuration per team
+// ============================================================
+
+model DataSource {
+  id              String    @id @default(cuid())
+  name            String    // Descriptive label, e.g., "Credit Card Platform"
+  boardId         Int       // Jira Agile Board ID
+  jqlQuery        String?   @db.Text // JQL filter for issues
+  isActive        Boolean   @default(true)
+  fetchWorklogs   Boolean   @default(true)
+  teamId          String
+  team            Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  lastSyncAt      DateTime?
+  lastSyncMessage String?
+  lastSyncStatus  String    @default("NEVER") // "NEVER", "HEALTHY", "ERROR", "SYNCING"
+  issueCount      Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([teamId])
+  @@index([boardId])
+}
+
+// ============================================================
+// JIRA CONNECTION — singleton config (env var replacement)
+// ============================================================
+
+model JiraConnection {
+  id             String    @id @default(cuid())
+  baseUrl        String    // e.g., https://your-domain.atlassian.net
+  email          String    // Jira account email
+  apiToken       String    // Encrypted API token
+  autoSyncEnabled Boolean  @default(false)
+  syncSchedule   String    @default("15min") // "15min" or "daily"
+  lastTestedAt   DateTime?
+  connectionStatus String  @default("NOT_CONFIGURED") // "NOT_CONFIGURED", "SAVED", "OK", "ERROR"
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+// ============================================================
+// WORK TYPE LABEL — Jira label → category mapping
+// ============================================================
+
+model WorkTypeLabel {
+  id          String   @id @default(cuid())
+  labelName   String   @unique // Exact Jira label text
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ============================================================
+// LEAVE — date-range leave with type (replaces SprintLeave)
+// ============================================================
+
+model Leave {
+  id           String     @id @default(cuid())
+  teamMemberId String
+  teamMember   TeamMember @relation(fields: [teamMemberId], references: [id], onDelete: Cascade)
+  startDate    DateTime   @db.Date
+  endDate      DateTime   @db.Date
+  type         String     @default("annual") // "annual", "sick", "personal"
+  notes        String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([teamMemberId])
+  @@index([startDate, endDate])
+}
+
+// ============================================================
+// REFERENCE DATA
+// ============================================================
+
 model TitleAvailableDays {
   id            String   @id @default(cuid())
   title         String   @unique
@@ -120,10 +322,9 @@ model TitleAvailableDays {
   updatedAt     DateTime @updatedAt
 }
 
-// Cached AI-generated summaries to save tokens
 model AiSummaryCache {
   id        String   @id @default(cuid())
-  type      String   // "sprint" or "metrics-sprint" or "metrics-board"
+  type      String
   sprintId  Int      @default(0)
   boardId   Int      @default(0)
   summary   String   @db.Text
