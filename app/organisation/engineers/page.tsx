@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -39,6 +39,31 @@ interface FilterOption {
   name: string;
 }
 
+interface OrgTeam {
+  id: string;
+  name: string;
+}
+
+interface OrgDepartment {
+  id: string;
+  name: string;
+  teams: OrgTeam[];
+}
+
+interface OrgDivision {
+  id: string;
+  name: string;
+  children?: OrgDepartment[];
+  departments?: OrgDepartment[];
+}
+
+interface OrgGroup {
+  id: string;
+  name: string;
+  children?: OrgDivision[];
+  divisions?: OrgDivision[];
+}
+
 interface Pagination {
   page: number;
   pageSize: number;
@@ -65,15 +90,13 @@ export default function EngineersPage() {
   const [filterRole, setFilterRole] = useState('');
 
   // Filter options (loaded from hierarchy)
-  const [groups, setGroups] = useState<FilterOption[]>([]);
-  const [divisions, setDivisions] = useState<FilterOption[]>([]);
-  const [departments, setDepartments] = useState<FilterOption[]>([]);
-  const [teams, setTeams] = useState<FilterOption[]>([]);
+  const [orgStructure, setOrgStructure] = useState<OrgGroup[]>([]);
+  const [allSquads, setAllSquads] = useState<FilterOption[]>([]);
 
   // Add engineer form
   const [showAdd, setShowAdd] = useState(false);
   const [formData, setFormData] = useState({
-    name: '', email: '', nik: '', gender: '', role: 'engineer', title: 'Associate', teamId: '', accountId: '',
+    name: '', email: '', nik: '', gender: '', role: 'engineer', title: 'Associate', teamId: '', accountId: '', excludeFromUtilization: false,
   });
   const [saving, setSaving] = useState(false);
 
@@ -83,36 +106,93 @@ export default function EngineersPage() {
     return () => clearTimeout(t);
   }, [search]);
 
-  // Fetch filter options from org structure
+  // Fetch filter options from org structure + all squads
   useEffect(() => {
+    // Hierarchy filters (groups, divisions, departments)
     fetch('/api/organisation/structure')
       .then(r => r.json())
       .then(data => {
         if (data.success && data.data) {
-          const g: FilterOption[] = [];
-          const d: FilterOption[] = [];
-          const dept: FilterOption[] = [];
-          const t: FilterOption[] = [];
-          for (const group of data.data) {
-            g.push({ id: group.id, name: group.name });
-            for (const div of group.children || []) {
-              d.push({ id: div.id, name: div.name });
-              for (const dep of div.children || []) {
-                dept.push({ id: dep.id, name: dep.name });
-                for (const team of dep.children || []) {
-                  t.push({ id: team.id, name: team.name });
-                }
-              }
-            }
-          }
-          setGroups(g);
-          setDivisions(d);
-          setDepartments(dept);
-          setTeams(t);
+          setOrgStructure(data.data);
+        }
+      })
+      .catch(() => {});
+
+    // All squads (including Jira-synced ones not yet in hierarchy)
+    fetch('/api/organisation/squads?activeOnly=false')
+      .then(r => r.json())
+      .then(data => {
+        if (data.success && data.data) {
+          setAllSquads(data.data.map((s: { id: string; name: string }) => ({ id: s.id, name: s.name })));
         }
       })
       .catch(() => {});
   }, []);
+
+  // Derive cascading filter options from org structure
+  const groups: FilterOption[] = useMemo(
+    () => orgStructure.map(g => ({ id: g.id, name: g.name })),
+    [orgStructure]
+  );
+
+  const divisions: FilterOption[] = useMemo(() => {
+    const source = filterGroupId
+      ? orgStructure.filter(g => g.id === filterGroupId)
+      : orgStructure;
+    const result: FilterOption[] = [];
+    for (const g of source) {
+      for (const d of g.children || g.divisions || []) {
+        result.push({ id: d.id, name: d.name });
+      }
+    }
+    return result;
+  }, [orgStructure, filterGroupId]);
+
+  const departments: FilterOption[] = useMemo(() => {
+    const groupSource = filterGroupId
+      ? orgStructure.filter(g => g.id === filterGroupId)
+      : orgStructure;
+    const result: FilterOption[] = [];
+    for (const g of groupSource) {
+      const divs = filterDivId
+        ? (g.children || g.divisions || []).filter(d => d.id === filterDivId)
+        : (g.children || g.divisions || []);
+      for (const d of divs) {
+        for (const dep of d.children || d.departments || []) {
+          result.push({ id: dep.id, name: dep.name });
+        }
+      }
+    }
+    return result;
+  }, [orgStructure, filterGroupId, filterDivId]);
+
+  const teams: FilterOption[] = useMemo(() => {
+    // If no hierarchy filters, show all squads (includes Jira-synced ones not in hierarchy)
+    if (!filterGroupId && !filterDivId && !filterDeptId) {
+      return allSquads;
+    }
+    // Otherwise derive from filtered hierarchy
+    const groupSource = filterGroupId
+      ? orgStructure.filter(g => g.id === filterGroupId)
+      : orgStructure;
+    const result: FilterOption[] = [];
+    for (const g of groupSource) {
+      const divs = filterDivId
+        ? (g.children || g.divisions || []).filter(d => d.id === filterDivId)
+        : (g.children || g.divisions || []);
+      for (const d of divs) {
+        const deps = filterDeptId
+          ? (d.children || d.departments || []).filter(dep => dep.id === filterDeptId)
+          : (d.children || d.departments || []);
+        for (const dep of deps) {
+          for (const t of dep.teams || []) {
+            result.push({ id: t.id, name: t.name });
+          }
+        }
+      }
+    }
+    return result;
+  }, [orgStructure, allSquads, filterGroupId, filterDivId, filterDeptId]);
 
   const fetchEngineers = useCallback(async (page = 1) => {
     try {
@@ -160,7 +240,7 @@ export default function EngineersPage() {
       });
       const result = await res.json();
       if (!result.success) throw new Error(result.error);
-      setFormData({ name: '', email: '', nik: '', gender: '', role: 'engineer', title: 'Associate', teamId: '', accountId: '' });
+      setFormData({ name: '', email: '', nik: '', gender: '', role: 'engineer', title: 'Associate', teamId: '', accountId: '', excludeFromUtilization: false });
       setShowAdd(false);
       showSuccessMsg('Engineer added');
       fetchEngineers(pagination.page);
@@ -195,6 +275,29 @@ export default function EngineersPage() {
 
   const hasFilters = search || filterGroupId || filterDivId || filterDeptId || filterTeamId || filterRole;
 
+  const exportCSV = () => {
+    const headers = ['Name', 'Email', 'NIK', 'Squad', 'Department', 'Division', 'Group', 'Role', 'Title'];
+    const rows = engineers.map(eng => [
+      eng.name,
+      eng.email,
+      eng.nik || '',
+      eng.team?.name || '',
+      eng.team?.department?.name || '',
+      eng.team?.department?.division?.name || '',
+      eng.team?.department?.division?.group?.name || '',
+      eng.role,
+      eng.title,
+    ]);
+    const csv = [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `engineers-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const titleOptions = ['Tech Lead', 'EM', 'Sec Head', 'Associate', 'QA'];
 
   return (
@@ -216,12 +319,21 @@ export default function EngineersPage() {
                 </p>
               </div>
             </div>
-            <button
-              onClick={() => setShowAdd(true)}
-              className="px-4 py-2 text-sm bg-foreground text-background rounded-lg hover:bg-foreground/90 transition-all"
-            >
-              + Add Engineer
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={exportCSV}
+                disabled={engineers.length === 0}
+                className="px-4 py-2 text-sm border border-border text-foreground rounded-lg hover:bg-muted disabled:opacity-50 transition-all"
+              >
+                Export CSV
+              </button>
+              <button
+                onClick={() => setShowAdd(true)}
+                className="px-4 py-2 text-sm bg-foreground text-background rounded-lg hover:bg-foreground/90 transition-all"
+              >
+                + Add Engineer
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -372,12 +484,12 @@ export default function EngineersPage() {
                 className="px-4 py-3 bg-muted border border-border rounded-xl text-foreground focus:outline-none focus:border-blue-500/50"
               >
                 <option value="">Select Squad *</option>
-                {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                {allSquads.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
               <label className="flex items-center gap-2 px-4 py-3 bg-muted border border-border rounded-xl cursor-pointer hover:bg-muted/80 transition-colors">
                 <input
                   type="checkbox"
-                  checked={!!(formData as Record<string, unknown>).excludeFromUtilization}
+                  checked={!!formData.excludeFromUtilization}
                   onChange={(e) => setFormData(p => ({ ...p, excludeFromUtilization: e.target.checked }))}
                   className="w-4 h-4 rounded border-border accent-red-500"
                 />

@@ -20,16 +20,12 @@ async function getWorklogData(
   sprintId: number,
   boardId: number,
   teamMembers: Array<{ accountId: string; name: string; role: string; title: string }>,
+  existingSprint: { startDate: string; endDate: string },
+  existingIssues: Array<{ fields: Record<string, unknown> }>,
 ): Promise<WorklogReportData | null> {
   try {
-    const client = createJiraClient();
-    const [sprint, issues] = await Promise.all([
-      client.getSprint(sprintId),
-      client.getSprintIssues(sprintId, boardId),
-    ]);
-
-    if (!sprint.startDate || !sprint.endDate) return null;
-    const dates = generateDateRange(sprint.startDate, sprint.endDate);
+    if (!existingSprint.startDate || !existingSprint.endDate) return null;
+    const dates = generateDateRange(existingSprint.startDate, existingSprint.endDate);
 
     const memberWorklogsMap = new Map<string, MemberWorklog>();
     const memberDailyLogIndex = new Map<string, Map<string, DailyWorklog>>();
@@ -49,7 +45,7 @@ async function getWorklogData(
       });
     }
 
-    for (const issue of issues) {
+    for (const issue of existingIssues as Array<{ fields: { assignee?: { accountId: string; avatarUrls?: Record<string, string> }; worklog?: { worklogs?: Array<{ author: { accountId: string }; started: string; timeSpentSeconds: number }> } } }>) {
       if (issue.fields.assignee && memberWorklogsMap.has(issue.fields.assignee.accountId)) {
         const m = memberWorklogsMap.get(issue.fields.assignee.accountId)!;
         if (!m.avatarUrl && issue.fields.assignee.avatarUrls?.['48x48']) {
@@ -132,7 +128,7 @@ export async function GET(request: NextRequest) {
     const teamMemberIds = new Set(teamMembers.map(m => m.accountId));
     const [capacity, worklogData] = await Promise.all([
       teamId ? calculateSprintCapacity(sprint, teamId) : Promise.resolve(null),
-      getWorklogData(sprintId, boardId, teamMembers),
+      getWorklogData(sprintId, boardId, teamMembers, sprint, issues),
     ]);
 
     // Velocity

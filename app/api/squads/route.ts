@@ -110,7 +110,9 @@ export async function GET() {
 
         const squads = await Promise.all(squadPromises);
 
-        return apiSuccess(squads);
+        return apiSuccess(squads, {
+            headers: { 'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300' },
+        });
     } catch (error) {
         console.error('Error fetching squads:', error);
         return apiError(error instanceof Error ? error.message : 'Failed to fetch squads', 500);

@@ -14,10 +14,9 @@ async function getWorklogDataForSprint(
   sprint: Sprint,
   boardId: number,
   teamMembers: Array<{ accountId: string; name: string; role: string; title: string }>,
+  existingIssues: Array<{ fields: Record<string, unknown> }>,
 ): Promise<WorklogReportData | null> {
   try {
-    const client = createJiraClient();
-    const issues = await client.getSprintIssues(sprint.id, boardId);
     if (!sprint.startDate || !sprint.endDate) return null;
     const dates = generateDateRange(sprint.startDate, sprint.endDate);
     const map = new Map<string, MemberWorklog>();
@@ -33,7 +32,7 @@ async function getWorklogDataForSprint(
         dailyLogs, totalHours: 0,
       });
     }
-    for (const issue of issues) {
+    for (const issue of existingIssues as Array<{ fields: { worklog?: { worklogs?: Array<{ author: { accountId: string }; started: string; timeSpentSeconds: number }> } } }>) {
       const wl = issue.fields.worklog;
       if (!wl?.worklogs?.length) continue;
       for (const log of wl.worklogs) {
@@ -96,7 +95,7 @@ export async function GET(request: NextRequest) {
 
           const [capacity, worklogData] = await Promise.all([
             teamId ? calculateSprintCapacity(sprint, teamId) : Promise.resolve(null),
-            getWorklogDataForSprint(sprint, boardId, teamMembers),
+            getWorklogDataForSprint(sprint, boardId, teamMembers, issues),
           ]);
 
           const kpis = calculateSprintKPIs(sprint, issues, capacity, worklogData, velocity);
@@ -132,7 +131,9 @@ export async function GET(request: NextRequest) {
       history.push(...chunkResults.filter(Boolean));
     }
 
-    return apiSuccess({ history });
+    return apiSuccess({ history }, {
+      headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
+    });
   } catch (error) {
     console.error('Error in sprint history API:', error);
     return apiError(error instanceof Error ? error.message : 'Failed to fetch sprint history', 500);

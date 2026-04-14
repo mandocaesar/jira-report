@@ -39,6 +39,11 @@ interface AllocationRecord {
   team: { id: string; name: string };
 }
 
+interface SquadOption {
+  id: string;
+  name: string;
+}
+
 interface EngineerDetail {
   id: string;
   accountId: string;
@@ -96,9 +101,10 @@ export default function EngineerDetailPage() {
 
   // Editing state
   const [editing, setEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ name: '', email: '', nik: '', gender: '', role: '', title: '', workingHoursPerDay: '', excludeFromUtilization: false });
+  const [editForm, setEditForm] = useState({ name: '', email: '', nik: '', gender: '', role: '', title: '', workingHoursPerDay: '', excludeFromUtilization: false, teamId: '' });
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
+  const [squads, setSquads] = useState<SquadOption[]>([]);
 
   const fetchEngineer = useCallback(async () => {
     try {
@@ -116,6 +122,18 @@ export default function EngineerDetailPage() {
 
   useEffect(() => { fetchEngineer(); }, [fetchEngineer]);
 
+  // Fetch squads for the dropdown
+  useEffect(() => {
+    fetch('/api/organisation/squads?activeOnly=false')
+      .then(r => r.json())
+      .then(data => {
+        if (data.success && data.data) {
+          setSquads(data.data.map((s: { id: string; name: string }) => ({ id: s.id, name: s.name })));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const startEdit = () => {
     if (!engineer) return;
     setEditForm({
@@ -127,6 +145,7 @@ export default function EngineerDetailPage() {
       title: engineer.title,
       workingHoursPerDay: engineer.workingHoursPerDay != null ? String(engineer.workingHoursPerDay) : '',
       excludeFromUtilization: engineer.excludeFromUtilization || false,
+      teamId: engineer.teamId || '',
     });
     setEditing(true);
   };
@@ -286,6 +305,17 @@ export default function EngineerDetailPage() {
                     className="w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-foreground focus:outline-none focus:border-blue-500/50"
                   >
                     {titleOptions.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1">Squad</label>
+                  <select
+                    value={editForm.teamId}
+                    onChange={(e) => setEditForm(p => ({ ...p, teamId: e.target.value }))}
+                    className="w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-foreground focus:outline-none focus:border-blue-500/50"
+                  >
+                    <option value="">Select Squad</option>
+                    {squads.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                 </div>
                 <div>
