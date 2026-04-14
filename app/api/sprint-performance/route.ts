@@ -8,7 +8,6 @@ import {
   calculateSprintKPIs,
   calculateEngineerMetrics,
 } from '@/lib/sprint-performance-metrics';
-import { calculateSprintReport } from '@/lib/sprint-report-calculator';
 import { WorklogReportData, MemberWorklog, DailyWorklog } from '@/types';
 import { generateDateRange } from '@/lib/date-utils';
 
@@ -129,12 +128,11 @@ export async function GET(request: NextRequest) {
       jiraClient.getSprintIssuesWithChangelog(sprintId, boardId),
     ]);
 
-    // Run capacity pipeline + velocity + worklogs in parallel
+    // Run capacity pipeline + worklogs in parallel
     const teamMemberIds = new Set(teamMembers.map(m => m.accountId));
-    const [capacity, worklogData, sprintReport] = await Promise.all([
+    const [capacity, worklogData] = await Promise.all([
       teamId ? calculateSprintCapacity(sprint, teamId) : Promise.resolve(null),
       getWorklogData(sprintId, boardId, teamMembers),
-      calculateSprintReport(sprint, issues, boardId),
     ]);
 
     // Velocity
@@ -194,8 +192,6 @@ export async function GET(request: NextRequest) {
           teamStandardHours: capacity.teamStandardHours,
         } : null,
         engineerMetrics,
-        report: sprintReport,
-        worklogData,
         nonDevDays,
         allocations,
         jiraDomain: process.env.JIRA_DOMAIN || '',

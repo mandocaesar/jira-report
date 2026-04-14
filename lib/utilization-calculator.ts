@@ -420,6 +420,31 @@ export async function calculateSprintUtilization(
 }
 
 /**
+ * Compute aggregated stats for a given role from userUtilizations.
+ * Use this instead of pre-materialized qaStats/engineerStats.
+ */
+export function computeRoleStats(userUtilizations: UserUtilization[], role: 'qa' | 'engineer') {
+    const members = userUtilizations.filter(u => u.role === role);
+    const workTypeStats: Record<string, number> = {};
+    let mandays = 0, storyPoints = 0, leaveDays = 0, totalHours = 0, effectiveMandays = 0;
+
+    for (const m of members) {
+        mandays += m.availableDays;
+        storyPoints += m.storyPoints;
+        leaveDays += m.leaveDays;
+        totalHours += m.availableHours;
+        effectiveMandays += m.effectiveMandays;
+        if (m.workTypeStats) {
+            for (const [type, pts] of Object.entries(m.workTypeStats)) {
+                workTypeStats[type] = (workTypeStats[type] || 0) + pts;
+            }
+        }
+    }
+
+    return { count: members.length, mandays, storyPoints, leaveDays, workTypeStats, totalHours, effectiveMandays };
+}
+
+/**
  * Calculate total mandays for a sprint
  * This is the sum of all working days available to all team members
  */

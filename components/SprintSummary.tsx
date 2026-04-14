@@ -4,6 +4,7 @@ import { SprintSummary, SprintReportData } from '@/types';
 import { WORK_TYPE_COLORS, StatusColorSet } from '@/lib/ui-colors';
 import { useAiSummary } from '@/hooks/useAiSummary';
 import { downloadSprintCSV } from '@/lib/csv-export';
+import { computeRoleStats } from '@/lib/utilization-calculator';
 import RoleBreakdownCard from '@/components/sprint/RoleBreakdownCard';
 
 interface SprintSummaryProps {
@@ -23,8 +24,10 @@ export default function SprintSummaryComponent({ summary, reportData, onAiSummar
 
     const handleDownloadCSV = () => downloadSprintCSV(userUtilizations, epicBreakdowns, sprint.name);
 
-    const totalMandays = (summary.engineerStats?.mandays || 0) + (summary.qaStats?.mandays || 0);
-    const totalLeaveDays = (summary.engineerStats?.leaveDays || 0) + (summary.qaStats?.leaveDays || 0);
+    const engineerStats = summary.engineerStats ?? computeRoleStats(userUtilizations, 'engineer');
+    const qaStats = summary.qaStats ?? computeRoleStats(userUtilizations, 'qa');
+    const totalMandays = engineerStats.mandays + qaStats.mandays;
+    const totalLeaveDays = engineerStats.leaveDays + qaStats.leaveDays;
     const totalEffectiveMandays = summary.totalEffectiveMandays ?? totalMandays;
     const hasHoursVariation = totalEffectiveMandays !== totalMandays;
 
@@ -303,8 +306,8 @@ export default function SprintSummaryComponent({ summary, reportData, onAiSummar
 
             {/* Row 3: QA vs Engineer Breakdown */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5 px-2 pb-2">
-                <RoleBreakdownCard roleName="Engineers" stats={summary.engineerStats} accentColor="blue" />
-                <RoleBreakdownCard roleName="QA" stats={summary.qaStats} accentColor="indigo" />
+                <RoleBreakdownCard roleName="Engineers" stats={engineerStats} accentColor="blue" />
+                <RoleBreakdownCard roleName="QA" stats={qaStats} accentColor="indigo" />
             </div>
 
 

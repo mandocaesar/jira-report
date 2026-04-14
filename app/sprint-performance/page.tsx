@@ -78,8 +78,6 @@ interface SprintPerfResponse {
   velocity: VelocityData;
   capacity: CapacityData | null;
   engineerMetrics: EngineerMetric[];
-  report: any;
-  worklogData: any;
   nonDevDays: NonDevDay[];
   allocations: Allocation[];
   jiraDomain: string;
@@ -319,7 +317,7 @@ function ReportTab({ data, loading, error, selectedBoardId, selectedSprintId }: 
 
   if (!data) return null;
 
-  const { kpis, velocity, capacity, engineerMetrics, sprint, nonDevDays, allocations, report, jiraDomain } = data;
+  const { kpis, velocity, capacity, engineerMetrics, sprint, nonDevDays, allocations } = data;
 
   return (
     <div className="space-y-6">

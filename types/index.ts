@@ -206,8 +206,8 @@ export interface SprintSummary {
   totalWorkingDays: number;
   averageUtilization: number;
   userUtilizations: UserUtilization[];
-  // QA vs Engineer breakdown
-  qaStats: {
+  // QA vs Engineer breakdown (optional — compute on-demand via computeRoleStats)
+  qaStats?: {
     count: number;
     mandays: number;
     storyPoints: number;
@@ -216,7 +216,7 @@ export interface SprintSummary {
     totalHours: number;
     effectiveMandays: number;
   };
-  engineerStats: {
+  engineerStats?: {
     count: number;
     mandays: number;
     storyPoints: number;
