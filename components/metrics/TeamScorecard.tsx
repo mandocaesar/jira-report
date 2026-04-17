@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { SquadOverview } from '@/types';
+import { useFetch } from '@/hooks/useFetch';
 
 type RankingMetric = 'velocity' | 'accuracy' | 'completion' | 'composite';
 
@@ -53,27 +54,11 @@ function trendIcon(trend: 'up' | 'down' | 'stable') {
 }
 
 export default function TeamScorecard() {
-    const [squads, setSquads] = useState<SquadOverview[]>([]);
-    const [loading, setLoading] = useState(true);
+    const { data: squads, loading } = useFetch<SquadOverview[]>('/api/squads', { ttl: 5 * 60_000 });
     const [rankBy, setRankBy] = useState<RankingMetric>('composite');
 
-    useEffect(() => {
-        async function fetchSquads() {
-            try {
-                const res = await fetch('/api/squads');
-                const json = await res.json();
-                if (json.success) setSquads(json.data);
-            } catch {
-                // Silently fail — squad grid below will show the error
-            } finally {
-                setLoading(false);
-            }
-        }
-        fetchSquads();
-    }, []);
-
     const scorecardData = useMemo((): ScorecardSquad[] => {
-        if (squads.length === 0) return [];
+        if (!squads || squads.length === 0) return [];
 
         const mapped = squads.map(s => ({
             id: s.id,

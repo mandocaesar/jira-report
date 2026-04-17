@@ -2,6 +2,7 @@ import { createJiraClient } from '@/lib/jira-client';
 import { calculateSprintUtilization } from '@/lib/utilization-calculator';
 import { calculateSprintReport } from '@/lib/sprint-report-calculator';
 import { apiSuccess, apiError } from '@/lib/api-helpers';
+import { apiCache } from '@/lib/cache';
 
 export async function GET(
     request: Request,
@@ -18,6 +19,13 @@ export async function GET(
         // Get optional boardId for team filtering
         const { searchParams } = new URL(request.url);
         const boardId = searchParams.get('boardId');
+        const refresh = searchParams.get('refresh') === 'true';
+
+        // Bust server-side cache when user explicitly refreshes
+        if (refresh) {
+            apiCache.invalidatePrefix(`sprintIssues:${sprintId}:`);
+            apiCache.delete(`sprints:${boardId}`);
+        }
 
         const jiraClient = createJiraClient();
 

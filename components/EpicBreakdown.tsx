@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { getStatusColors, getCompletionBarColor, getCompletionTextColor } from '@/lib/ui-colors';
+import { useFetch } from '@/hooks/useFetch';
 
 interface EpicIssue {
     key: string;
@@ -37,34 +38,12 @@ interface EpicBreakdownProps {
 }
 
 export function EpicBreakdownComponent({ boardId, sprintId, jiraDomain = 'bank-sinarmas.atlassian.net' }: EpicBreakdownProps) {
-    const [epicBreakdowns, setEpicBreakdowns] = useState<EpicBreakdown[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const epicUrl = boardId && sprintId ? `/api/epic-breakdown?boardId=${boardId}&sprintId=${sprintId}` : null;
+    const { data: epicBreakdowns, loading, error } = useFetch<EpicBreakdown[]>(epicUrl, { ttl: 2 * 60_000 });
     const [expandedEpics, setExpandedEpics] = useState<Set<string>>(new Set());
     const [expandedStories, setExpandedStories] = useState<Set<string>>(new Set());
 
-    useEffect(() => {
-        async function fetchData() {
-            setLoading(true);
-            setError(null);
-            try {
-                const response = await fetch(`/api/epic-breakdown?boardId=${boardId}&sprintId=${sprintId}`);
-                if (!response.ok) {
-                    throw new Error('Failed to fetch epic breakdown');
-                }
-                const data = await response.json();
-                setEpicBreakdowns(data.data || []);
-            } catch (err) {
-                setError(err instanceof Error ? err.message : 'Unknown error');
-            } finally {
-                setLoading(false);
-            }
-        }
-
-        if (boardId && sprintId) {
-            fetchData();
-        }
-    }, [boardId, sprintId]);
+    const epicList = epicBreakdowns || [];
 
     const toggleEpic = (epicKey: string) => {
         setExpandedEpics(prev => {
@@ -111,7 +90,7 @@ export function EpicBreakdownComponent({ boardId, sprintId, jiraDomain = 'bank-s
         );
     }
 
-    if (epicBreakdowns.length === 0) {
+    if (epicList.length === 0) {
         return null;
     }
 
@@ -128,7 +107,7 @@ export function EpicBreakdownComponent({ boardId, sprintId, jiraDomain = 'bank-s
             </div>
 
             <div className="space-y-4">
-                {epicBreakdowns.map((epic) => {
+                {epicList.map((epic) => {
                     const isExpanded = expandedEpics.has(epic.epicKey);
                     // Filter out epics with zero points to minimize noise
                     if (epic.totalPoints === 0) return null;

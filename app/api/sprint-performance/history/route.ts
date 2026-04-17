@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
 import { apiSuccess, apiError } from '@/lib/api-helpers';
 import { createJiraClient } from '@/lib/jira-client';
-import { calculateSprintCapacity } from '@/lib/capacity-pipeline';
+import { calculateSprintCapacity, calculateSprintCapacityBatch } from '@/lib/capacity-pipeline';
 import { computeVelocity, calculateSprintKPIs } from '@/lib/sprint-performance-metrics';
 import { WorklogReportData, MemberWorklog, DailyWorklog, Sprint } from '@/types';
 import { generateDateRange } from '@/lib/date-utils';
@@ -63,8 +63,9 @@ export async function GET(request: NextRequest) {
 
     let teamId: string | null = null;
     let teamMembers: Array<{ accountId: string; name: string; role: string; title: string }> = [];
+    let team: Awaited<ReturnType<typeof prisma.team.findUnique>> = null;
     if (prisma) {
-      const team = await prisma.team.findUnique({
+      team = await prisma.team.findUnique({
         where: { boardId },
         include: { members: true },
       });
@@ -83,6 +84,11 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
       .slice(0, maxSprints);
 
+    // Pre-compute capacity for all sprints in one batch (avoids N+1 DB queries)
+    const capacityMap = teamId
+      ? await calculateSprintCapacityBatch(closedSprints, teamId)
+      : new Map<number, null>();
+
     // Process sprints in parallel (chunked to avoid API rate limits)
     const chunkSize = 3;
     const history = [];
@@ -92,11 +98,9 @@ export async function GET(request: NextRequest) {
         try {
           const issues = await jiraClient.getSprintIssuesWithChangelog(sprint.id, boardId);
           const velocity = computeVelocity(sprint, issues);
+          const capacity = capacityMap.get(sprint.id) ?? null;
 
-          const [capacity, worklogData] = await Promise.all([
-            teamId ? calculateSprintCapacity(sprint, teamId) : Promise.resolve(null),
-            getWorklogDataForSprint(sprint, boardId, teamMembers, issues),
-          ]);
+          const worklogData = await getWorklogDataForSprint(sprint, boardId, teamMembers, issues);
 
           const kpis = calculateSprintKPIs(sprint, issues, capacity, worklogData, velocity);
           const completedIssues = issues.filter(i => i.fields.status?.statusCategory?.name === 'Done').length;

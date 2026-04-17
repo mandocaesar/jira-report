@@ -20,7 +20,19 @@ interface CachedEntry {
 
 const inflightRequests = new Map<string, Promise<unknown>>();
 const responseCache = new Map<string, CachedEntry>();
-const CACHE_TTL = 5_000; // 5 seconds
+const DEFAULT_CACHE_TTL = 60_000; // 60 seconds
+const MAX_CACHE_ENTRIES = 50;
+
+/** Invalidate cached entries matching a URL prefix. */
+export function invalidateClientCache(prefix?: string) {
+  if (!prefix) {
+    responseCache.clear();
+    return;
+  }
+  for (const key of responseCache.keys()) {
+    if (key.startsWith(prefix)) responseCache.delete(key);
+  }
+}
 
 function getCached<T>(url: string): T | undefined {
   const entry = responseCache.get(url);
@@ -32,7 +44,7 @@ function getCached<T>(url: string): T | undefined {
   return entry.data as T;
 }
 
-async function deduplicatedFetch<T>(url: string, signal: AbortSignal): Promise<T> {
+async function deduplicatedFetch<T>(url: string, signal: AbortSignal, ttl: number = DEFAULT_CACHE_TTL): Promise<T> {
   // Check short-lived cache first
   const cached = getCached<T>(url);
   if (cached !== undefined) return cached;
@@ -45,12 +57,20 @@ async function deduplicatedFetch<T>(url: string, signal: AbortSignal): Promise<T
   const promise = (async () => {
     try {
       const response = await fetch(url, { signal });
+      if (!response.ok) {
+        throw new Error(`Request failed with status ${response.status}`);
+      }
       const json = await response.json();
       if (!json.success) {
-        throw new Error(json.error || `Request failed with status ${response.status}`);
+        throw new Error(json.error || 'Request failed');
       }
-      // Cache the result briefly
-      responseCache.set(url, { data: json.data, expiresAt: Date.now() + CACHE_TTL });
+      // Evict oldest entries if cache is full
+      if (responseCache.size >= MAX_CACHE_ENTRIES) {
+        const firstKey = responseCache.keys().next().value;
+        if (firstKey) responseCache.delete(firstKey);
+      }
+      // Cache the result
+      responseCache.set(url, { data: json.data, expiresAt: Date.now() + ttl });
       return json.data as T;
     } finally {
       inflightRequests.delete(url);
@@ -69,10 +89,20 @@ async function deduplicatedFetch<T>(url: string, signal: AbortSignal): Promise<T
  *
  * Expects JSON responses in `{ success: boolean, data?: T, error?: string }` format.
  */
+interface UseFetchOptions {
+  /** Cache TTL in milliseconds. Default 60s. */
+  ttl?: number;
+  /** Extra dependencies that trigger re-fetch. */
+  deps?: unknown[];
+}
+
 export function useFetch<T>(
   url: string | null | undefined,
-  deps: unknown[] = [],
+  depsOrOptions: unknown[] | UseFetchOptions = [],
 ): UseFetchResult<T> {
+  const { ttl, deps } = Array.isArray(depsOrOptions)
+    ? { ttl: DEFAULT_CACHE_TTL, deps: depsOrOptions }
+    : { ttl: depsOrOptions.ttl ?? DEFAULT_CACHE_TTL, deps: depsOrOptions.deps ?? [] };
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -95,7 +125,7 @@ export function useFetch<T>(
     setError(null);
 
     try {
-      const result = await deduplicatedFetch<T>(url, controller.signal);
+      const result = await deduplicatedFetch<T>(url, controller.signal, ttl);
       setData(result);
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return;

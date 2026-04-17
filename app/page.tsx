@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import BoardSelector from '@/components/BoardSelector';
 import SprintSelector from '@/components/SprintSelector';
 import UserUtilizationCard from '@/components/UserUtilizationCard';
@@ -25,6 +25,7 @@ export default function Home() {
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfAiSummary, setPdfAiSummary] = useState<string | null>(null);
   const [selectedEngineer, setSelectedEngineer] = useState<UserUtilization | null>(null);
+  const handleSelectEngineer = useCallback((u: UserUtilization) => setSelectedEngineer(u), []);
 
   const handleExportPDF = async () => {
     if (!selectedSprintId) return;
@@ -90,7 +91,7 @@ export default function Home() {
     setPdfAiSummary(null);
   };
 
-  const handleSprintChange = async (sprintId: number | null) => {
+  const handleSprintChange = async (sprintId: number | null, options?: { refresh?: boolean }) => {
     setSelectedSprintId(sprintId);
 
     if (!sprintId) {
@@ -105,9 +106,11 @@ export default function Home() {
       setError(null);
 
       // Include boardId for team filtering
-      const url = selectedBoardId
-        ? `/api/sprint/${sprintId}?boardId=${selectedBoardId}`
-        : `/api/sprint/${sprintId}`;
+      const params = new URLSearchParams();
+      if (selectedBoardId) params.set('boardId', String(selectedBoardId));
+      if (options?.refresh) params.set('refresh', 'true');
+      const qs = params.toString();
+      const url = `/api/sprint/${sprintId}${qs ? `?${qs}` : ''}`;
 
       const response = await fetch(url);
       const data = await response.json();
@@ -130,7 +133,7 @@ export default function Home() {
 
   const handleRefresh = () => {
     if (selectedSprintId) {
-      handleSprintChange(selectedSprintId);
+      handleSprintChange(selectedSprintId, { refresh: true });
     }
   };
 
@@ -311,7 +314,7 @@ export default function Home() {
                         <UserUtilizationCard
                           key={utilization.user.accountId}
                           utilization={utilization}
-                          onClick={() => setSelectedEngineer(utilization)}
+                          onSelect={handleSelectEngineer}
                         />
                       ))}
                   </div>
@@ -343,7 +346,7 @@ export default function Home() {
                         <UserUtilizationCard
                           key={utilization.user.accountId}
                           utilization={utilization}
-                          onClick={() => setSelectedEngineer(utilization)}
+                          onSelect={handleSelectEngineer}
                         />
                       ))}
                   </div>

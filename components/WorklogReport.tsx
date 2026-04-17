@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { WorklogReportData } from '@/types';
 import { getHeatmapColor } from '@/lib/ui-colors';
+import { useFetch } from '@/hooks/useFetch';
 
 interface WorklogReportProps {
     boardId: number;
@@ -17,36 +17,8 @@ function formatDay(dateStr: string) {
 }
 
 export default function WorklogReport({ boardId, sprintId }: WorklogReportProps) {
-    const [data, setData] = useState<WorklogReportData | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-
-    useEffect(() => {
-        async function fetchWorklogs() {
-            setLoading(true);
-            setError(null);
-            try {
-                const response = await fetch(`/api/worklogs?boardId=${boardId}&sprintId=${sprintId}`);
-                if (!response.ok) {
-                    throw new Error('Failed to fetch worklog data');
-                }
-                const result = await response.json();
-                if (result.success) {
-                    setData(result.data);
-                } else {
-                    throw new Error(result.error);
-                }
-            } catch (err) {
-                setError(err instanceof Error ? err.message : 'Unknown error');
-            } finally {
-                setLoading(false);
-            }
-        }
-
-        if (boardId && sprintId) {
-            fetchWorklogs();
-        }
-    }, [boardId, sprintId]);
+    const worklogUrl = boardId && sprintId ? `/api/worklogs?boardId=${boardId}&sprintId=${sprintId}` : null;
+    const { data, loading, error } = useFetch<WorklogReportData>(worklogUrl, { ttl: 2 * 60_000 });
 
     if (loading) {
         return (

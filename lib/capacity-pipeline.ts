@@ -360,3 +360,144 @@ export async function calculateSprintCapacity(
     members,
   };
 }
+
+/**
+ * Calculate capacity for multiple sprints in batch.
+ * Fetches the team once and batches holiday/leave queries across the full date range.
+ */
+export async function calculateSprintCapacityBatch(
+  sprints: Sprint[],
+  teamId: string
+): Promise<Map<number, SprintCapacity | null>> {
+  const result = new Map<number, SprintCapacity | null>();
+  if (!isDatabaseAvailable() || !prisma || sprints.length === 0) {
+    for (const s of sprints) result.set(s.id, null);
+    return result;
+  }
+
+  const team = await prisma.team.findUnique({
+    where: { id: teamId },
+    include: { members: true },
+  });
+  if (!team) {
+    for (const s of sprints) result.set(s.id, null);
+    return result;
+  }
+
+  // Find the widest date range across all sprints
+  let globalStart = '9999-12-31';
+  let globalEnd = '0000-01-01';
+  const sprintDates = new Map<number, { startStr: string; endStr: string }>();
+  for (const sprint of sprints) {
+    if (!sprint.startDate || !sprint.endDate) { result.set(sprint.id, null); continue; }
+    const startStr = toLocalDateString(new Date(sprint.startDate));
+    const endStr = toLocalDateString(new Date(sprint.endDate));
+    sprintDates.set(sprint.id, { startStr, endStr });
+    if (startStr < globalStart) globalStart = startStr;
+    if (endStr > globalEnd) globalEnd = endStr;
+  }
+
+  const memberDbIds = team.members.map(m => m.id);
+  const teamStandardHours = team.workingHoursPerDay;
+
+  // Batch: holidays across full range, all non-dev days for this team, all leaves
+  const [holidayDates, allNonDevDays, memberLeaveMap, allAllocations] = await Promise.all([
+    getActiveHolidayDates(globalStart, globalEnd),
+    (async () => {
+      if (!prisma) return [];
+      return prisma.nonDevDay.findMany({
+        where: { teamId, sprintId: { in: sprints.map(s => s.id) } },
+        select: { sprintId: true, date: true },
+      });
+    })(),
+    getMemberLeaveDates(memberDbIds, globalStart, globalEnd),
+    (async () => {
+      if (!prisma) return [];
+      return prisma.capacityAllocation.findMany({
+        where: {
+          teamId,
+          type: 'SPRINT',
+          startDate: { lte: parseDateString(globalEnd) },
+          endDate: { gte: parseDateString(globalStart) },
+        },
+      });
+    })(),
+  ]);
+
+  // Index non-dev days by sprint
+  const nonDevBySprintId = new Map<number, Set<string>>();
+  for (const nd of allNonDevDays) {
+    if (!nonDevBySprintId.has(nd.sprintId)) nonDevBySprintId.set(nd.sprintId, new Set());
+    nonDevBySprintId.get(nd.sprintId)!.add(toLocalDateString(nd.date));
+  }
+
+  // Index allocations by member DB ID
+  const allocationsByMember = new Map<string, AllocationRecord[]>();
+  for (const alloc of allAllocations) {
+    const list = allocationsByMember.get(alloc.teamMemberId) || [];
+    list.push({
+      teamMemberId: alloc.teamMemberId,
+      startDate: alloc.startDate,
+      endDate: alloc.endDate,
+      capacityPercent: alloc.capacityPercent,
+      type: alloc.type,
+    });
+    allocationsByMember.set(alloc.teamMemberId, list);
+  }
+
+  for (const sprint of sprints) {
+    const dates = sprintDates.get(sprint.id);
+    if (!dates) continue;
+    const { startStr, endStr } = dates;
+    const nonDevDates = nonDevBySprintId.get(sprint.id) || new Set<string>();
+
+    const baseWorkingDays = buildBaseWorkingDaySet(startStr, endStr, holidayDates, nonDevDates);
+    const sprintWorkingDays = baseWorkingDays.size;
+
+    const members: MemberCapacity[] = [];
+    for (const member of team.members) {
+      const memberHoursPerDay = member.workingHoursPerDay ?? teamStandardHours;
+      const leaveDates = memberLeaveMap.get(member.id) || new Set<string>();
+      const { availableDays, leaveDays } = countMemberAvailableDaysFromSet(baseWorkingDays, leaveDates);
+      const availableHours = availableDays * memberHoursPerDay;
+      const effectiveMandays = teamStandardHours > 0 ? availableHours / teamStandardHours : availableDays;
+
+      const memberAllocations = allocationsByMember.get(member.id)?.filter(a => {
+        const aStart = toLocalDateString(a.startDate);
+        const aEnd = toLocalDateString(a.endDate);
+        return aEnd >= startStr && aStart <= endStr;
+      });
+
+      let allocatedHours: number;
+      let capacityPercent: number;
+      if (memberAllocations && memberAllocations.length > 0) {
+        allocatedHours = 0;
+        for (const alloc of memberAllocations) {
+          allocatedHours += calculateProratedHours(alloc, startStr, endStr, memberHoursPerDay, baseWorkingDays, leaveDates);
+        }
+        capacityPercent = availableHours > 0 ? Math.round((allocatedHours / availableHours) * 100) : 0;
+      } else {
+        allocatedHours = availableHours;
+        capacityPercent = 100;
+      }
+
+      members.push({
+        accountId: member.accountId, name: member.name,
+        role: member.role as 'qa' | 'engineer', title: member.title,
+        workingHoursPerDay: memberHoursPerDay, totalWorkingDays: sprintWorkingDays,
+        availableDays, leaveDays, availableHours, allocatedHours, capacityPercent, effectiveMandays,
+      });
+    }
+
+    result.set(sprint.id, {
+      sprintId: sprint.id, sprintName: sprint.name, teamId, teamStandardHours,
+      sprintWorkingDays,
+      totalCapacityHours: members.reduce((s, m) => s + m.allocatedHours, 0),
+      totalAvailableHours: members.reduce((s, m) => s + m.availableHours, 0),
+      totalEffectiveMandays: members.reduce((s, m) => s + m.effectiveMandays, 0),
+      members,
+    });
+  }
+
+  return result;
+}
