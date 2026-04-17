@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
 
     let teamId: string | null = null;
     let teamMembers: Array<{ accountId: string; name: string; role: string; title: string }> = [];
-    let team: Awaited<ReturnType<typeof prisma.team.findUnique>> = null;
+    let team: { id: string; boardId: number; members: Array<{ accountId: string; name: string; role: string; title: string }> } | null = null;
     if (prisma) {
       team = await prisma.team.findUnique({
         where: { boardId },
