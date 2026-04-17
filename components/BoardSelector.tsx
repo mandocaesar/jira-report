@@ -2,6 +2,7 @@
 
 import { Board } from '@/types';
 import { useState, useEffect, useRef } from 'react';
+import { useFetch } from '@/hooks/useFetch';
 
 interface BoardSelectorProps {
     onBoardChange: (boardId: number | null) => void;
@@ -9,15 +10,11 @@ interface BoardSelectorProps {
 }
 
 export default function BoardSelector({ onBoardChange, selectedBoardId }: BoardSelectorProps) {
-    const [boards, setBoards] = useState<Board[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const { data: boards, loading, error } = useFetch<Board[]>('/api/boards', { ttl: 10 * 60_000 });
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
-    useEffect(() => {
-        fetchBoards();
-    }, []);
+    const boardList = boards || [];
 
     // Close dropdown on outside click
     useEffect(() => {
@@ -30,27 +27,7 @@ export default function BoardSelector({ onBoardChange, selectedBoardId }: BoardS
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const fetchBoards = async () => {
-        try {
-            setLoading(true);
-            const response = await fetch('/api/boards');
-            const data = await response.json();
-
-            if (!data.success) {
-                throw new Error(data.error);
-            }
-
-            setBoards(data.data);
-
-            setError(null);
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to load boards');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const selectedBoard = boards.find(b => b.id === selectedBoardId);
+    const selectedBoard = boardList.find(b => b.id === selectedBoardId);
 
     const handleSelect = (boardId: number | null) => {
         onBoardChange(boardId);
@@ -77,7 +54,7 @@ export default function BoardSelector({ onBoardChange, selectedBoardId }: BoardS
     }
 
     // Don't show selector if only one board
-    if (boards.length <= 1) {
+    if (boardList.length <= 1) {
         return null;
     }
 
@@ -127,12 +104,12 @@ export default function BoardSelector({ onBoardChange, selectedBoardId }: BoardS
                             Boards
                         </span>
                         <span className="text-[10px] text-muted-foreground ml-auto">
-                            {boards.length}
+                            {boardList.length}
                         </span>
                     </div>
 
                     {/* Board Items */}
-                    {boards.map((board) => {
+                    {boardList.map((board) => {
                         const isSelected = board.id === selectedBoardId;
                         return (
                             <button

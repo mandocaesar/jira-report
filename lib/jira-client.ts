@@ -55,19 +55,16 @@ class JiraClient {
     }
 
     /**
-   * Get all sprints for a board (cached for 5 minutes)
+   * Get all sprints for a board (cached for 5 minutes, stampede-protected)
    */
     async getSprints(boardId?: number): Promise<Sprint[]> {
         let targetBoardId = boardId;
 
         if (!targetBoardId) {
-            // Get the first board for the project or use env variable
             const boardIds = process.env.JIRA_BOARD_IDS;
             if (boardIds) {
-                // Use first board ID from comma-separated list
                 targetBoardId = parseInt(boardIds.split(',')[0].trim(), 10);
             } else {
-                // Fallback: Get first board from project
                 const boards = await this.getBoards();
                 if (!boards.values || boards.values.length === 0) {
                     throw new Error('No boards found for the project');
@@ -78,12 +75,10 @@ class JiraClient {
 
         const endpoint = `/board/${targetBoardId}/sprint`;
         const cacheKey = `sprints:${targetBoardId}`;
-        const cached = apiCache.get<Sprint[]>(cacheKey);
-        if (cached) return cached;
-
-        const response = await this.fetch<{ values: Sprint[] }>(endpoint);
-        apiCache.set(cacheKey, response.values);
-        return response.values;
+        return apiCache.getOrFetch(cacheKey, async () => {
+            const response = await this.fetch<{ values: Sprint[] }>(endpoint);
+            return response.values;
+        });
     }
 
     /**
@@ -106,9 +101,8 @@ class JiraClient {
 
     /**
      * Get issues for a specific sprint with optional team filtering.
-     * Uses Agile API with client-side filtering (JQL endpoints deprecated).
-     * When includeChangelog is true, fetches changelog + created field for metrics.
-     * A cached changelog response can also serve non-changelog requests.
+     * Uses getOrFetch for stampede protection. A changelog response (superset) can
+     * serve non-changelog requests; avoids duplicate Jira API calls.
      */
     async getSprintIssues(sprintId: number, boardId?: number, options?: { includeChangelog?: boolean }): Promise<JiraIssue[]> {
         const includeChangelog = options?.includeChangelog ?? false;
@@ -116,40 +110,36 @@ class JiraClient {
         const baseKey = `sprintIssues:${sprintId}:${boardId || 'default'}`;
         const changelogKey = `${baseKey}:changelog`;
 
-        // If requesting without changelog, check if a changelog version is cached (superset)
+        // A changelog response is a superset — reuse it for non-changelog requests
         if (!includeChangelog) {
             const cachedChangelog = apiCache.get<JiraIssue[]>(changelogKey);
             if (cachedChangelog) return cachedChangelog;
         }
 
         const cacheKey = includeChangelog ? changelogKey : baseKey;
-        const cached = apiCache.get<JiraIssue[]>(cacheKey);
-        if (cached) return cached;
 
-        // Use Agile API and filter client-side to avoid deprecated JQL endpoints
-        // Include customfield_10014 (Epic Link) for epic grouping
-        const baseFields = `summary,assignee,issuetype,status,parent,subtasks,worklog,customfield_10001,customfield_10014,${this.storyPointsFields.join(',')}`;
-        const fields = includeChangelog ? `${baseFields},created` : baseFields;
-        const expand = includeChangelog ? '&expand=changelog' : '';
-        const endpoint = `/sprint/${sprintId}/issue?fields=${fields}${expand}&maxResults=1000`;
+        return apiCache.getOrFetch(cacheKey, async () => {
+            const baseFields = `summary,assignee,issuetype,status,parent,subtasks,worklog,customfield_10001,customfield_10014,${this.storyPointsFields.join(',')}`;
+            const fields = includeChangelog ? `${baseFields},created` : baseFields;
+            const expand = includeChangelog ? '&expand=changelog' : '';
+            const endpoint = `/sprint/${sprintId}/issue?fields=${fields}${expand}&maxResults=1000`;
 
-        console.log(`[getSprintIssues] Fetching sprint ${sprintId} for board ${boardId}, changelog: ${includeChangelog}, team filter: ${teamId || 'none'}`);
+            console.log(`[getSprintIssues] Fetching sprint ${sprintId} for board ${boardId}, changelog: ${includeChangelog}, team filter: ${teamId || 'none'}`);
 
-        const response = await this.fetch<{ issues: JiraIssue[] }>(endpoint);
-        let issues = response.issues;
+            const response = await this.fetch<{ issues: JiraIssue[] }>(endpoint);
+            let issues = response.issues;
 
-        // Client-side team filtering if team ID is configured
-        if (teamId) {
-            const originalCount = issues.length;
-            issues = issues.filter(issue => {
-                const team = issue.fields['customfield_10001'];
-                return team && team.id === teamId;
-            });
-            console.log(`[getSprintIssues] Filtered from ${originalCount} to ${issues.length} issues for team ${teamId}`);
-        }
+            if (teamId) {
+                const originalCount = issues.length;
+                issues = issues.filter(issue => {
+                    const team = issue.fields['customfield_10001'];
+                    return team && team.id === teamId;
+                });
+                console.log(`[getSprintIssues] Filtered from ${originalCount} to ${issues.length} issues for team ${teamId}`);
+            }
 
-        apiCache.set(cacheKey, issues);
-        return issues;
+            return issues;
+        });
     }
 
     /**
@@ -178,10 +168,12 @@ class JiraClient {
     }
 
     /**
-     * Get a single sprint by ID
+     * Get a single sprint by ID (cached for 5 minutes)
      */
     async getSprint(sprintId: number): Promise<Sprint> {
-        return this.fetch<Sprint>(`/sprint/${sprintId}`);
+        return apiCache.getOrFetch(`sprint:${sprintId}`, () =>
+            this.fetch<Sprint>(`/sprint/${sprintId}`)
+        );
     }
 
     /**
@@ -196,7 +188,7 @@ class JiraClient {
     }
     /**
      * Discover board members by extracting unique assignees from recent sprints.
-     * Jira Cloud doesn't have a direct board-members API, so we scan sprint issues.
+     * Fetches sprint issues in parallel for speed.
      */
     async discoverBoardMembers(boardId: number): Promise<Array<{
         accountId: string;
@@ -205,36 +197,35 @@ class JiraClient {
         avatarUrl: string;
     }>> {
         const cacheKey = `boardMembers:${boardId}`;
-        const cached = apiCache.get<Array<{ accountId: string; displayName: string; emailAddress: string; avatarUrl: string }>>(cacheKey);
-        if (cached) return cached;
+        return apiCache.getOrFetch(cacheKey, async () => {
+            const sprints = await this.getSprints(boardId);
+            const recentSprints = sprints
+                .filter(s => s.state === 'active' || s.state === 'closed')
+                .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
+                .slice(0, 3);
 
-        // Get last 3 sprints (active + recent closed) to discover members
-        const sprints = await this.getSprints(boardId);
-        const recentSprints = sprints
-            .filter(s => s.state === 'active' || s.state === 'closed')
-            .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
-            .slice(0, 3);
+            // Fetch all sprint issues in parallel
+            const allIssues = await Promise.all(
+                recentSprints.map(sprint => this.getSprintIssues(sprint.id, boardId))
+            );
 
-        const memberMap = new Map<string, { accountId: string; displayName: string; emailAddress: string; avatarUrl: string }>();
-
-        for (const sprint of recentSprints) {
-            const issues = await this.getSprintIssues(sprint.id, boardId);
-            for (const issue of issues) {
-                const assignee = issue.fields.assignee;
-                if (assignee && !memberMap.has(assignee.accountId)) {
-                    memberMap.set(assignee.accountId, {
-                        accountId: assignee.accountId,
-                        displayName: assignee.displayName,
-                        emailAddress: assignee.emailAddress || '',
-                        avatarUrl: assignee.avatarUrls?.['48x48'] || '',
-                    });
+            const memberMap = new Map<string, { accountId: string; displayName: string; emailAddress: string; avatarUrl: string }>();
+            for (const issues of allIssues) {
+                for (const issue of issues) {
+                    const assignee = issue.fields.assignee;
+                    if (assignee && !memberMap.has(assignee.accountId)) {
+                        memberMap.set(assignee.accountId, {
+                            accountId: assignee.accountId,
+                            displayName: assignee.displayName,
+                            emailAddress: assignee.emailAddress || '',
+                            avatarUrl: assignee.avatarUrls?.['48x48'] || '',
+                        });
+                    }
                 }
             }
-        }
 
-        const members = Array.from(memberMap.values()).sort((a, b) => a.displayName.localeCompare(b.displayName));
-        apiCache.set(cacheKey, members, 600_000); // Cache 10 minutes
-        return members;
+            return Array.from(memberMap.values()).sort((a, b) => a.displayName.localeCompare(b.displayName));
+        }, 600_000); // 10 minutes
     }
 }
 

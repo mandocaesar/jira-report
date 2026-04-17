@@ -2,6 +2,7 @@
 
 import { Sprint } from '@/types';
 import { useState, useEffect, useRef } from 'react';
+import { useFetch } from '@/hooks/useFetch';
 
 interface SprintSelectorProps {
     onSprintChange: (sprintId: number | null) => void;
@@ -20,20 +21,12 @@ interface SprintGroup {
 }
 
 export default function SprintSelector({ onSprintChange, selectedSprintId, boardId, allowAllSprints = false }: SprintSelectorProps) {
-    const [sprints, setSprints] = useState<Sprint[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const sprintUrl = boardId ? `/api/sprints?boardId=${boardId}` : null;
+    const { data: sprints, loading, error } = useFetch<Sprint[]>(sprintUrl, { ttl: 5 * 60_000 });
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
-    useEffect(() => {
-        if (boardId) {
-            fetchSprints();
-        } else {
-            setSprints([]);
-            setLoading(false);
-        }
-    }, [boardId]);
+    const sprintList = sprints || [];
 
     // Close dropdown on outside click
     useEffect(() => {
@@ -45,28 +38,6 @@ export default function SprintSelector({ onSprintChange, selectedSprintId, board
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
-
-    const fetchSprints = async () => {
-        if (!boardId) return;
-
-        try {
-            setLoading(true);
-            const url = `/api/sprints?boardId=${boardId}`;
-            const response = await fetch(url);
-            const data = await response.json();
-
-            if (!data.success) {
-                throw new Error(data.error);
-            }
-
-            setSprints(data.data);
-            setError(null);
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to load sprints');
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const formatDateRange = (sprint: Sprint) => {
         const start = new Date(sprint.startDate).toLocaleDateString('en-US', {
@@ -81,16 +52,16 @@ export default function SprintSelector({ onSprintChange, selectedSprintId, board
         return `${start} – ${end}`;
     };
 
-    const selectedSprint = sprints.find(s => s.id === selectedSprintId);
+    const selectedSprint = sprintList.find(s => s.id === selectedSprintId);
 
     // Group sprints by state
     const groups: SprintGroup[] = [];
 
-    const activeSprints = sprints.filter(s => s.state === 'active');
-    const futureSprints = sprints
+    const activeSprints = sprintList.filter(s => s.state === 'active');
+    const futureSprints = sprintList
         .filter(s => s.state === 'future')
         .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
-    const pastSprints = sprints
+    const pastSprints = sprintList
         .filter(s => s.state === 'closed')
         .sort((a, b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime());
 

@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { SquadOverview } from '@/types';
+import { useFetch } from '@/hooks/useFetch';
 
 function trendIcon(trend: 'up' | 'down' | 'stable') {
     if (trend === 'up') return <span className="text-green-500">&#9650;</span>;
@@ -18,26 +18,8 @@ function progressColor(pct: number) {
 }
 
 export default function SquadGrid() {
-    const [squads, setSquads] = useState<SquadOverview[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-
-    useEffect(() => {
-        async function fetchSquads() {
-            try {
-                setLoading(true);
-                const res = await fetch('/api/squads');
-                const json = await res.json();
-                if (!json.success) throw new Error(json.error || 'Failed to fetch squads');
-                setSquads(json.data);
-            } catch (err) {
-                setError(err instanceof Error ? err.message : 'Failed to load squads');
-            } finally {
-                setLoading(false);
-            }
-        }
-        fetchSquads();
-    }, []);
+    const { data: squads, loading, error } = useFetch<SquadOverview[]>('/api/squads', { ttl: 5 * 60_000 });
+    const squadList = squads || [];
 
     if (loading) {
         return (
@@ -58,7 +40,7 @@ export default function SquadGrid() {
         );
     }
 
-    if (squads.length === 0) {
+    if (squadList.length === 0) {
         return (
             <div className="bg-muted/30 rounded-xl p-8 border border-border text-center">
                 <p className="text-muted-foreground">No squads found. Add teams in Settings → Team.</p>
@@ -79,12 +61,12 @@ export default function SquadGrid() {
                 </div>
                 <div>
                     <h2 className="text-xl font-bold text-foreground">Squad Overview</h2>
-                    <p className="text-sm text-muted-foreground">{squads.length} squads · current sprint progress & velocity</p>
+                    <p className="text-sm text-muted-foreground">{squadList.length} squads · current sprint progress & velocity</p>
                 </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {squads.map((squad) => (
+                {squadList.map((squad) => (
                     <Link key={squad.id} href={`/metrics/squad/${squad.id}`}>
                         <div className="bg-muted/30 rounded-xl p-5 border border-border hover:border-purple-500/40 transition-all duration-200 cursor-pointer group">
                             {/* Squad Name & Department */}

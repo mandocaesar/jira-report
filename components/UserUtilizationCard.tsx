@@ -5,9 +5,10 @@ import Image from 'next/image';
 interface UserUtilizationCardProps {
     utilization: UserUtilization;
     onClick?: () => void;
+    onSelect?: (u: UserUtilization) => void;
 }
 
-const UserUtilizationCard = React.memo(function UserUtilizationCard({ utilization, onClick }: UserUtilizationCardProps) {
+const UserUtilizationCard = React.memo(function UserUtilizationCard({ utilization, onClick, onSelect }: UserUtilizationCardProps) {
     const { user, storyPoints, workingDays, leaveDays, availableDays, utilizationPercent, status, role, title, workTypeStats, isUnrecognized } = utilization;
     const effectiveMandays = utilization.effectiveMandays;
     const workingHoursPerDay = utilization.workingHoursPerDay;
@@ -32,7 +33,7 @@ const UserUtilizationCard = React.memo(function UserUtilizationCard({ utilizatio
     return (
         <div
             className="relative rounded-lg border border-border bg-background overflow-hidden transition-all duration-200 hover:border-muted-foreground/30 cursor-pointer"
-            onClick={onClick}
+            onClick={onSelect ? () => onSelect(utilization) : onClick}
         >
             <div className={`h-px ${cfg.accent}`} />
 

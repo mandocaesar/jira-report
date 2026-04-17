@@ -1,45 +1,35 @@
 import { Holiday } from '@/types';
+import { apiCache } from './cache';
 
 const HOLIDAY_API_URL = 'https://libur.deno.dev/api';
 
-// Cache for holiday data
-const holidayCache: Map<number, Holiday[]> = new Map();
-
 /**
- * Fetch Indonesian holidays for a specific year
+ * Fetch Indonesian holidays for a specific year.
+ * Uses apiCache with getOrFetch for stampede protection (24h TTL).
  */
 export async function getHolidaysForYear(year: number): Promise<Holiday[]> {
-    // Check cache first
-    if (holidayCache.has(year)) {
-        return holidayCache.get(year)!;
-    }
+    return apiCache.getOrFetch(`holidays:${year}`, async () => {
+        try {
+            const response = await fetch(`${HOLIDAY_API_URL}?year=${year}`, {
+                next: { revalidate: 86400 },
+            });
 
-    try {
-        const response = await fetch(`${HOLIDAY_API_URL}?year=${year}`, {
-            next: { revalidate: 86400 }, // Cache for 24 hours
-        });
+            if (!response.ok) {
+                throw new Error(`Holiday API error: ${response.status}`);
+            }
 
-        if (!response.ok) {
-            throw new Error(`Holiday API error: ${response.status}`);
+            const rawData: Array<{ date: string; name: string }> = await response.json();
+
+            return (rawData || []).map(h => ({
+                holiday_date: h.date,
+                holiday_name: h.name,
+                is_national_holiday: true
+            }));
+        } catch (error) {
+            console.error(`Failed to fetch holidays for ${year}:`, error);
+            return [];
         }
-
-        // The API returns an array directly: [{"date":"2026-01-01","name":"Tahun Baru..."}]
-        const rawData: Array<{ date: string; name: string }> = await response.json();
-
-        const holidays: Holiday[] = (rawData || []).map(h => ({
-            holiday_date: h.date,
-            holiday_name: h.name,
-            is_national_holiday: true
-        }));
-
-        // Cache the result
-        holidayCache.set(year, holidays);
-
-        return holidays;
-    } catch (error) {
-        console.error(`Failed to fetch holidays for ${year}:`, error);
-        return [];
-    }
+    }, 24 * 60 * 60 * 1000); // 24 hour TTL
 }
 
 /**
