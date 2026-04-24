@@ -395,7 +395,7 @@ export default function SquadDetailPage() {
             </Section>
 
             {/* ─── SP Estimation Accuracy ──────────────────────────────── */}
-            {perf && perf.spAccuracy && perf.spAccuracy.teamCompletedPoints > 0 && (
+            {perf && perf.spAccuracy && perf.spAccuracy.members.length > 0 && (
                 <Section title="SP Estimation Accuracy" collapsed={collapsed['spAccuracy']} onToggle={() => toggle('spAccuracy')}>
                     <SpAccuracySection spAccuracy={perf.spAccuracy} />
                 </Section>

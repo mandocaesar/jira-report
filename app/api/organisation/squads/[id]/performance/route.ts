@@ -377,6 +377,16 @@ export async function GET(
         const EXPECTED_HOURS_PER_SP = 7;
         const memberWorklogMap = new Map<string, { name: string; role: string; completedPoints: number; worklogHours: number }>();
 
+        // Pre-populate with ALL registered squad members
+        for (const dbMember of team.members) {
+            memberWorklogMap.set(dbMember.accountId, {
+                name: dbMember.name,
+                role: dbMember.role || 'engineer',
+                completedPoints: 0,
+                worklogHours: 0,
+            });
+        }
+
         for (const issues of allIssuesBySprintId.values()) {
             for (const issue of issues) {
                 const isDone = issue.fields.status?.statusCategory?.name === 'Done';
@@ -391,15 +401,6 @@ export async function GET(
                 const worklogs = issue.fields.worklog?.worklogs || [];
                 const issueHours = worklogs.reduce((sum: number, wl: any) => sum + ((wl.timeSpentSeconds || 0) / 3600), 0);
 
-                if (!memberWorklogMap.has(assigneeId)) {
-                    const dbMember = team.members.find((m) => m.accountId === assigneeId);
-                    memberWorklogMap.set(assigneeId, {
-                        name: issue.fields.assignee?.displayName || 'Unknown',
-                        role: dbMember?.role || 'engineer',
-                        completedPoints: 0,
-                        worklogHours: 0,
-                    });
-                }
                 const entry = memberWorklogMap.get(assigneeId)!;
                 entry.completedPoints += pts;
                 entry.worklogHours += issueHours;
@@ -407,10 +408,13 @@ export async function GET(
         }
 
         const spAccuracyMembers = Array.from(memberWorklogMap.values())
-            .filter(m => m.completedPoints > 0)
             .map(m => {
-                const avgHoursPerSP = Math.round((m.worklogHours / m.completedPoints) * 10) / 10;
-                const accuracy = avgHoursPerSP > 0 ? Math.round((EXPECTED_HOURS_PER_SP / avgHoursPerSP) * 1000) / 10 : null;
+                const avgHoursPerSP = m.completedPoints > 0
+                    ? Math.round((m.worklogHours / m.completedPoints) * 10) / 10
+                    : null;
+                const accuracy = avgHoursPerSP && avgHoursPerSP > 0
+                    ? Math.round((EXPECTED_HOURS_PER_SP / avgHoursPerSP) * 1000) / 10
+                    : null;
                 return {
                     name: m.name,
                     role: m.role,
