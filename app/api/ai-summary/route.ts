@@ -30,17 +30,69 @@ export async function POST(req: Request) {
             }
         }
 
+        // ─── Compute per-member cycle time & worklog analytics ──────────
+        interface MemberAnalytics {
+            name: string;
+            role: string;
+            points: number;
+            completedPoints: number;
+            avgCycleTimeDays: number | null;
+            totalWorklogHours: number;
+            hoursPerPoint: number | null;
+        }
+
+        const memberAnalytics: MemberAnalytics[] = (summary.userUtilizations || []).map((u: any) => {
+            // Match with reportData.memberBreakdowns to get completion info
+            const mb = (reportData?.memberBreakdowns || []).find(
+                (m: any) => m.user?.accountId === u.user?.accountId
+            );
+            const completedPoints = mb?.completedPoints ?? 0;
+
+            // Calculate total worklog hours for this member from their issues
+            let totalWorklogHours = 0;
+            const issues = u.issues || [];
+            for (const issue of issues) {
+                if (issue.worklog?.worklogs) {
+                    for (const wl of issue.worklog.worklogs) {
+                        if (wl.author?.accountId === u.user?.accountId) {
+                            totalWorklogHours += (wl.timeSpentSeconds || 0) / 3600;
+                        }
+                    }
+                }
+            }
+
+            // hours per completed story point
+            const hoursPerPoint = completedPoints > 0
+                ? Math.round((totalWorklogHours / completedPoints) * 10) / 10
+                : null;
+
+            return {
+                name: u.user?.displayName || 'Unknown',
+                role: u.role || 'engineer',
+                points: u.storyPoints || 0,
+                completedPoints,
+                avgCycleTimeDays: null, // cycle time is computed server-side only via changelog
+                totalWorklogHours: Math.round(totalWorklogHours * 10) / 10,
+                hoursPerPoint,
+            };
+        });
+
         const prompt = `
+# Role
 You are an expert Agile Scrum Master and Agile Coach analyzing a sprint report.
 Your goal is to provide deep, actionable insights to help the team improve their processes, beyond just reading the numbers.
-Generate an executive-level summary organized into exactly these 4 sections.
 
-IMPORTANT FORMATTING RULES:
-- Use EXACTLY these 4 section headings, each on its own line with ** markers.
+# Task
+Generate an executive-level summary organized into exactly 5 sections based on the "Sprint Data" provided below.
+
+# Formatting Rules
+- Use EXACTLY these 5 section headings, each on its own line with ** markers.
 - Under each heading, use bullet points starting with "- ".
 - Be specific with numbers, names, and percentages from the data.
 - Include actionable coaching recommendations where appropriate.
-- Do NOT add introductory or concluding remarks. Just the 4 sections.
+- Do NOT add introductory or concluding remarks. Just the 5 sections.
+
+# Sections to Generate
 
 **Sprint Delivery**
 - Summarize overall story point completion rate (X of Y points completed = Z%)
@@ -54,6 +106,13 @@ IMPORTANT FORMATTING RULES:
 - For Engineers, provide an encouraging and motivating narration celebrating their heavy lifting, delivery velocity, and dedication in driving the sprint's momentum
 - For QA members, recognize their crucial contribution to unblocking the board and ensuring stories reach the "Done" state
 
+**Completion Efficiency**
+- Analyze each team member's hours-per-story-point (hoursPerPoint) to assess how efficiently work was completed
+- Compare hours logged vs points delivered — flag members with unusually high hours-per-point (>10h/SP) as potentially blocked or working on complex tasks
+- Flag members with very low hours-per-point (<2h/SP) as potentially under-logging or handling lightweight tasks
+- Provide a team-wide average hours-per-SP and comment on whether it aligns with the expected 1 SP = 1 manday ratio
+- If worklog data is sparse (many members showing 0 hours), note that worklog discipline needs improvement
+
 **Epic Summary**
 - For EVERY epic worked on this sprint, create a bullet point with: Epic name, completion % (X/Y points), and a brief analytical observation about progress
 - Flag any epics at 0% or very low progress as stalled and recommend next steps (e.g., breaking down stories, unblocking dependencies)
@@ -65,14 +124,15 @@ IMPORTANT FORMATTING RULES:
 - Note capacity risks or workload imbalances across the team, providing 1-2 actionable Scrum Master recommendations to address them
 
 ---
-Sprint Data:
 
-Sprint: ${summary.sprint.name}
+# Sprint Data
+
+Sprint Name: ${summary.sprint.name}
 Total Points: ${summary.totalStoryPoints} | Working Days: ${summary.totalWorkingDays}
 Completed: ${reportData?.completedPoints || 0} (${reportData?.completionPercent || 0}%)
 Status Groups: ${JSON.stringify(reportData?.statusGroups || [])}
 
-Team Members:
+# Team Members:
 ${JSON.stringify(
             summary.userUtilizations.map((u: any) => ({
                 name: u.user.displayName,
@@ -83,7 +143,10 @@ ${JSON.stringify(
             }))
         )}
 
-Epics:
+# Member Completion Analytics:
+${JSON.stringify(memberAnalytics)}
+
+# Epics:
 ${JSON.stringify(
             (epicBreakdowns || []).map((e: any) => ({
                 key: e.epicKey,
@@ -97,7 +160,7 @@ ${JSON.stringify(
 
         const { text } = await generateText({
             model: process.env.AI_MODEL ?? 'google/gemini-2.5-flash',
-            system: 'You are an expert Agile coach assisting a team with their sprint review. Strictly adhere to formatting requested.',
+            system: 'You are an expert Agile Scrum Master and Coach. Your task is to analyze the provided sprint data and generate an accurate, data-driven executive summary. Never invent or hallucinate metrics, names, or events. Only use the exact data provided. Strictly adhere to the requested formatting and section headers without deviation.',
             prompt: prompt,
         });
 
