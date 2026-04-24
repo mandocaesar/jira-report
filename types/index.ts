@@ -136,6 +136,24 @@ export interface ScopeChange {
   description: string;
 }
 
+export interface SpAccuracyEntry {
+  name: string;
+  role: 'qa' | 'engineer';
+  completedPoints: number;
+  worklogHours: number;
+  avgHoursPerSP: number | null;
+  accuracy: number | null;  // expected / actual * 100
+}
+
+export interface SpAccuracy {
+  expectedHoursPerSP: number;       // e.g. 7
+  teamCompletedPoints: number;
+  teamWorklogHours: number;
+  teamAvgHoursPerSP: number | null;
+  teamAccuracy: number | null;
+  members: SpAccuracyEntry[];
+}
+
 export interface SprintReportData {
   sprint: Sprint;
   totalPoints: number;
@@ -146,6 +164,7 @@ export interface SprintReportData {
   memberBreakdowns: MemberBreakdown[];
   carryOverIssues: ReportIssue[];
   scopeChanges: ScopeChange[];
+  spAccuracy: SpAccuracy;
 }
 
 // User information

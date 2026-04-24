@@ -1,4 +1,4 @@
-import { JiraIssue, Sprint, User, SprintReportData, StatusGroup, MemberBreakdown, ReportIssue, ScopeChange } from '@/types';
+import { JiraIssue, Sprint, User, SprintReportData, StatusGroup, MemberBreakdown, ReportIssue, ScopeChange, SpAccuracy, SpAccuracyEntry } from '@/types';
 import { getMemberByAccountId, getTeamByBoardIdFromDb } from './team-roster';
 import { getStoryPoints, extractUser, isStoryPointField, getStatusCategory, getStatusName, sprintFieldContainsId } from './issue-helpers';
 
@@ -300,6 +300,69 @@ export async function calculateSprintReport(
         ? (completedPoints / totalPoints) * 100
         : 0;
 
+    // ─── SP Estimation Accuracy (worklog hours vs expected) ─────────
+    const EXPECTED_HOURS_PER_SP = 7;
+
+    // Aggregate worklog hours per member for completed sub-tasks
+    const memberWorklogMap = new Map<string, { name: string; role: 'qa' | 'engineer'; completedPoints: number; worklogHours: number }>();
+
+    for (const issue of subtasks) {
+        const isDone = getStatusCategory(issue) === 'Done';
+        if (!isDone) continue;
+
+        const user = extractUser(issue);
+        if (!user) continue;
+
+        const pts = getStoryPoints(issue);
+        const worklogs = issue.fields.worklog?.worklogs || [];
+        const issueHours = worklogs.reduce((sum, wl) => sum + (wl.timeSpentSeconds || 0) / 3600, 0);
+
+        if (!memberWorklogMap.has(user.accountId)) {
+            const memberInfo = getMemberByAccountId(user.accountId);
+            memberWorklogMap.set(user.accountId, {
+                name: user.displayName,
+                role: (memberInfo?.member.role || 'engineer') as 'qa' | 'engineer',
+                completedPoints: 0,
+                worklogHours: 0,
+            });
+        }
+        const entry = memberWorklogMap.get(user.accountId)!;
+        entry.completedPoints += pts;
+        entry.worklogHours += issueHours;
+    }
+
+    const spAccuracyMembers: SpAccuracyEntry[] = Array.from(memberWorklogMap.values())
+        .filter(m => m.completedPoints > 0)
+        .map(m => {
+            const avgHoursPerSP = Math.round((m.worklogHours / m.completedPoints) * 10) / 10;
+            const accuracy = avgHoursPerSP > 0 ? Math.round((EXPECTED_HOURS_PER_SP / avgHoursPerSP) * 1000) / 10 : null;
+            return {
+                name: m.name,
+                role: m.role,
+                completedPoints: m.completedPoints,
+                worklogHours: Math.round(m.worklogHours * 10) / 10,
+                avgHoursPerSP,
+                accuracy,
+            };
+        })
+        .sort((a, b) => b.completedPoints - a.completedPoints);
+
+    const teamCompletedPts = spAccuracyMembers.reduce((s, m) => s + m.completedPoints, 0);
+    const teamWorklogHrs = spAccuracyMembers.reduce((s, m) => s + m.worklogHours, 0);
+    const teamAvgHoursPerSP = teamCompletedPts > 0 ? Math.round((teamWorklogHrs / teamCompletedPts) * 10) / 10 : null;
+    const teamAccuracy = teamAvgHoursPerSP && teamAvgHoursPerSP > 0
+        ? Math.round((EXPECTED_HOURS_PER_SP / teamAvgHoursPerSP) * 1000) / 10
+        : null;
+
+    const spAccuracy: SpAccuracy = {
+        expectedHoursPerSP: EXPECTED_HOURS_PER_SP,
+        teamCompletedPoints: teamCompletedPts,
+        teamWorklogHours: Math.round(teamWorklogHrs * 10) / 10,
+        teamAvgHoursPerSP,
+        teamAccuracy,
+        members: spAccuracyMembers,
+    };
+
     return {
         sprint,
         totalPoints,
@@ -310,5 +373,6 @@ export async function calculateSprintReport(
         memberBreakdowns,
         carryOverIssues,
         scopeChanges,
+        spAccuracy,
     };
 }
