@@ -387,6 +387,9 @@ export async function GET(
             });
         }
 
+        // SP bucket tracking: group by SP value
+        const spBucketMap = new Map<number, { issueCount: number; totalExpectedHours: number; totalActualHours: number }>();
+
         for (const issues of allIssuesBySprintId.values()) {
             for (const issue of issues) {
                 const isDone = issue.fields.status?.statusCategory?.name === 'Done';
@@ -398,22 +401,38 @@ export async function GET(
                 if (!assigneeId || !teamMemberIds.has(assigneeId)) continue;
 
                 const pts = getStoryPoints(issue);
+                if (pts <= 0) continue;
+
                 const worklogs = issue.fields.worklog?.worklogs || [];
                 const issueHours = worklogs.reduce((sum: number, wl: any) => sum + ((wl.timeSpentSeconds || 0) / 3600), 0);
 
+                // Per-member aggregation
                 const entry = memberWorklogMap.get(assigneeId)!;
                 entry.completedPoints += pts;
                 entry.worklogHours += issueHours;
+
+                // Per-SP-bucket aggregation
+                const bucketKey = pts; // group by exact SP value (0.5, 1, 2, 3, 5, etc.)
+                if (!spBucketMap.has(bucketKey)) {
+                    spBucketMap.set(bucketKey, { issueCount: 0, totalExpectedHours: 0, totalActualHours: 0 });
+                }
+                const bucket = spBucketMap.get(bucketKey)!;
+                bucket.issueCount++;
+                bucket.totalExpectedHours += pts * EXPECTED_HOURS_PER_SP;
+                bucket.totalActualHours += issueHours;
             }
         }
 
+        // Corrected formula: accuracy = (actual / expected) × 100%
+        // 100% = perfect, <100% = under-logged or over-estimated, >100% = under-estimated
         const spAccuracyMembers = Array.from(memberWorklogMap.values())
             .map(m => {
+                const expectedHours = m.completedPoints * EXPECTED_HOURS_PER_SP;
                 const avgHoursPerSP = m.completedPoints > 0
                     ? Math.round((m.worklogHours / m.completedPoints) * 10) / 10
                     : null;
-                const accuracy = avgHoursPerSP && avgHoursPerSP > 0
-                    ? Math.round((EXPECTED_HOURS_PER_SP / avgHoursPerSP) * 1000) / 10
+                const accuracy = expectedHours > 0
+                    ? Math.round((m.worklogHours / expectedHours) * 1000) / 10
                     : null;
                 return {
                     name: m.name,
@@ -426,12 +445,57 @@ export async function GET(
             })
             .sort((a, b) => b.completedPoints - a.completedPoints);
 
+        // SP bucket breakdown
+        const spBuckets = Array.from(spBucketMap.entries())
+            .map(([sp, b]) => {
+                const avgExpected = b.issueCount > 0 ? Math.round((b.totalExpectedHours / b.issueCount) * 10) / 10 : 0;
+                const avgActual = b.issueCount > 0 ? Math.round((b.totalActualHours / b.issueCount) * 10) / 10 : 0;
+                const accuracy = b.totalExpectedHours > 0
+                    ? Math.round((b.totalActualHours / b.totalExpectedHours) * 1000) / 10
+                    : null;
+                return {
+                    storyPoints: sp,
+                    issueCount: b.issueCount,
+                    totalExpectedHours: Math.round(b.totalExpectedHours * 10) / 10,
+                    totalActualHours: Math.round(b.totalActualHours * 10) / 10,
+                    avgExpectedPerTask: avgExpected,
+                    avgActualPerTask: avgActual,
+                    accuracy,
+                };
+            })
+            .sort((a, b) => a.storyPoints - b.storyPoints);
+
+        // Team-wide totals
         const spTeamCompletedPts = spAccuracyMembers.reduce((s, m) => s + m.completedPoints, 0);
         const spTeamWorklogHrs = spAccuracyMembers.reduce((s, m) => s + m.worklogHours, 0);
+        const spTeamExpectedHrs = spTeamCompletedPts * EXPECTED_HOURS_PER_SP;
         const spTeamAvgHoursPerSP = spTeamCompletedPts > 0 ? Math.round((spTeamWorklogHrs / spTeamCompletedPts) * 10) / 10 : null;
-        const spTeamAccuracy = spTeamAvgHoursPerSP && spTeamAvgHoursPerSP > 0
-            ? Math.round((EXPECTED_HOURS_PER_SP / spTeamAvgHoursPerSP) * 1000) / 10
+        const spTeamAccuracy = spTeamExpectedHrs > 0
+            ? Math.round((spTeamWorklogHrs / spTeamExpectedHrs) * 1000) / 10
             : null;
+
+        // Coaching feedback
+        const coaching: string[] = [];
+        if (spTeamAccuracy !== null) {
+            if (spTeamAccuracy < 50) coaching.push('Team is logging significantly less than expected. Worklog discipline needs urgent improvement — ensure all team members log time daily.');
+            else if (spTeamAccuracy < 70) coaching.push('Worklog gap detected. Team is logging ~30%+ less than expected. Review worklog habits and consider setting up daily reminders.');
+            else if (spTeamAccuracy < 90) coaching.push('Minor worklog gap. Estimation is close but team may be slightly over-estimating SP values or under-logging effort.');
+            else if (spTeamAccuracy <= 110) coaching.push('Estimation accuracy is well-calibrated. Team SP assignments closely match actual effort logged.');
+            else if (spTeamAccuracy <= 130) coaching.push('Tasks are taking slightly longer than estimated. Consider breaking down complex stories or improving refinement sessions.');
+            else coaching.push('Significant under-estimation detected. Tasks are taking much longer than SP values suggest. Review estimation practices and consider planning poker calibration.');
+        }
+        // Check for SP bucket degradation
+        const sortedBuckets = [...spBuckets].sort((a, b) => a.storyPoints - b.storyPoints);
+        if (sortedBuckets.length >= 2) {
+            const smallBucket = sortedBuckets[0];
+            const largeBucket = sortedBuckets[sortedBuckets.length - 1];
+            if (smallBucket.accuracy !== null && largeBucket.accuracy !== null) {
+                const diff = Math.abs(smallBucket.accuracy - largeBucket.accuracy);
+                if (diff > 20 && largeBucket.storyPoints > smallBucket.storyPoints) {
+                    coaching.push(`Accuracy drops from ${smallBucket.accuracy}% (${smallBucket.storyPoints} SP) to ${largeBucket.accuracy}% (${largeBucket.storyPoints} SP). Consider breaking down tasks larger than ${smallBucket.storyPoints} SP into smaller sub-tasks.`);
+                }
+            }
+        }
 
         const spAccuracy = {
             expectedHoursPerSP: EXPECTED_HOURS_PER_SP,
@@ -440,6 +504,8 @@ export async function GET(
             teamAvgHoursPerSP: spTeamAvgHoursPerSP,
             teamAccuracy: spTeamAccuracy,
             members: spAccuracyMembers,
+            buckets: spBuckets,
+            coaching,
         };
 
         const data = {
