@@ -373,6 +373,71 @@ export async function GET(
             }
         }
 
+        // ─── SP Estimation Accuracy (across period) ─────────────────────
+        const EXPECTED_HOURS_PER_SP = 7;
+        const memberWorklogMap = new Map<string, { name: string; role: string; completedPoints: number; worklogHours: number }>();
+
+        for (const issues of allIssuesBySprintId.values()) {
+            for (const issue of issues) {
+                const isDone = issue.fields.status?.statusCategory?.name === 'Done';
+                if (!isDone) continue;
+                const isSubtask = issue.fields.issuetype.subtask === true || issue.fields.issuetype.name.toLowerCase().includes('sub-chore');
+                if (!isSubtask) continue;
+
+                const assigneeId = issue.fields.assignee?.accountId;
+                if (!assigneeId || !teamMemberIds.has(assigneeId)) continue;
+
+                const pts = getStoryPoints(issue);
+                const worklogs = issue.fields.worklog?.worklogs || [];
+                const issueHours = worklogs.reduce((sum: number, wl: any) => sum + ((wl.timeSpentSeconds || 0) / 3600), 0);
+
+                if (!memberWorklogMap.has(assigneeId)) {
+                    const dbMember = team.members.find((m) => m.accountId === assigneeId);
+                    memberWorklogMap.set(assigneeId, {
+                        name: issue.fields.assignee?.displayName || 'Unknown',
+                        role: dbMember?.role || 'engineer',
+                        completedPoints: 0,
+                        worklogHours: 0,
+                    });
+                }
+                const entry = memberWorklogMap.get(assigneeId)!;
+                entry.completedPoints += pts;
+                entry.worklogHours += issueHours;
+            }
+        }
+
+        const spAccuracyMembers = Array.from(memberWorklogMap.values())
+            .filter(m => m.completedPoints > 0)
+            .map(m => {
+                const avgHoursPerSP = Math.round((m.worklogHours / m.completedPoints) * 10) / 10;
+                const accuracy = avgHoursPerSP > 0 ? Math.round((EXPECTED_HOURS_PER_SP / avgHoursPerSP) * 1000) / 10 : null;
+                return {
+                    name: m.name,
+                    role: m.role,
+                    completedPoints: m.completedPoints,
+                    worklogHours: Math.round(m.worklogHours * 10) / 10,
+                    avgHoursPerSP,
+                    accuracy,
+                };
+            })
+            .sort((a, b) => b.completedPoints - a.completedPoints);
+
+        const spTeamCompletedPts = spAccuracyMembers.reduce((s, m) => s + m.completedPoints, 0);
+        const spTeamWorklogHrs = spAccuracyMembers.reduce((s, m) => s + m.worklogHours, 0);
+        const spTeamAvgHoursPerSP = spTeamCompletedPts > 0 ? Math.round((spTeamWorklogHrs / spTeamCompletedPts) * 10) / 10 : null;
+        const spTeamAccuracy = spTeamAvgHoursPerSP && spTeamAvgHoursPerSP > 0
+            ? Math.round((EXPECTED_HOURS_PER_SP / spTeamAvgHoursPerSP) * 1000) / 10
+            : null;
+
+        const spAccuracy = {
+            expectedHoursPerSP: EXPECTED_HOURS_PER_SP,
+            teamCompletedPoints: spTeamCompletedPts,
+            teamWorklogHours: Math.round(spTeamWorklogHrs * 10) / 10,
+            teamAvgHoursPerSP: spTeamAvgHoursPerSP,
+            teamAccuracy: spTeamAccuracy,
+            members: spAccuracyMembers,
+        };
+
         const data = {
             kpis: {
                 totalCommitted: totalCommitted,
@@ -390,6 +455,7 @@ export async function GET(
             velocity,
             memberPerformance,
             sprintSummaries,
+            spAccuracy,
             epicDistribution: Object.values(epicDistribution).map(e => ({...e, points: Number(e.points.toFixed(2))})).sort((a, b) => b.points - a.points),
             labelDistribution: Object.values(labelDistribution).map(l => ({...l, points: Number(l.points.toFixed(2))})).sort((a, b) => b.points - a.points),
         };

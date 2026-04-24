@@ -127,6 +127,21 @@ interface PerformanceData {
     }>;
     epicDistribution: Array<{ name: string; points: number; count: number }>;
     labelDistribution: Array<{ label: string; points: number; count: number }>;
+    spAccuracy: {
+        expectedHoursPerSP: number;
+        teamCompletedPoints: number;
+        teamWorklogHours: number;
+        teamAvgHoursPerSP: number | null;
+        teamAccuracy: number | null;
+        members: Array<{
+            name: string;
+            role: string;
+            completedPoints: number;
+            worklogHours: number;
+            avgHoursPerSP: number | null;
+            accuracy: number | null;
+        }>;
+    };
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -378,6 +393,13 @@ export default function SquadDetailPage() {
                     <p className="text-muted-foreground text-sm text-center py-6">No performance data available</p>
                 )}
             </Section>
+
+            {/* ─── SP Estimation Accuracy ──────────────────────────────── */}
+            {perf && perf.spAccuracy && perf.spAccuracy.teamCompletedPoints > 0 && (
+                <Section title="SP Estimation Accuracy" collapsed={collapsed['spAccuracy']} onToggle={() => toggle('spAccuracy')}>
+                    <SpAccuracySection spAccuracy={perf.spAccuracy} />
+                </Section>
+            )}
 
             {/* ─── 4.6 Distribution Charts ────────────────────────────── */}
             {perf && (perf.epicDistribution.length > 0 || perf.labelDistribution.length > 0) && (
@@ -899,6 +921,105 @@ function SprintsTable({ sprints }: { sprints: PerformanceData['sprintSummaries']
                     </tbody>
                 </table>
             </div>
+        </div>
+    );
+}
+
+function SpAccuracySection({ spAccuracy }: { spAccuracy: PerformanceData['spAccuracy'] }) {
+    const { expectedHoursPerSP, teamCompletedPoints, teamWorklogHours, teamAvgHoursPerSP, teamAccuracy, members } = spAccuracy;
+
+    function getColor(accuracy: number | null): string {
+        if (accuracy === null) return 'text-muted-foreground';
+        if (accuracy >= 90 && accuracy <= 110) return 'text-green-400';
+        if (accuracy >= 75 && accuracy <= 125) return 'text-amber-400';
+        return 'text-red-400';
+    }
+
+    function getBadge(accuracy: number | null): { label: string; className: string } {
+        if (accuracy === null) return { label: 'No data', className: 'bg-muted/50 text-muted-foreground' };
+        if (accuracy >= 90 && accuracy <= 110) return { label: 'On Track', className: 'bg-green-500/20 text-green-400' };
+        if (accuracy > 110) return { label: 'Over-estimated', className: 'bg-amber-500/20 text-amber-400' };
+        return { label: 'Under-estimated', className: 'bg-red-500/20 text-red-400' };
+    }
+
+    const badge = getBadge(teamAccuracy);
+
+    return (
+        <div className="space-y-4">
+            {/* Team summary */}
+            <div className="flex flex-wrap items-center gap-x-8 gap-y-3 bg-muted/20 rounded-xl p-4 border border-border">
+                <div className="flex flex-col">
+                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Expected</span>
+                    <span className="text-lg font-bold text-foreground">{expectedHoursPerSP}h / SP</span>
+                </div>
+                <div className="flex flex-col">
+                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Actual Avg</span>
+                    <span className={`text-lg font-bold ${getColor(teamAccuracy)}`}>
+                        {teamAvgHoursPerSP !== null ? `${teamAvgHoursPerSP}h / SP` : '—'}
+                    </span>
+                </div>
+                <div className="flex flex-col">
+                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Accuracy</span>
+                    <span className={`text-lg font-bold ${getColor(teamAccuracy)}`}>
+                        {teamAccuracy !== null ? `${teamAccuracy}%` : '—'}
+                    </span>
+                </div>
+                <div className="flex flex-col">
+                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Total SP Done</span>
+                    <span className="text-lg font-bold text-foreground">{teamCompletedPoints}</span>
+                </div>
+                <div className="flex flex-col">
+                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Total Logged</span>
+                    <span className="text-lg font-bold text-foreground">{teamWorklogHours}h</span>
+                </div>
+                <div className="ml-auto">
+                    <span className={`text-xs font-medium px-2.5 py-1 rounded-lg ${badge.className}`}>
+                        {badge.label}
+                    </span>
+                </div>
+            </div>
+
+            {/* Per member table */}
+            {members.length > 0 && (
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                        <thead>
+                            <tr className="border-b border-border text-muted-foreground text-xs uppercase tracking-wider">
+                                <th className="text-left py-3 px-3">Member</th>
+                                <th className="text-left py-3 px-3">Role</th>
+                                <th className="text-right py-3 px-3">Done SP</th>
+                                <th className="text-right py-3 px-3">Logged</th>
+                                <th className="text-right py-3 px-3">Avg h/SP</th>
+                                <th className="text-right py-3 px-3">Accuracy</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {members.map((m, i) => (
+                                <tr key={i} className="border-b border-border/50 hover:bg-muted/20">
+                                    <td className="py-3 px-3 text-foreground font-medium">{m.name}</td>
+                                    <td className="py-3 px-3">
+                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${m.role === 'qa' ? 'bg-cyan-500/10 text-cyan-400' : 'bg-purple-500/10 text-purple-400'}`}>
+                                            {m.role === 'qa' ? 'QA' : 'ENG'}
+                                        </span>
+                                    </td>
+                                    <td className="py-3 px-3 text-right text-foreground">{m.completedPoints}</td>
+                                    <td className="py-3 px-3 text-right text-muted-foreground">{m.worklogHours}h</td>
+                                    <td className="py-3 px-3 text-right text-muted-foreground">
+                                        {m.avgHoursPerSP !== null ? `${m.avgHoursPerSP}h` : '—'}
+                                    </td>
+                                    <td className={`py-3 px-3 text-right font-bold ${getColor(m.accuracy)}`}>
+                                        {m.accuracy !== null ? `${m.accuracy}%` : '—'}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+
+            <p className="text-[10px] text-muted-foreground">
+                Baseline: 1 SP = 1 Manday = {expectedHoursPerSP}h. Accuracy = {expectedHoursPerSP}h ÷ actual avg hours × 100%. Aggregated across all sprints in the selected period.
+            </p>
         </div>
     );
 }

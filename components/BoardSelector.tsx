@@ -34,6 +34,13 @@ export default function BoardSelector({ onBoardChange, selectedBoardId }: BoardS
         setIsOpen(false);
     };
 
+    // Auto-select if only one board
+    useEffect(() => {
+        if (boardList.length === 1 && selectedBoardId === null) {
+            onBoardChange(boardList[0].id);
+        }
+    }, [boardList, selectedBoardId, onBoardChange]);
+
     if (loading) {
         return (
             <div className="animate-pulse">
@@ -53,8 +60,21 @@ export default function BoardSelector({ onBoardChange, selectedBoardId }: BoardS
         );
     }
 
-    // Don't show selector if only one board
+    // Show static board name if only one board (already auto-selected)
     if (boardList.length <= 1) {
+        if (boardList.length === 1) {
+            return (
+                <div className="px-5 py-3 bg-muted/50 border border-border rounded-xl text-foreground font-medium flex items-center gap-2">
+                    <svg className="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7" />
+                    </svg>
+                    {boardList[0].name}
+                    {boardList[0].location?.projectKey && (
+                        <span className="text-xs text-muted-foreground">({boardList[0].location.projectKey})</span>
+                    )}
+                </div>
+            );
+        }
         return null;
     }
 

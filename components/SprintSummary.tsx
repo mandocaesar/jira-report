@@ -8,7 +8,6 @@ import RoleBreakdownCard from '@/components/sprint/RoleBreakdownCard';
 import SprintTimeline from '@/components/sprint/SprintTimeline';
 import WorkTypeBreakdown from '@/components/sprint/WorkTypeBreakdown';
 import ScopeChangesSummary from '@/components/sprint/ScopeChangesSummary';
-import SpAccuracyTable from '@/components/sprint/SpAccuracyTable';
 
 interface SprintSummaryProps {
     summary: SprintSummary;
@@ -98,9 +97,6 @@ export default function SprintSummaryComponent({ summary, reportData, onAiSummar
                 <RoleBreakdownCard roleName="Engineers" stats={engineerStats} accentColor="blue" />
                 <RoleBreakdownCard roleName="QA" stats={qaStats} accentColor="indigo" />
             </div>
-
-            {/* Row 4: SP Estimation Accuracy */}
-            {reportData?.spAccuracy && <SpAccuracyTable spAccuracy={reportData.spAccuracy} />}
 
             {/* Row 5: Epic Progress Trackers */}
             {epicBreakdowns.length > 0 && (
