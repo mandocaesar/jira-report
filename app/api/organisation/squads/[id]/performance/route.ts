@@ -156,9 +156,8 @@ export async function GET(
         }
         filteredSprints.sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
 
-        // Include active sprint
-        const activeSprint = allSprints.find((s) => s.state === 'active');
-        const sprintsToProcess = [...filteredSprints.slice(-maxSprints), ...(activeSprint ? [activeSprint] : [])];
+        // Only process finished (closed) sprints
+        const sprintsToProcess = [...filteredSprints.slice(-maxSprints)];
 
         // ─── Velocity ──────────────────────────────────────────────────
         const velocityRaw: Array<Omit<SprintVelocityEntry, 'committedDelta' | 'actualDelta'>> = [];
@@ -176,8 +175,12 @@ export async function GET(
 
         const velocity: SprintVelocityEntry[] = velocityRaw.map((e, i) => ({
             ...e,
-            committedDelta: i === 0 ? null : e.committedPoints - velocityRaw[i - 1].committedPoints,
-            actualDelta: i === 0 ? null : e.actualPoints - velocityRaw[i - 1].actualPoints,
+            committedPoints: Number(e.committedPoints.toFixed(2)),
+            actualPoints: Number(e.actualPoints.toFixed(2)),
+            addedMidSprintPoints: Number(e.addedMidSprintPoints.toFixed(2)),
+            totalPoints: Number(e.totalPoints.toFixed(2)),
+            committedDelta: i === 0 ? null : Number((e.committedPoints - velocityRaw[i - 1].committedPoints).toFixed(2)),
+            actualDelta: i === 0 ? null : Number((e.actualPoints - velocityRaw[i - 1].actualPoints).toFixed(2)),
         }));
 
         // ─── Member Performance ────────────────────────────────────────
@@ -237,10 +240,10 @@ export async function GET(
                     memberPerfMap.get(aid)!.sprintMetrics.push({
                         sprintId: sprint.id,
                         sprintName: sprint.name,
-                        storyPoints: userUtil.storyPoints,
-                        availableDays: userUtil.availableDays,
-                        effectiveMandays: userUtil.effectiveMandays ?? userUtil.availableDays,
-                        utilizationPercent: Math.round(userUtil.utilizationPercent * 10) / 10,
+                        storyPoints: Number(userUtil.storyPoints.toFixed(2)),
+                        availableDays: Number(userUtil.availableDays.toFixed(2)),
+                        effectiveMandays: Number((userUtil.effectiveMandays ?? userUtil.availableDays).toFixed(2)),
+                        utilizationPercent: Number(userUtil.utilizationPercent.toFixed(2)),
                         completedIssues: timing?.throughput ?? 0,
                         cycleTimeAvg: avgCycle,
                         leadTimeAvg: avgLead,
@@ -263,20 +266,22 @@ export async function GET(
             return {
                 ...m,
                 averages: {
-                    storyPoints: Math.round(avgSP * 10) / 10,
-                    utilization: Math.round(avgUtil * 10) / 10,
-                    cycleTime: cycleVals.length > 0 ? Math.round((cycleVals.reduce((a, b) => a + b, 0) / cycleVals.length) * 10) / 10 : null,
-                    leadTime: leadVals.length > 0 ? Math.round((leadVals.reduce((a, b) => a + b, 0) / leadVals.length) * 10) / 10 : null,
-                    throughput: Math.round((totalThroughput / metrics.length) * 10) / 10,
+                    storyPoints: Number(avgSP.toFixed(2)),
+                    utilization: Number(avgUtil.toFixed(2)),
+                    cycleTime: cycleVals.length > 0 ? Number((cycleVals.reduce((a, b) => a + b, 0) / cycleVals.length).toFixed(2)) : null,
+                    leadTime: leadVals.length > 0 ? Number((leadVals.reduce((a, b) => a + b, 0) / leadVals.length).toFixed(2)) : null,
+                    throughput: Number((totalThroughput / metrics.length).toFixed(2)),
                 },
             };
         }).sort((a, b) => a.name.localeCompare(b.name));
 
         // ─── Aggregate KPIs ────────────────────────────────────────────
         const closedVelocity = velocity.filter((v) => v.sprint.state === 'closed');
-        const totalCommitted = closedVelocity.reduce((s, v) => s + v.committedPoints, 0);
-        const totalActual = closedVelocity.reduce((s, v) => s + v.actualPoints, 0);
-        const avgVelocity = closedVelocity.length > 0 ? Math.round((totalActual / closedVelocity.length) * 10) / 10 : 0;
+        const totalCommittedRaw = closedVelocity.reduce((s, v) => s + v.committedPoints, 0);
+        const totalActualRaw = closedVelocity.reduce((s, v) => s + v.actualPoints, 0);
+        const totalCommitted = Number(totalCommittedRaw.toFixed(2));
+        const totalActual = Number(totalActualRaw.toFixed(2));
+        const avgVelocity = closedVelocity.length > 0 ? Number((totalActualRaw / closedVelocity.length).toFixed(2)) : 0;
         const avgAccuracy = closedVelocity.length > 0 ? Math.round(closedVelocity.reduce((s, v) => s + v.commitmentAccuracy, 0) / closedVelocity.length) : 0;
 
         // Aggregate cycle/lead time from all issues
@@ -300,13 +305,13 @@ export async function GET(
         }
 
         const avgCycleTime = allCycleTimes.length > 0
-            ? Math.round((allCycleTimes.reduce((a, b) => a + b, 0) / allCycleTimes.length) * 10) / 10
+            ? Number((allCycleTimes.reduce((a, b) => a + b, 0) / allCycleTimes.length).toFixed(2))
             : null;
         const medianCycleTime = allCycleTimes.length > 0
-            ? (() => { const sorted = [...allCycleTimes].sort((a, b) => a - b); const mid = Math.floor(sorted.length / 2); return sorted.length % 2 ? sorted[mid] : Math.round(((sorted[mid - 1] + sorted[mid]) / 2) * 10) / 10; })()
+            ? (() => { const sorted = [...allCycleTimes].sort((a, b) => a - b); const mid = Math.floor(sorted.length / 2); return Number((sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2).toFixed(2)); })()
             : null;
         const avgLeadTime = allLeadTimes.length > 0
-            ? Math.round((allLeadTimes.reduce((a, b) => a + b, 0) / allLeadTimes.length) * 10) / 10
+            ? Number((allLeadTimes.reduce((a, b) => a + b, 0) / allLeadTimes.length).toFixed(2))
             : null;
         const completionRate = totalCommittedIssues > 0 ? Math.round((totalCompletedIssues / totalCommittedIssues) * 100) : 0;
 
@@ -358,8 +363,8 @@ export async function GET(
                     actualPoints: vel?.actualPoints ?? 0,
                     addedMidSprint: vel?.addedMidSprintPoints ?? 0,
                     accuracy: vel?.commitmentAccuracy ?? 0,
-                    totalStoryPoints: util.totalStoryPoints,
-                    avgUtilization: Math.round(util.averageUtilization),
+                    totalStoryPoints: Number(util.totalStoryPoints.toFixed(2)),
+                    avgUtilization: Number(util.averageUtilization.toFixed(2)),
                     memberCount: util.userUtilizations.length,
                     workingDays: util.totalWorkingDays,
                 });
@@ -385,8 +390,8 @@ export async function GET(
             velocity,
             memberPerformance,
             sprintSummaries,
-            epicDistribution: Object.values(epicDistribution).sort((a, b) => b.points - a.points),
-            labelDistribution: Object.values(labelDistribution).sort((a, b) => b.points - a.points),
+            epicDistribution: Object.values(epicDistribution).map(e => ({...e, points: Number(e.points.toFixed(2))})).sort((a, b) => b.points - a.points),
+            labelDistribution: Object.values(labelDistribution).map(l => ({...l, points: Number(l.points.toFixed(2))})).sort((a, b) => b.points - a.points),
         };
 
         return apiSuccess(data);

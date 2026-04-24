@@ -31,35 +31,38 @@ export async function POST(req: Request) {
         }
 
         const prompt = `
-You are an expert Agile Scrum Master analyzing a sprint report. 
+You are an expert Agile Scrum Master and Agile Coach analyzing a sprint report.
+Your goal is to provide deep, actionable insights to help the team improve their processes, beyond just reading the numbers.
 Generate an executive-level summary organized into exactly these 4 sections.
 
 IMPORTANT FORMATTING RULES:
 - Use EXACTLY these 4 section headings, each on its own line with ** markers.
 - Under each heading, use bullet points starting with "- ".
 - Be specific with numbers, names, and percentages from the data.
+- Include actionable coaching recommendations where appropriate.
 - Do NOT add introductory or concluding remarks. Just the 4 sections.
 
 **Sprint Delivery**
 - Summarize overall story point completion rate (X of Y points completed = Z%)
-- Assess delivery momentum and velocity compared to capacity
+- Assess delivery momentum and velocity compared to capacity, providing a Scrum Master perspective on whether the sprint goal was likely met
 - Call out the status distribution (how many in Done vs In Progress vs To Do)
-- Note any backlog risk if significant points remain undone
+- Note any backlog risk if significant points remain undone, and suggest process improvements (e.g., better refinement)
 
 **Top Contributors & Quick Wins**
 - Highlight the top 2-3 performing team members by completed points and utilization %, mentioning their names and roles
-- Note any standout fast turnarounds or positive momentum
-- Call out any QA members who excelled
+- Note any standout positive momentum, such as exceptional efficiency (high points relative to available working days)
+- For Engineers, provide an encouraging and motivating narration celebrating their heavy lifting, delivery velocity, and dedication in driving the sprint's momentum
+- For QA members, recognize their crucial contribution to unblocking the board and ensuring stories reach the "Done" state
 
 **Epic Summary**
 - For EVERY epic worked on this sprint, create a bullet point with: Epic name, completion % (X/Y points), and a brief analytical observation about progress
-- Flag any epics at 0% or very low progress as stalled
+- Flag any epics at 0% or very low progress as stalled and recommend next steps (e.g., breaking down stories, unblocking dependencies)
 - Highlight epics nearing completion as wins
 
 **Key Areas of Concern**
 - Call out specific team members who were significantly over-utilized (>110%) or under-utilized (<70%), referencing exact percentages and roles
-- Identify any bottlenecks or stalled work items
-- Note capacity risks or workload imbalances across the team
+- Identify potential bottlenecks (e.g., too many items In Progress, testing delays) and suggest WIP limits or pairing
+- Note capacity risks or workload imbalances across the team, providing 1-2 actionable Scrum Master recommendations to address them
 
 ---
 Sprint Data:

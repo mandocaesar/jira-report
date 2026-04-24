@@ -129,14 +129,34 @@ class JiraClient {
             const response = await this.fetch<{ issues: JiraIssue[] }>(endpoint);
             let issues = response.issues;
 
-            if (teamId) {
-                const originalCount = issues.length;
-                issues = issues.filter(issue => {
-                    const team = issue.fields['customfield_10001'];
-                    return team && team.id === teamId;
-                });
-                console.log(`[getSprintIssues] Filtered from ${originalCount} to ${issues.length} issues for team ${teamId}`);
+        // Client-side team filtering if team ID is configured
+        if (teamId) {
+            const originalCount = issues.length;
+
+            // Build a map of issue key -> team ID to support subtasks inheriting team from parent
+            const issueTeamMap = new Map<string, string>();
+            for (const issue of issues) {
+                const team = issue.fields['customfield_10001'];
+                if (team && team.id) {
+                    issueTeamMap.set(issue.key, team.id);
+                }
             }
+
+            issues = issues.filter(issue => {
+                const team = issue.fields['customfield_10001'];
+                // 1. Direct team assignment
+                if (team && team.id === teamId) return true;
+
+                // 2. Inherit team assignment from parent (for subtasks)
+                if (issue.fields.parent && issue.fields.parent.key) {
+                    const parentTeamId = issueTeamMap.get(issue.fields.parent.key);
+                    if (parentTeamId === teamId) return true;
+                }
+
+                return false;
+            });
+            console.log(`[getSprintIssues] Filtered from ${originalCount} to ${issues.length} issues for team ${teamId}`);
+        }
 
             return issues;
         });

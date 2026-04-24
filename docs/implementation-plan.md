@@ -170,6 +170,7 @@ Leave             — engineerId, startDate, endDate, type, notes
 | 5.5 | History tab (past sprints table) | ✅ |
 | 5.6 | Export XLSX + CSV | ✅ |
 | 5.7 | Refactor home page | ⏭️ Deferred |
+| 5.8 | Refine AI Summary prompt for Scrum Master insights | ✅ |
 
 ### Capacity Pipeline (Section 8 of spec)
 ```
