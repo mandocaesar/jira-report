@@ -1,8 +1,8 @@
 # Capacity Unification — Design
 
 **Date:** 2026-08-09
-**Status:** Approved
-**Goal:** One capacity engine so every page shows the same utilization numbers. Kill the divergence between `lib/utilization-calculator.ts` (Home Sprint Overview) and `lib/capacity-pipeline.ts` (Analytics/planning).
+**Status:** Approved (rev 3 — days-only capacity model)
+**Goal:** One capacity engine so every page shows the same numbers. Kill the divergence between `lib/utilization-calculator.ts` (Home Sprint Overview) and `lib/capacity-pipeline.ts` (Analytics/planning).
 
 ## Problem
 
@@ -15,85 +15,112 @@ Two calculators compute team capacity with different rules, so Home and Analytic
 | Non-dev days | Ignored | Deducted |
 | Capacity adjustments | Ignored | `CapacityAllocation` prorated |
 | Ad-hoc | Hidden 3-day env buffer subtracted from capacity | None |
-| Utilization | `SP ÷ (effectiveMandays − 3)` | `committedHours ÷ capacityHours` |
+| Unit | Mix of days and hours | Hours |
 
-## Decisions (user-confirmed)
+## Core model (user-confirmed)
 
-1. **Title-days cap: delete.** No per-title day limits.
-2. **Ad-hoc buffer: delete.** Ad-hoc is visible work identified from Jira issues (label match or `/\bad-?hoc\b/i` in summary — `lib/em-report.ts#isAdhocIssue`), shown as a split, never a hidden capacity deduction.
-3. **Leave: day counts win.** `SprintLeave` (member × sprint × N days) is the single leave source. Date-range `Leave` reads are removed; `/organisation/leaves` page is retired.
+**Capacity is measured in mandays. Hours exist only as a task-accuracy lens.**
+
+1. **Theoretical mandays** (per member) = sprint working days − weekends − active DB holidays − team non-dev days − that member's leave day-count, scaled by allocation % for part-time assignment (`CapacityAllocation` overlap). Excluded members (EMs) → 0.
+2. **Assigned mandays at start** = SP committed to that member at sprint start (1 SP = 1 manday; changelog rollback identifies start-of-sprint scope).
+3. **Ad-hoc buffer** = theoretical − assigned-at-start (per member and team). This is capacity deliberately left open; it is *visible*, never an env-var deduction.
+4. **Added during sprint** = SP entering the sprint after start, attributed per member. Sprint-end question the engine must answer: did additions fit inside the start buffer (`added ≤ buffer`, "used as-is") or exceed it (`added > buffer`, overload — by how much, and who absorbed it)?
+5. **Hours = accuracy only.** Expected effort for a task = `SP × HOURS_PER_MANDAY (6)`. Worklog hours logged on the task vs expected → per-task accuracy ("1 SP task actually took 9h"), rolled up per member and team. Hours NEVER feed capacity or utilization. Member `workingHoursPerDay` is dropped from capacity math entirely.
+
+## Decisions
+
+1. **Title-days cap: delete.** No per-title day limits (`TitleAvailableDays` unused).
+2. **Hidden ad-hoc env buffer: delete.** `ADHOC_DAYS_PER_SPRINT` gone; buffer is the observable assigned-vs-theoretical gap. Ad-hoc *work* is identified from Jira issues (label or `/\bad-?hoc\b/i` summary — `lib/em-report.ts#isAdhocIssue`) and shown as a split.
+3. **Leave: day counts win.** `SprintLeave` (member × sprint × N days) is the single leave source. Date-range `Leave` reads removed; `/organisation/leaves` page retired.
 4. **Non-dev days: deducted everywhere** (previously Analytics-only).
-5. **One utilization formula:** Avg Util (SP-based) = `storyPoints ÷ effectiveMandays × 100`, identical on every page. The hour-based KPIs (`plannedUtilisation`, `executionUtilisation`) remain separate, differently-named metrics — but computed from the same engine's capacity numbers, so they can no longer silently disagree on the inputs.
-6. **Single hour conversion:** `HOURS_PER_MANDAY = 6` — one exported constant defining the manday unit. 1 SP = 1 manday = 6 hours everywhere: `committedHours = SP × 6`, SP-accuracy `expectedHoursPerSP = 6` (was 7 — intentional change), and capacity normalization divides by 6 (`effectiveMandays = availableHours ÷ 6`). A member's `workingHoursPerDay` override scales their personal `availableHours`; a standard day contributes `workingHoursPerDay ÷ 6` mandays. Team-level `workingHoursPerDay` stays as the per-member default only — it no longer defines the manday unit.
+5. **Utilization** = `assigned mandays ÷ theoretical mandays × 100` — same formula, days-only, every page. Hour-based `plannedUtilisation`/`executionUtilisation` KPIs are **removed** (they mixed hours into capacity); replaced by the buffer/overload readout.
+6. **`HOURS_PER_MANDAY = 6`** — single exported constant, used ONLY by the accuracy module (expected hours per task).
 
 ## Architecture
 
 ```
-lib/capacity-engine.ts
-  computeSprintCapacity(input): SprintCapacity     // PURE — no IO, fully unit-tested
+lib/capacity-engine.ts                     // days only
+  computeSprintCapacity(input): SprintCapacity          // PURE — no IO
     input: {
-      sprintStart, sprintEnd,            // YYYY-MM-DD
+      sprintStart, sprintEnd,              // YYYY-MM-DD
       holidayDates: Set<string>,
       nonDevDates: Set<string>,
-      teamStandardHours: number,
-      members: [{ accountId, name, role, title, hoursPerDay?, excluded }],
+      members: [{ accountId, name, role, title, excluded }],
       leaveDayCounts: Map<accountId, number>,
       allocations: [{ accountId, startDate, endDate, capacityPercent }],
     }
+    output per member: { theoreticalMandays, leaveDays, allocationFactor }
   loadCapacityInputs(sprint, { teamId | boardId }): input   // IO shell — DB reads only
+
+lib/sprint-assignment.ts                   // SP-side, pure
+  computeAssignment(sprint, issues, members): {
+    perMember: { assignedAtStart, addedDuringSprint, deliveredSP, adhocSP },
+    team totals + buffer readout: { buffer = theoretical − assignedAtStart,
+                                    bufferUsedByAdditions, overloadSP }
+  }   // reuses computeVelocity changelog rollback + isAdhocIssue
+
+lib/task-accuracy.ts                       // hours lens, pure
+  computeTaskAccuracy(issues): {
+    perIssue: { key, sp, expectedHours = sp × 6, loggedHours, ratio },
+    perMember + team rollups
+  }
 ```
 
-- Working days = sprint dates − weekends − active DB holidays − non-dev days
-- Member availableDays = workingDays − leaveDayCount (clamped ≥ 0); excluded member → 0
-- availableHours = availableDays × memberHours; effectiveMandays = availableHours ÷ HOURS_PER_MANDAY (6)
-- Allocations: prorate by date-overlap working days × hours × percent; none → 100%
-- `utilization-calculator` keeps issue aggregation only (grouping, per-user SP, work types, role stats); all capacity numbers come from the engine
+- `utilization-calculator` keeps issue aggregation only (grouping, work types, role stats); capacity/assignment numbers come from the modules above
 - All date parsing UTC-safe (`T00:00:00Z`), matching the holiday-shift bugfix convention
 
 ## Consumers rewired
 
 `/api/sprint/[id]` (Home), `/api/sprint-performance`, `/api/organisation/squads/[id]/performance`, `/api/planning/forecast`, SprintMetrics snapshot writes.
 
+UI changes:
+- Home summary: Mandays card = theoretical; Avg Util = assigned ÷ theoretical; new buffer line ("12 MD unassigned at start, 9 MD added mid-sprint → fit in buffer")
+- Analytics KPIs: planned/execution utilisation cards replaced by buffer/overload + task-accuracy cards
+- EM report: unchanged columns, now fed by shared modules
+- SP accuracy table: expected hours change 7 → 6 per SP; add per-task drill-down (worst offenders list)
+
 ## Deletions
 
-- `TitleAvailableDays` usage in calculators + `/settings/title-days` page
-- `ADHOC_DAYS_PER_SPRINT` / `NEXT_PUBLIC_ADHOC_DAYS` env usage in capacity math
-- Date-range `Leave` reads in capacity-pipeline + `/organisation/leaves` page (Prisma model kept for now, dropped in a later migration)
+- `TitleAvailableDays` usage + `/settings/title-days` page
+- `ADHOC_DAYS_PER_SPRINT` / `NEXT_PUBLIC_ADHOC_DAYS` env usage
+- Date-range `Leave` reads + `/organisation/leaves` page (Prisma model kept, dropped in later migration)
 - `getSprintLeave` static-JSON fallback
-- Old capacity code paths inside `utilization-calculator`
+- `workingHoursPerDay` from capacity math (column kept on models for now, ignored)
+- Hour-based capacity KPIs (`committedHours`, `capacityHours`, `plannedUtilisation`, `executionUtilisation`)
 
 ## Testing strategy
 
-**Runner:** Vitest (`pnpm test`), pure unit tests, no DB/Jira — fixtures only.
+**Runner:** Vitest (`pnpm test`), pure unit tests, fixtures only — no DB/Jira.
 
 **Tripwires — must NOT change (tests written against current behavior first):**
 1. Velocity changelog rollback: committed-at-start excludes mid-sprint additions (created-after-start OR sprint-field change); points rolled back via earliest later change `fromString`
 2. Issue grouping: parent skipped when sub-tasks present; unassigned skipped; zero-point skipped
 3. Working-day math: weekends + active holidays excluded; UTC-safe dates (regression: holiday −1 day bug)
-4. Allocation proration: overlap working days × hours × percent; no allocation = 100%
-5. SP accuracy formula shape: `expected ÷ actual × 100`
-7. Ad-hoc detection: label OR summary regex
-8. EM report: committed→final scope, carry-over = not-done points
-9. Excluded members: zero capacity, story points still counted
+4. Ad-hoc detection: label OR summary regex
+5. EM report: committed→final scope, carry-over = not-done points
+6. Excluded members: zero capacity, story points still counted
 
 **Intentional changes — tests assert NEW rule:**
-- No title cap; no adhoc buffer; non-dev days deducted in Home numbers; leave from day counts
-- `HOURS_PER_MANDAY = 6` everywhere: `effectiveMandays = availableHours ÷ 6` (was ÷ teamStandardHours), `committedHours = SP × 6` (was × 8), SP-accuracy expected hours 6 (was 7) — utilization and accuracy percentages shift accordingly
+- Days-only capacity: theoretical mandays = working days − leave, × allocation %; no hours anywhere
+- No title cap; no adhoc env buffer; non-dev days deducted in Home numbers; leave from day counts
+- Buffer/overload: `buffer = theoretical − assignedAtStart`; `overloadSP = max(0, added − buffer)` with per-member attribution
+- Task accuracy: `expectedHours = SP × 6`; ratio = logged ÷ expected
 
 **Fixture diff harness:** before rewrite, capture live JSON of 3 endpoints (Home sprint, sprint-performance, squad performance) for 2 closed sprints; after each consumer rewiring, diff — every delta must map to an intentional change above.
 
 ## Error handling
 
-- Engine is pure — cannot fail on IO; loader returns explicit `null` (no DB) exactly like today's pipeline, callers keep existing degraded behavior
+- Pure modules cannot fail on IO; loader returns explicit `null` (no DB) like today's pipeline, callers keep degraded behavior
 - No silent catch-and-return-empty in the loader: DB errors log + propagate to route error responses (lesson from the dead-holiday-API incident)
+- Missing worklogs on a task → accuracy ratio `null` (shown as "no data"), never treated as 0h
 
 ## Rollout
 
 1. Vitest installed; tripwire tests green on current code
 2. Capture fixture responses (2 closed sprints × 3 endpoints)
-3. Build engine pure core + new-rule tests
+3. Build pure modules (capacity-engine, sprint-assignment, task-accuracy) + new-rule tests
 4. Rewire consumers one endpoint at a time; run fixture diff after each
-5. Update tooltips (utilization formula), CLAUDE.md
+5. Update tooltips (new formulas), CLAUDE.md
 6. Manual eyeball: Home + Analytics for a sprint the team knows by heart
 
 ## Out of scope
