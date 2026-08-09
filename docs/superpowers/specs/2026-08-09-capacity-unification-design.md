@@ -24,6 +24,7 @@ Two calculators compute team capacity with different rules, so Home and Analytic
 3. **Leave: day counts win.** `SprintLeave` (member × sprint × N days) is the single leave source. Date-range `Leave` reads are removed; `/organisation/leaves` page is retired.
 4. **Non-dev days: deducted everywhere** (previously Analytics-only).
 5. **One utilization formula:** Avg Util (SP-based) = `storyPoints ÷ effectiveMandays × 100`, identical on every page. The hour-based KPIs (`plannedUtilisation`, `executionUtilisation`) remain separate, differently-named metrics — but computed from the same engine's capacity numbers, so they can no longer silently disagree on the inputs.
+6. **Single hour conversion:** `HOURS_PER_MANDAY = 6` — one exported constant defining the manday unit. 1 SP = 1 manday = 6 hours everywhere: `committedHours = SP × 6`, SP-accuracy `expectedHoursPerSP = 6` (was 7 — intentional change), and capacity normalization divides by 6 (`effectiveMandays = availableHours ÷ 6`). A member's `workingHoursPerDay` override scales their personal `availableHours`; a standard day contributes `workingHoursPerDay ÷ 6` mandays. Team-level `workingHoursPerDay` stays as the per-member default only — it no longer defines the manday unit.
 
 ## Architecture
 
@@ -44,7 +45,7 @@ lib/capacity-engine.ts
 
 - Working days = sprint dates − weekends − active DB holidays − non-dev days
 - Member availableDays = workingDays − leaveDayCount (clamped ≥ 0); excluded member → 0
-- availableHours = availableDays × memberHours; effectiveMandays = availableHours ÷ teamStandardHours
+- availableHours = availableDays × memberHours; effectiveMandays = availableHours ÷ HOURS_PER_MANDAY (6)
 - Allocations: prorate by date-overlap working days × hours × percent; none → 100%
 - `utilization-calculator` keeps issue aggregation only (grouping, per-user SP, work types, role stats); all capacity numbers come from the engine
 - All date parsing UTC-safe (`T00:00:00Z`), matching the holiday-shift bugfix convention
@@ -69,15 +70,15 @@ lib/capacity-engine.ts
 1. Velocity changelog rollback: committed-at-start excludes mid-sprint additions (created-after-start OR sprint-field change); points rolled back via earliest later change `fromString`
 2. Issue grouping: parent skipped when sub-tasks present; unassigned skipped; zero-point skipped
 3. Working-day math: weekends + active holidays excluded; UTC-safe dates (regression: holiday −1 day bug)
-4. Hours normalization: `effectiveMandays = availableDays × memberHours ÷ teamStandardHours`
-5. Allocation proration: overlap working days × hours × percent; no allocation = 100%
-6. SP accuracy: `expected ÷ actual × 100`, 7h per SP
+4. Allocation proration: overlap working days × hours × percent; no allocation = 100%
+5. SP accuracy formula shape: `expected ÷ actual × 100`
 7. Ad-hoc detection: label OR summary regex
 8. EM report: committed→final scope, carry-over = not-done points
 9. Excluded members: zero capacity, story points still counted
 
 **Intentional changes — tests assert NEW rule:**
 - No title cap; no adhoc buffer; non-dev days deducted in Home numbers; leave from day counts
+- `HOURS_PER_MANDAY = 6` everywhere: `effectiveMandays = availableHours ÷ 6` (was ÷ teamStandardHours), `committedHours = SP × 6` (was × 8), SP-accuracy expected hours 6 (was 7) — utilization and accuracy percentages shift accordingly
 
 **Fixture diff harness:** before rewrite, capture live JSON of 3 endpoints (Home sprint, sprint-performance, squad performance) for 2 closed sprints; after each consumer rewiring, diff — every delta must map to an intentional change above.
 
