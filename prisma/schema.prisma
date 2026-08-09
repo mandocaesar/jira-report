@@ -81,6 +81,26 @@ model SprintMetrics {
 }
 
 // ============================================================
+// SPRINT EM NOTE — manual overrides for the EM sprint report
+// (PIC, highlights, carry-over reason) per board/sprint/role
+// ============================================================
+
+model SprintEmNote {
+  id              String   @id @default(cuid())
+  boardId         Int
+  sprintId        Int
+  role            String // "engineer" | "qa"
+  pic             String?
+  highlights      String? @db.Text
+  carryOverReason String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([boardId, sprintId, role])
+  @@index([boardId, sprintId])
+}
+
+// ============================================================
 // ORGANISATION HIERARCHY: Group → Division → Department → Team
 // ============================================================
 

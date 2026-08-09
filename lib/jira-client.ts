@@ -119,7 +119,7 @@ class JiraClient {
         const cacheKey = includeChangelog ? changelogKey : baseKey;
 
         return apiCache.getOrFetch(cacheKey, async () => {
-            const baseFields = `summary,assignee,issuetype,status,parent,subtasks,worklog,customfield_10001,customfield_10014,${this.storyPointsFields.join(',')}`;
+            const baseFields = `summary,assignee,issuetype,status,parent,subtasks,worklog,labels,customfield_10001,customfield_10014,${this.storyPointsFields.join(',')}`;
             const fields = includeChangelog ? `${baseFields},created` : baseFields;
             const expand = includeChangelog ? '&expand=changelog' : '';
             const endpoint = `/sprint/${sprintId}/issue?fields=${fields}${expand}&maxResults=1000`;

@@ -44,6 +44,7 @@ export interface JiraIssue {
   };
   fields: {
     summary: string;
+    labels?: string[];
     issuetype: {
       name: string;
       subtask: boolean;
@@ -261,7 +262,7 @@ export interface Holiday {
   is_national_holiday: boolean;
 }
 
-// API response from libur.deno.dev
+// Normalized holiday shape (DB Holiday table or lib/holiday-source.ts)
 export interface HolidayApiResponse {
   data: Holiday[];
 }

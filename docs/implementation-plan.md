@@ -87,7 +87,7 @@ Leave             — engineerId, startDate, endDate, type, notes
 
 ### `/settings/holidays` Features
 - CRUD table, filter by year
-- "Fetch from API" button (imports from libur.deno.dev, skips duplicates)
+- "Fetch from API" button (imports via lib/holiday-source.ts: Google Calendar ICS → guangrei fallback, skips duplicates)
 - Active/Inactive toggle per holiday
 
 ### `/settings/work-type-labels` Features

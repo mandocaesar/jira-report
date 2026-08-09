@@ -38,7 +38,7 @@
 - `sprint-report-calculator.ts` — Sprint report aggregations
 - `metrics-calculator.ts` — Metrics computations
 - `team-roster.ts` — Team lookups from config JSON
-- `holiday-service.ts` — Indonesian holidays (libur.deno.dev)
+- `holiday-service.ts` — Indonesian holidays (DB first, external fallback via holiday-source.ts)
 - `issue-helpers.ts` — Issue type categorization
 - `cache.ts` — Caching utilities
 - `db.ts` — Prisma singleton

@@ -1,34 +1,43 @@
 import { Holiday } from '@/types';
 import { apiCache } from './cache';
-
-const HOLIDAY_API_URL = 'https://libur.deno.dev/api';
+import { prisma, isDatabaseAvailable } from './db';
+import { fetchIndonesianHolidays } from './holiday-source';
 
 /**
  * Fetch Indonesian holidays for a specific year.
+ * Primary source is the DB Holiday table (managed in Settings → Holidays);
+ * external sources are only a fallback when the DB has no rows for the year.
  * Uses apiCache with getOrFetch for stampede protection (24h TTL).
  */
 export async function getHolidaysForYear(year: number): Promise<Holiday[]> {
     return apiCache.getOrFetch(`holidays:${year}`, async () => {
-        try {
-            const response = await fetch(`${HOLIDAY_API_URL}?year=${year}`, {
-                next: { revalidate: 86400 },
-            });
-
-            if (!response.ok) {
-                throw new Error(`Holiday API error: ${response.status}`);
+        // 1. DB first — same source the capacity pipeline uses
+        if (isDatabaseAvailable() && prisma) {
+            try {
+                const rows = await prisma.holiday.findMany({
+                    where: { year, isActive: true },
+                    orderBy: { date: 'asc' },
+                    select: { date: true, name: true },
+                });
+                if (rows.length > 0) {
+                    return rows.map(h => ({
+                        holiday_date: toLocalDateString(h.date),
+                        holiday_name: h.name,
+                        is_national_holiday: true,
+                    }));
+                }
+            } catch (error) {
+                console.error(`Failed to read holidays for ${year} from DB:`, error);
             }
-
-            const rawData: Array<{ date: string; name: string }> = await response.json();
-
-            return (rawData || []).map(h => ({
-                holiday_date: h.date,
-                holiday_name: h.name,
-                is_national_holiday: true
-            }));
-        } catch (error) {
-            console.error(`Failed to fetch holidays for ${year}:`, error);
-            return [];
         }
+
+        // 2. Fallback: external sources (Google Calendar ICS → guangrei dataset)
+        const external = await fetchIndonesianHolidays(year);
+        return external.map(h => ({
+            holiday_date: h.date,
+            holiday_name: h.name,
+            is_national_holiday: true,
+        }));
     }, 24 * 60 * 60 * 1000); // 24 hour TTL
 }
 

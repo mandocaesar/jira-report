@@ -3,6 +3,8 @@
 import { useState, useMemo, lazy, Suspense } from 'react';
 import Link from 'next/link';
 import BoardSelector from '@/components/BoardSelector';
+import SprintSelector from '@/components/SprintSelector';
+import EmReportTable, { EmReportResponse } from '@/components/sprint/EmReportTable';
 import { SprintVelocityData, SprintVelocityEntry } from '@/types';
 import { useFetch } from '@/hooks/useFetch';
 import { Spinner } from '@/components/ui/Spinner';
@@ -421,6 +423,11 @@ export default function AnalyticsDashboard() {
                 )}
             </div>
 
+            {/* === EM Sprint Report === */}
+            {selectedBoardId && (
+                <EmReportSection boardId={selectedBoardId} />
+            )}
+
             {/* === Sprint History === */}
             {selectedBoardId && (
                 <div className="border-t border-border pt-8">
@@ -431,6 +438,86 @@ export default function AnalyticsDashboard() {
                         </div>
                     </div>
                     <HistoryTable data={historyData} loading={historyLoading} boardId={selectedBoardId} />
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ─── EM Sprint Report Section ──────────────────────────────────────────────────
+
+function EmReportSection({ boardId }: { boardId: number }) {
+    const [sprintId, setSprintId] = useState<number | null>(null);
+
+    const emUrl = sprintId
+        ? `/api/sprint-performance/em-report?sprintId=${sprintId}&boardId=${boardId}`
+        : null;
+    const { data, loading, error } = useFetch<EmReportResponse>(emUrl);
+
+    const exportCSV = () => {
+        if (!data?.rows.length) return;
+        const headers = ['Area', 'PIC', 'Committed MD (Start)', 'Committed MD (Final)', 'Delivered Sprint MD', 'Delivered Ad-hoc MD', 'Delivered Total MD', 'Carry Over MD', 'Carry Over Issues', 'Productivity Score %', 'Highlights', 'Carry Over Reason', 'YTD Avg Carry Over MD'];
+        const rows = data.rows.map(r => [
+            r.role === 'qa' ? 'QA/QE' : 'Eng', r.note?.pic ?? '', r.committedStart, r.committedFinal,
+            r.deliveredSprint, r.deliveredAdhoc, r.deliveredTotal, r.carryOverPoints,
+            r.carryOverIssues.map(ci => `${ci.key} (${ci.points} MD)`).join('; '),
+            r.productivityScore.toFixed(2),
+            [r.autoHighlights.map(h => `${h.key} +${h.points} MD`).join('; '), r.note?.highlights ?? ''].filter(Boolean).join(' | '),
+            r.note?.carryOverReason ?? '', r.ytdAvgCarryOver,
+        ]);
+        const escape = (v: string | number | null | undefined) => {
+            const s = String(v ?? '');
+            return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
+        };
+        const csv = [headers.map(escape).join(','), ...rows.map(r => r.map(escape).join(','))].join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `em-report-${data.sprint.name.replace(/\s+/g, '-')}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    return (
+        <div className="border-t border-border pt-8">
+            <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
+                <div>
+                    <h2 className="text-xl font-bold text-foreground">Completed Sprint Performance (EM Report)</h2>
+                    <p className="text-sm text-muted-foreground">Committed vs delivered mandays, carry-over, and productivity per area — slide-ready</p>
+                </div>
+                <div className="flex items-end gap-3">
+                    <div className="min-w-[220px]">
+                        <SprintSelector onSprintChange={setSprintId} selectedSprintId={sprintId} boardId={boardId} />
+                    </div>
+                    <button
+                        onClick={exportCSV}
+                        disabled={!data?.rows.length}
+                        className="px-4 py-2 bg-muted border border-border rounded-lg text-sm font-medium text-foreground hover:bg-muted/80 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                        Export CSV
+                    </button>
+                </div>
+            </div>
+
+            {!sprintId && (
+                <div className="text-center py-10 text-muted-foreground text-sm">Select a sprint to build the EM report</div>
+            )}
+            {loading && (
+                <div className="flex items-center justify-center py-10 gap-3 text-muted-foreground">
+                    <Spinner size="md" />
+                    <span className="text-sm">Building EM report — analysing sprint scope, worklogs and YTD carry-over…</span>
+                </div>
+            )}
+            {error && <ErrorAlert message={error} variant="card" />}
+            {!loading && !error && data && sprintId && (
+                <div className="space-y-3">
+                    {data.sprint.state !== 'closed' && (
+                        <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg text-yellow-400 text-xs">
+                            Sprint is {data.sprint.state} — numbers are not final until the sprint closes.
+                        </div>
+                    )}
+                    <EmReportTable data={data} boardId={boardId} sprintId={sprintId} />
                 </div>
             )}
         </div>

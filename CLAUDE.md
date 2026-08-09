@@ -20,7 +20,7 @@ Internal dashboard for tracking Jira sprint utilization, team mandays, and capac
 | Auth        | JWT (jose) with password login         |
 | Font        | Inter (Google Fonts)                   |
 | Deployment  | Vercel                                 |
-| External APIs | Jira REST API, Indonesian Holiday API (`libur.deno.dev`) |
+| External APIs | Jira REST API, Indonesian Holiday sources (Google Calendar ICS, fallback guangrei dataset) |
 
 ---
 
@@ -211,7 +211,7 @@ npx prisma studio
 
 1. **Story Points = Mandays**: This is a fundamental assumption in this project
 2. **Jira custom fields**: Story points use `customfield_10036` and `customfield_10052` (QA)
-3. **Holiday API**: Uses `libur.deno.dev` for Indonesian public holidays (cached 24h)
+3. **Holidays**: DB `Holiday` table is the primary source (Settings → Holidays); external fallback/import uses Google Calendar ICS with guangrei dataset backup (`lib/holiday-source.ts`, cached 24h). `libur.deno.dev` is dead.
 4. **Database is optional**: The app works without a database (gracefully degrades)
 5. **Team roster is static**: Defined in JSON, not in the database
 6. **Deployed on Vercel**: Uses Vercel Postgres in production

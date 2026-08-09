@@ -37,8 +37,9 @@ export async function POST(request: Request) {
             return apiError('date and name are required', 400);
         }
 
-        const parsedDate = new Date(date + 'T00:00:00');
-        const year = parsedDate.getFullYear();
+        // UTC midnight — local-midnight parsing stores the previous day on UTC+ servers
+        const parsedDate = new Date(date + 'T00:00:00Z');
+        const year = parsedDate.getUTCFullYear();
 
         const holiday = await prisma!.holiday.create({
             data: {
@@ -74,9 +75,9 @@ export async function PUT(request: Request) {
         if (name !== undefined) data.name = name;
         if (isActive !== undefined) data.isActive = isActive;
         if (date !== undefined) {
-            const parsedDate = new Date(date + 'T00:00:00');
+            const parsedDate = new Date(date + 'T00:00:00Z');
             data.date = parsedDate;
-            data.year = parsedDate.getFullYear();
+            data.year = parsedDate.getUTCFullYear();
         }
 
         const holiday = await prisma!.holiday.update({

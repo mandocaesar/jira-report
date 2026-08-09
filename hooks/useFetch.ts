@@ -49,36 +49,40 @@ async function deduplicatedFetch<T>(url: string, signal: AbortSignal, ttl: numbe
   const cached = getCached<T>(url);
   if (cached !== undefined) return cached;
 
-  // Join existing in-flight request if one exists
-  const inflight = inflightRequests.get(url);
-  if (inflight) return inflight as Promise<T>;
+  // Join existing in-flight request if one exists. The shared request is NOT
+  // tied to any caller's abort signal — otherwise the first caller unmounting
+  // (e.g. React strict-mode double-mount) would reject the promise for every
+  // joined caller. Aborts are handled per-caller after the shared await.
+  let promise = inflightRequests.get(url) as Promise<T> | undefined;
+  if (!promise) {
+    promise = (async () => {
+      try {
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`Request failed with status ${response.status}`);
+        }
+        const json = await response.json();
+        if (!json.success) {
+          throw new Error(json.error || 'Request failed');
+        }
+        // Evict oldest entries if cache is full
+        if (responseCache.size >= MAX_CACHE_ENTRIES) {
+          const firstKey = responseCache.keys().next().value;
+          if (firstKey) responseCache.delete(firstKey);
+        }
+        // Cache the result
+        responseCache.set(url, { data: json.data, expiresAt: Date.now() + ttl });
+        return json.data as T;
+      } finally {
+        inflightRequests.delete(url);
+      }
+    })();
+    inflightRequests.set(url, promise);
+  }
 
-  // Start new request
-  const promise = (async () => {
-    try {
-      const response = await fetch(url, { signal });
-      if (!response.ok) {
-        throw new Error(`Request failed with status ${response.status}`);
-      }
-      const json = await response.json();
-      if (!json.success) {
-        throw new Error(json.error || 'Request failed');
-      }
-      // Evict oldest entries if cache is full
-      if (responseCache.size >= MAX_CACHE_ENTRIES) {
-        const firstKey = responseCache.keys().next().value;
-        if (firstKey) responseCache.delete(firstKey);
-      }
-      // Cache the result
-      responseCache.set(url, { data: json.data, expiresAt: Date.now() + ttl });
-      return json.data as T;
-    } finally {
-      inflightRequests.delete(url);
-    }
-  })();
-
-  inflightRequests.set(url, promise);
-  return promise;
+  const result = await promise;
+  if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
+  return result;
 }
 
 /**
