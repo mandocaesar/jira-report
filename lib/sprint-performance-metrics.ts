@@ -84,7 +84,7 @@ function getCategory(issue: JiraIssue): CategoryKey {
  * Single-pass changelog analysis: computes both addedMidSprint and pointsAtStart
  * in one traversal instead of two separate passes.
  */
-function analyzeIssueChangelog(
+export function analyzeIssueChangelog(
   issue: JiraIssue,
   sprint: Sprint,
   sprintStartDayEnd: number
