@@ -1,5 +1,7 @@
 // Days-only capacity engine. NO hours anywhere — hours live in task-accuracy only.
 import { isWeekend, toLocalDateString } from './holiday-service';
+import { prisma, isDatabaseAvailable } from './db';
+import { Sprint } from '@/types';
 
 export interface EngineMember {
   accountId: string;
@@ -107,3 +109,78 @@ export function computeSprintCapacity(input: CapacityInput): SprintCapacityDays 
 }
 
 export { toLocalDateString };
+
+export interface LoadedCapacity {
+  teamId: string;
+  input: CapacityInput;
+  capacity: SprintCapacityDays;
+}
+
+/**
+ * IO shell: load engine inputs from DB and run the pure core.
+ * Returns null only when the DB is unavailable or the team is unknown.
+ * DB errors are NOT swallowed — they propagate to the route.
+ */
+export async function loadSprintCapacity(
+  sprint: Sprint,
+  by: { teamId?: string; boardId?: number },
+): Promise<LoadedCapacity | null> {
+  if (!isDatabaseAvailable() || !prisma) return null;
+
+  const team = by.teamId
+    ? await prisma.team.findUnique({ where: { id: by.teamId }, include: { members: true } })
+    : by.boardId !== undefined
+      ? await prisma.team.findUnique({ where: { boardId: by.boardId }, include: { members: true } })
+      : null;
+  if (!team) return null;
+
+  const sprintStart = toLocalDateString(new Date(sprint.startDate));
+  const sprintEnd = toLocalDateString(new Date(sprint.endDate));
+
+  const [holidays, nonDev, leaves, allocations] = await Promise.all([
+    prisma.holiday.findMany({
+      where: {
+        isActive: true,
+        date: { gte: new Date(sprintStart + 'T00:00:00Z'), lte: new Date(sprintEnd + 'T00:00:00Z') },
+      },
+      select: { date: true },
+    }),
+    prisma.nonDevDay.findMany({
+      where: { teamId: team.id, sprintId: sprint.id },
+      select: { date: true },
+    }),
+    prisma.sprintLeave.findMany({ where: { sprintId: sprint.id } }),
+    prisma.capacityAllocation.findMany({
+      where: {
+        teamId: team.id,
+        type: 'SPRINT',
+        startDate: { lte: new Date(sprintEnd + 'T00:00:00Z') },
+        endDate: { gte: new Date(sprintStart + 'T00:00:00Z') },
+      },
+      include: { teamMember: { select: { accountId: true } } },
+    }),
+  ]);
+
+  const input: CapacityInput = {
+    sprintStart,
+    sprintEnd,
+    holidayDates: new Set(holidays.map(h => toLocalDateString(h.date))),
+    nonDevDates: new Set(nonDev.map(n => toLocalDateString(n.date))),
+    members: team.members.map(m => ({
+      accountId: m.accountId,
+      name: m.name,
+      role: (m.role === 'qa' ? 'qa' : 'engineer') as 'engineer' | 'qa',
+      title: m.title,
+      excluded: m.excludeFromUtilization === true,
+    })),
+    leaveDayCounts: new Map(leaves.map(l => [l.accountId, l.leaveDays])),
+    allocations: allocations.map(a => ({
+      accountId: a.teamMember.accountId,
+      startDate: toLocalDateString(a.startDate),
+      endDate: toLocalDateString(a.endDate),
+      capacityPercent: a.capacityPercent,
+    })),
+  };
+
+  return { teamId: team.id, input, capacity: computeSprintCapacity(input) };
+}
