@@ -42,6 +42,14 @@ describe('computeAssignment', () => {
     ]);
     expect(r.perMember.get('a')!.assignedAtStart).toBe(3);
   });
+
+  it('skips parent issues whose sub-tasks are in the sprint (no double count)', () => {
+    const r = computeAssignment(sprint, [
+      makeIssue({ key: 'PARENT', sp: 5, subtask: false, assigneeId: 'a' }),
+      makeIssue({ key: 'SUB', sp: 3, subtask: true, parentKey: 'PARENT', assigneeId: 'a' }),
+    ]);
+    expect(r.perMember.get('a')!.assignedAtStart).toBe(3); // parent skipped
+  });
 });
 
 describe('computeBufferReport', () => {

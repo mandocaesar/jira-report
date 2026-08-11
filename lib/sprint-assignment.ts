@@ -34,7 +34,19 @@ export function computeAssignment(sprint: Sprint, issues: JiraIssue[]): Assignme
     return perMember.get(accountId)!;
   };
 
+  // Skip parent issues whose sub-tasks are also present in the sprint, same dedup
+  // rule as groupByUser (lib/utilization-calculator.ts) — otherwise a parent
+  // Story/Task's points would be double-counted on top of its sub-tasks' points.
+  const subtaskParentKeys = new Set<string>();
   for (const issue of issues) {
+    if (issue.fields.issuetype.subtask && issue.fields.parent?.key) {
+      subtaskParentKeys.add(issue.fields.parent.key);
+    }
+  }
+
+  for (const issue of issues) {
+    if (!issue.fields.issuetype.subtask && subtaskParentKeys.has(issue.key)) continue;
+
     const points = getStoryPoints(issue);
     if (points <= 0) continue;
     const accountId = issue.fields.assignee?.accountId ?? 'UNASSIGNED';
