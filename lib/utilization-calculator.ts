@@ -1,8 +1,9 @@
 import { JiraIssue, User, UserUtilization, Sprint, SprintSummary, UserIssue } from '@/types';
 import { calculateWorkingDays, getHolidaysInRange } from './holiday-service';
-import { getMemberByAccountId, getSprintLeave, getTeamByBoardIdFromDb, getAvailableDaysFromMap, getTitleDaysMapFromDb } from './team-roster';
-import { prisma, isDatabaseAvailable } from './db';
+import { getMemberByAccountId, getTeamByBoardIdFromDb } from './team-roster';
 import { getStoryPoints, extractUser, categorizeIssueType, sprintFieldContainsId } from './issue-helpers';
+import { loadSprintCapacity } from './capacity-engine';
+import { computeAssignment, computeBufferReport } from './sprint-assignment';
 
 /**
  * Group issues by assignee and sum their story points and collect work type stats.
@@ -121,30 +122,6 @@ function addWorkTypeStats(target: Record<string, number>, source: Record<string,
 }
 
 /**
- * Fetch leave data for a sprint from the database, falling back to static JSON
- */
-async function fetchSprintLeaveMap(sprintId: number): Promise<Record<string, number>> {
-    const leaveMap: Record<string, number> = {};
-
-    if (isDatabaseAvailable() && prisma) {
-        try {
-            const leaveEntries = await prisma.sprintLeave.findMany({
-                where: { sprintId },
-            });
-            for (const entry of leaveEntries) {
-                leaveMap[entry.accountId] = entry.leaveDays;
-            }
-            return leaveMap;
-        } catch (error) {
-            console.warn('Failed to fetch leave from database, falling back to static config:', error);
-        }
-    }
-
-    // Fallback: return empty map (static JSON getSprintLeave will be used per-user)
-    return leaveMap;
-}
-
-/**
  * Calculate utilization for all users in a sprint
  */
 export async function calculateSprintUtilization(
@@ -152,10 +129,10 @@ export async function calculateSprintUtilization(
     issues: JiraIssue[],
     boardId?: number
 ): Promise<SprintSummary> {
-    // Calculate working days and fetch holidays
+    // Calculate working days and fetch holidays (fallback total for DB-less mode)
     const startDate = new Date(sprint.startDate);
     const endDate = new Date(sprint.endDate);
-    const [totalWorkingDays, holidays] = await Promise.all([
+    const [fallbackTotalWorkingDays, holidays] = await Promise.all([
         calculateWorkingDays(startDate, endDate),
         getHolidaysInRange(startDate, endDate)
     ]);
@@ -163,29 +140,20 @@ export async function calculateSprintUtilization(
     // Get team info from DB if board ID is provided (falls back to JSON)
     const teamInfo = boardId ? await getTeamByBoardIdFromDb(boardId) : null;
 
-    // Get title available days map from DB (falls back to JSON)
-    const titleDaysMap = await getTitleDaysMapFromDb();
-
-    // Fetch leave data from database (or fallback to static)
-    const dbLeaveMap = await fetchSprintLeaveMap(sprint.id);
-    const hasDbLeave = Object.keys(dbLeaveMap).length > 0;
-
-    // Helper to get leave days: prefer DB data, fallback to static JSON
-    const getLeaveDays = (accountId: string): number => {
-        if (hasDbLeave) {
-            return dbLeaveMap[accountId] || 0;
-        }
-        return getSprintLeave(sprint.id, accountId);
-    };
+    // Days-only capacity engine: theoretical mandays per member + SP assignment split
+    const [loaded, assignment] = await Promise.all([
+        boardId ? loadSprintCapacity(sprint, { boardId }) : Promise.resolve(null),
+        Promise.resolve(computeAssignment(sprint, issues)),
+    ]);
+    const capacity = loaded?.capacity ?? null;
+    const capacityByAccount = new Map(capacity?.members.map(m => [m.accountId, m]) ?? []);
+    const totalWorkingDays = capacity?.sprintWorkingDays ?? fallbackTotalWorkingDays;
 
     // Group issues by user
     const userDataMap = groupByUser(issues, sprint);
 
     // Calculate utilization for each user
     const userUtilizations: UserUtilization[] = [];
-
-    // Team standard hours (from DB team or default 8)
-    const teamStandardHours = teamInfo?.config.workingHoursPerDay ?? 8;
 
     // Stats for QA and Engineers
     let qaCount = 0;
@@ -241,27 +209,23 @@ export async function calculateSprintUtilization(
                 avatarUrl: '',
             };
 
-            const rawLeaveDays = getLeaveDays(member.accountId);
-            const isExcluded = rawLeaveDays === -1;
-            const leaveDays = isExcluded ? 0 : rawLeaveDays;
-            const titleBaseDays = Math.min(getAvailableDaysFromMap(member.title, titleDaysMap), totalWorkingDays);
-            const availableDays = isExcluded ? 0 : Math.max(0, titleBaseDays - leaveDays);
+            const cap = capacityByAccount.get(member.accountId);
+            const memberAssign = assignment.perMember.get(member.accountId);
+            const theoretical = cap?.theoreticalMandays ?? 0;
+            const assignedAtStart = memberAssign?.assignedAtStart ?? 0;
+            const isExcluded = cap?.excluded ?? false;
+            const workingDays = cap?.sprintWorkingDays ?? 0;
+            const leaveDays = cap?.leaveDays ?? 0;
+            const availableDays = theoretical;
 
-            // Hours-based capacity
-            const resolvedHours = member.workingHoursPerDay ?? teamStandardHours;
-            const availableHours = availableDays * resolvedHours;
-            const effectiveMandays = teamStandardHours > 0
-                ? availableHours / teamStandardHours
-                : availableDays;
-
-            const utilizationPercent = effectiveMandays > 0
-                ? (storyPoints / effectiveMandays) * 100
+            const utilizationPercent = theoretical > 0
+                ? (assignedAtStart / theoretical) * 100
                 : 0;
 
             userUtilizations.push({
                 user,
                 storyPoints,
-                workingDays: isExcluded ? 0 : titleBaseDays,
+                workingDays,
                 leaveDays,
                 availableDays,
                 utilizationPercent,
@@ -270,10 +234,10 @@ export async function calculateSprintUtilization(
                 title: member.title,
                 workTypeStats,
                 isUnrecognized: false,
-                workingHoursPerDay: resolvedHours,
-                teamStandardHours,
-                availableHours,
-                effectiveMandays,
+                workingHoursPerDay: 0,
+                teamStandardHours: 0,
+                availableHours: 0,
+                effectiveMandays: theoretical,
                 issues: issueData?.issues || [],
             });
             totalStoryPoints += storyPoints;
@@ -286,16 +250,14 @@ export async function calculateSprintUtilization(
                     qaMandays += availableDays;
                     qaStoryPoints += storyPoints;
                     qaLeaveDays += leaveDays;
-                    qaTotalHours += availableHours;
-                    qaEffectiveMandays += effectiveMandays;
+                    qaEffectiveMandays += theoretical;
                     addWorkTypeStats(qaWorkTypeStats, workTypeStats);
                 } else {
                     engineerCount++;
                     engineerMandays += availableDays;
                     engineerStoryPoints += storyPoints;
                     engineerLeaveDays += leaveDays;
-                    engineerTotalHours += availableHours;
-                    engineerEffectiveMandays += effectiveMandays;
+                    engineerEffectiveMandays += theoretical;
                     addWorkTypeStats(engineerWorkTypeStats, workTypeStats);
                 }
             }
@@ -313,25 +275,21 @@ export async function calculateSprintUtilization(
         const role = memberInfo?.member.role || 'engineer';
         const title = memberInfo?.member.title || 'Associate';
 
-        const leaveDays = getLeaveDays(user.accountId);
-        const titleBaseDays = Math.min(getAvailableDaysFromMap(title, titleDaysMap), totalWorkingDays);
-        const availableDays = Math.max(0, titleBaseDays - leaveDays);
+        // Non-roster assignees aren't part of the capacity engine's team roster,
+        // so there's no per-member leave/theoretical data for them — leave is
+        // untracked (0) and working days fall back to the sprint-wide total.
+        const workingDays = capacity?.sprintWorkingDays ?? totalWorkingDays;
+        const leaveDays = 0;
+        const availableDays = Math.max(0, workingDays - leaveDays);
 
-        // Non-roster: assume team standard hours
-        const resolvedHours = teamStandardHours;
-        const availableHours = availableDays * resolvedHours;
-        const effectiveMandays = teamStandardHours > 0
-            ? availableHours / teamStandardHours
-            : availableDays;
-
-        const utilizationPercent = effectiveMandays > 0
-            ? (storyPoints / effectiveMandays) * 100
+        const utilizationPercent = availableDays > 0
+            ? (storyPoints / availableDays) * 100
             : 0;
 
         userUtilizations.push({
             user,
             storyPoints,
-            workingDays: titleBaseDays,
+            workingDays,
             leaveDays,
             availableDays,
             utilizationPercent,
@@ -340,10 +298,10 @@ export async function calculateSprintUtilization(
             title,
             workTypeStats,
             isUnrecognized: true,
-            workingHoursPerDay: resolvedHours,
-            teamStandardHours,
-            availableHours,
-            effectiveMandays,
+            workingHoursPerDay: 0,
+            teamStandardHours: 0,
+            availableHours: 0,
+            effectiveMandays: availableDays,
             issues: userDataMap.get(user.accountId)?.issues || [],
         });
         totalStoryPoints += storyPoints;
@@ -371,20 +329,16 @@ export async function calculateSprintUtilization(
     userUtilizations.sort((a, b) => b.utilizationPercent - a.utilizationPercent);
 
     // Team-level calculation
-    const teamSize = userUtilizations.length;
     const totalMandays = qaMandays + engineerMandays;
     const totalHours = qaTotalHours + engineerTotalHours;
-    const totalEffectiveMandays = qaEffectiveMandays + engineerEffectiveMandays;
 
-    // Get adhoc days configuration (default 3 days total for the team)
-    const adhocDays = parseInt(process.env.ADHOC_DAYS_PER_SPRINT || '3', 10);
+    // Days-only capacity engine buffer readout (null when capacity engine unavailable, e.g. no DB/team)
+    const buffer = capacity ? computeBufferReport(capacity, assignment) : null;
+    const totalEffectiveMandays = buffer?.theoreticalMandays ?? 0;
 
-    // Available capacity = total effective mandays - adhoc days
-    const availableCapacity = Math.max(0, totalEffectiveMandays - adhocDays);
-
-    // Team average utilization = total story points / available capacity
-    const averageUtilization = availableCapacity > 0
-        ? (totalStoryPoints / availableCapacity) * 100
+    // Team average utilization = team assigned-at-start ÷ team theoretical mandays
+    const averageUtilization = buffer && buffer.theoreticalMandays > 0
+        ? (buffer.assignedAtStart / buffer.theoreticalMandays) * 100
         : 0;
 
     return {
@@ -413,9 +367,10 @@ export async function calculateSprintUtilization(
         },
         workTypeStats: totalWorkTypeStats,
         holidays,
-        teamStandardHours,
+        teamStandardHours: 0,
         totalAvailableHours: totalHours,
         totalEffectiveMandays,
+        buffer,
     };
 }
 

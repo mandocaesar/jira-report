@@ -30,8 +30,7 @@ export default function SprintSummaryComponent({ summary, reportData, onAiSummar
     const qaStats = summary.qaStats ?? computeRoleStats(userUtilizations, 'qa');
     const totalMandays = engineerStats.mandays + qaStats.mandays;
     const totalLeaveDays = engineerStats.leaveDays + qaStats.leaveDays;
-    const totalEffectiveMandays = summary.totalEffectiveMandays ?? totalMandays;
-    const hasHoursVariation = totalEffectiveMandays !== totalMandays;
+    const mandaysDisplay = summary.buffer?.theoreticalMandays ?? totalMandays;
 
     const getAverageStatusColor = (percent: number) => {
         if (percent < 70) return 'text-blue-400';
@@ -55,20 +54,15 @@ export default function SprintSummaryComponent({ summary, reportData, onAiSummar
                 <SprintTimeline sprint={sprint} totalWorkingDays={totalWorkingDays} holidays={summary.holidays} />
 
                 {/* Total Mandays */}
-                <div className="text-center py-2 px-2 bg-muted/50 rounded-lg border border-border cursor-help flex flex-col justify-center" title={hasHoursVariation ? `Effective Mandays = Σ (available days × member hours / team standard hours). Raw available days: ${totalMandays}. Team standard: ${summary.teamStandardHours ?? 8}h/day.` : 'Sum of available days for all roster members, based on their title\'s configured days minus any manual leave.'}>
+                <div className="text-center py-2 px-2 bg-muted/50 rounded-lg border border-border cursor-help flex flex-col justify-center" title="Sum of theoretical mandays for all roster members, based on working days − holidays − non-dev days − leave.">
                     <div className="text-3xl font-bold text-foreground leading-tight pb-1">
-                        {hasHoursVariation ? totalEffectiveMandays.toFixed(1) : totalMandays}
+                        {mandaysDisplay}
                     </div>
                     <div className="flex flex-col items-center justify-center">
-                        <div className="text-xs text-muted-foreground mt-0.5">{hasHoursVariation ? 'Eff. Mandays' : 'Mandays'}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">Mandays</div>
                         <div className="text-[10px] text-muted-foreground">
                             ({userUtilizations.length} members)
                         </div>
-                        {hasHoursVariation && (
-                            <div className="text-[10px] text-amber-400">
-                                {totalMandays} raw days
-                            </div>
-                        )}
                         {totalLeaveDays > 0 && (
                             <div className="text-[10px] text-red-400">
                                 -{totalLeaveDays} leave
@@ -78,13 +72,27 @@ export default function SprintSummaryComponent({ summary, reportData, onAiSummar
                 </div>
 
                 {/* Avg Utilization */}
-                <div className="text-center py-2 px-2 bg-muted/50 rounded-lg border border-border cursor-help flex flex-col justify-center" title="Average utilization = (Total Story Points ÷ Total Mandays) × 100%. Shows how much of the team's available capacity was used. Under 70% = under-utilized, over 110% = over-utilized.">
+                <div className="text-center py-2 px-2 bg-muted/50 rounded-lg border border-border cursor-help flex flex-col justify-center" title="Average utilization = (Assigned mandays at sprint start ÷ Theoretical mandays) × 100%. Theoretical = working days − holidays − non-dev days − leave.">
                     <div className={`text-3xl font-bold leading-tight pb-1 ${getAverageStatusColor(averageUtilization)}`}>
                         {averageUtilization.toFixed(1)}%
                     </div>
                     <div className="text-xs text-muted-foreground mt-0.5">Avg Util</div>
                 </div>
             </div>
+
+            {/* Ad-hoc Buffer readout */}
+            {summary.buffer && (
+                <div className="px-2 pb-1">
+                    <div className={`rounded-lg px-2.5 py-1.5 border text-[11px] flex flex-wrap gap-x-4 gap-y-1 items-center ${summary.buffer.verdict === 'overload' ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'}`}>
+                        <span className="font-semibold uppercase tracking-wider">Ad-hoc Buffer</span>
+                        <span>{summary.buffer.buffer >= 0 ? `${summary.buffer.buffer} MD unassigned at start` : `${Math.abs(summary.buffer.buffer)} MD over-assigned at start`}</span>
+                        <span>+{summary.buffer.addedDuringSprint} MD added mid-sprint</span>
+                        <span className="font-semibold">
+                            {summary.buffer.verdict === 'overload' ? `Overload +${summary.buffer.overloadSP} MD` : 'Fit within buffer'}
+                        </span>
+                    </div>
+                </div>
+            )}
 
             {/* Row 2: Work Type Distribution */}
             <WorkTypeBreakdown workTypeStats={workTypeStats} totalStoryPoints={totalStoryPoints} />

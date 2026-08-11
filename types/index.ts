@@ -1,3 +1,5 @@
+import type { BufferReport } from '@/lib/sprint-assignment';
+
 // Sprint-related types
 export interface Sprint {
   id: number;
@@ -253,6 +255,8 @@ export interface SprintSummary {
   teamStandardHours: number;
   totalAvailableHours: number;
   totalEffectiveMandays: number;
+  // Days-only capacity engine buffer readout (null when capacity engine unavailable, e.g. no DB)
+  buffer?: BufferReport | null;
 }
 
 // Indonesian holiday
