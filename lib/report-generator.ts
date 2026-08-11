@@ -188,7 +188,7 @@ ${JSON.stringify(
                 role: u.role,
                 utilizationPercent: u.utilizationPercent,
                 completedPoints: u.storyPoints,
-                assignedDays: u.workingDays - u.leaveDays
+                assignedDays: u.availableDays
             }))
         )}
 

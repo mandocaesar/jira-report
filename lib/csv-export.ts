@@ -17,7 +17,7 @@ export function downloadSprintCSV(
             u.user.displayName,
             u.role.toUpperCase(),
             u.title || '',
-            (u.workingDays - u.leaveDays).toString(),
+            u.availableDays.toString(),
             u.storyPoints.toString(),
             u.utilizationPercent.toFixed(1) + '%'
         ]);

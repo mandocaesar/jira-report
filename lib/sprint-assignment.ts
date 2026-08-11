@@ -122,10 +122,13 @@ export function computeBufferReport(capacity: SprintCapacityDays, assignment: As
     };
   });
 
+  // Team totals are summed from the roster-only memberRows, not assignment.team —
+  // assignment.team also includes UNASSIGNED and non-roster SP, which would
+  // inflate assignedAtStart/addedDuringSprint against a roster-only theoreticalMandays.
   const theoreticalMandays = capacity.teamTheoreticalMandays;
-  const assignedAtStart = assignment.team.assignedAtStart;
+  const assignedAtStart = round2(memberRows.reduce((s, m) => s + m.assignedAtStart, 0));
   const buffer = round2(theoreticalMandays - assignedAtStart);
-  const addedDuringSprint = assignment.team.addedDuringSprint;
+  const addedDuringSprint = round2(memberRows.reduce((s, m) => s + m.addedDuringSprint, 0));
   const overloadSP = round2(Math.max(0, addedDuringSprint - Math.max(0, buffer)));
 
   return {

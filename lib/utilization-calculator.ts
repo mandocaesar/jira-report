@@ -276,15 +276,14 @@ export async function calculateSprintUtilization(
         const title = memberInfo?.member.title || 'Associate';
 
         // Non-roster assignees aren't part of the capacity engine's team roster,
-        // so there's no per-member leave/theoretical data for them — leave is
-        // untracked (0) and working days fall back to the sprint-wide total.
-        const workingDays = capacity?.sprintWorkingDays ?? totalWorkingDays;
+        // so there's no per-member leave/theoretical/day data for them. Treat
+        // them like excluded members: zero days, zero utilization — their SP
+        // stays visible in the list, and the isUnrecognized badge explains why
+        // they don't have a utilization figure alongside it.
+        const workingDays = 0;
         const leaveDays = 0;
-        const availableDays = Math.max(0, workingDays - leaveDays);
-
-        const utilizationPercent = availableDays > 0
-            ? (storyPoints / availableDays) * 100
-            : 0;
+        const availableDays = 0;
+        const utilizationPercent = 0;
 
         userUtilizations.push({
             user,
