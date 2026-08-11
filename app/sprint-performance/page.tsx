@@ -9,15 +9,7 @@ import { useFetch } from '@/hooks/useFetch';
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
 interface KPIData {
-  committedHours: number;
-  loggedHours: number;
-  capacityHours: number;
-  plannedUtilisation: number;
-  executionUtilisation: number;
-  execVsCommitment: number;
   completionRate: number;
-  spPerHour: number;
-  avgVelocity: number;
   avgCycleTime: number | null;
   medianCycleTime: number | null;
 }
@@ -31,12 +23,31 @@ interface VelocityData {
   commitmentAccuracy: number;
 }
 
-interface CapacityData {
+interface CapacityDaysData {
   sprintWorkingDays: number;
-  totalCapacityHours: number;
-  totalAvailableHours: number;
-  totalEffectiveMandays: number;
-  teamStandardHours: number;
+  teamTheoreticalMandays: number;
+}
+
+interface BufferData {
+  theoreticalMandays: number;
+  assignedAtStart: number;
+  buffer: number;
+  addedDuringSprint: number;
+  overloadSP: number;
+  verdict: 'fit' | 'overload';
+}
+
+interface AccuracyRollup {
+  totalSp: number;
+  totalExpectedHours: number;
+  totalLoggedHours: number;
+  ratio: number | null;
+  issueCount: number;
+  issuesWithData: number;
+}
+
+interface AccuracyData {
+  team: AccuracyRollup;
 }
 
 interface EngineerMetric {
@@ -46,13 +57,8 @@ interface EngineerMetric {
   title: string;
   avatarUrl: string;
   storyPoints: number;
-  availableHours: number;
-  allocatedHours: number;
-  loggedHours: number;
-  capacityPercent: number;
-  effectiveMandays: number;
-  plannedUtilisation: number;
-  executionUtilisation: number;
+  theoreticalMandays: number;
+  assignedAtStart: number;
   completedIssues: number;
   committedIssues: number;
   completionRate: number;
@@ -77,7 +83,9 @@ interface SprintPerfResponse {
   sprint: { id: number; name: string; state: string; startDate: string; endDate: string };
   kpis: KPIData;
   velocity: VelocityData;
-  capacity: CapacityData | null;
+  capacityDays: CapacityDaysData | null;
+  buffer: BufferData | null;
+  accuracy: AccuracyData | null;
   engineerMetrics: EngineerMetric[];
   nonDevDays: NonDevDay[];
   allocations: Allocation[];
@@ -171,11 +179,10 @@ export default function SprintPerformancePage() {
       ]);
       downloadCSV('sprint-history.csv', headers, rows);
     } else if (activeTab === 'report' && data?.engineerMetrics.length) {
-      const headers = ['Name', 'Role', 'Title', 'SP', 'Available Hrs', 'Allocated Hrs', 'Logged Hrs', 'Capacity %', 'Planned Util %', 'Exec Util %', 'Completion %', 'Cycle Time', 'Lead Time'];
+      const headers = ['Name', 'Role', 'Title', 'SP', 'Theoretical Mandays', 'Assigned At Start', 'Completion %', 'Cycle Time', 'Lead Time'];
       const rows = data.engineerMetrics.map(e => [
-        e.name, e.role, e.title, e.storyPoints, e.availableHours.toFixed(1),
-        e.allocatedHours.toFixed(1), e.loggedHours.toFixed(1), e.capacityPercent,
-        e.plannedUtilisation.toFixed(1), e.executionUtilisation.toFixed(1),
+        e.name, e.role, e.title, e.storyPoints, e.theoreticalMandays.toFixed(1),
+        e.assignedAtStart.toFixed(1),
         e.completionRate.toFixed(1), e.cycleTimeAvg?.toFixed(1) ?? '', e.leadTimeAvg?.toFixed(1) ?? '',
       ]);
       downloadCSV(`sprint-report-${data.sprint.name.replace(/\s+/g, '-')}.csv`, headers, rows);
@@ -282,7 +289,10 @@ function ReportTab({ data, loading, error, selectedBoardId, selectedSprintId }: 
 
   if (!data) return null;
 
-  const { kpis, velocity, capacity, engineerMetrics, sprint, nonDevDays, allocations } = data;
+  const { kpis, velocity, capacityDays, buffer, accuracy, engineerMetrics, sprint, nonDevDays, allocations } = data;
+  const utilizationPct = buffer && buffer.theoreticalMandays > 0
+    ? (buffer.assignedAtStart / buffer.theoreticalMandays) * 100
+    : null;
 
   return (
     <div className="space-y-6">
@@ -301,10 +311,10 @@ function ReportTab({ data, loading, error, selectedBoardId, selectedSprintId }: 
               {sprint.state.charAt(0).toUpperCase() + sprint.state.slice(1)}
             </span>
           </div>
-          {capacity && (
+          {capacityDays && (
             <>
-              <div><span className="text-muted-foreground">Working Days:</span> <span className="font-medium text-foreground">{capacity.sprintWorkingDays}</span></div>
-              <div><span className="text-muted-foreground">Capacity:</span> <span className="font-medium text-foreground">{capacity.totalCapacityHours.toFixed(0)}h</span></div>
+              <div><span className="text-muted-foreground">Working Days:</span> <span className="font-medium text-foreground">{capacityDays.sprintWorkingDays}</span></div>
+              <div><span className="text-muted-foreground">Theoretical Mandays:</span> <span className="font-medium text-foreground">{capacityDays.teamTheoreticalMandays.toFixed(1)}</span></div>
             </>
           )}
         </div>
@@ -312,11 +322,11 @@ function ReportTab({ data, loading, error, selectedBoardId, selectedSprintId }: 
 
       {/* 8 KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <KPICard label="Planned Utilisation" value={kpis.plannedUtilisation.toFixed(1)} unit="%" status={kpis.plannedUtilisation} subtitle={`${kpis.committedHours.toFixed(0)}h / ${kpis.capacityHours.toFixed(0)}h`} />
-        <KPICard label="Execution Utilisation" value={kpis.executionUtilisation.toFixed(1)} unit="%" status={kpis.executionUtilisation} subtitle={`${kpis.loggedHours.toFixed(0)}h / ${kpis.capacityHours.toFixed(0)}h`} />
-        <KPICard label="Exec vs Commitment" value={kpis.execVsCommitment.toFixed(1)} unit="%" status={kpis.execVsCommitment} subtitle={`${kpis.loggedHours.toFixed(0)}h / ${kpis.committedHours.toFixed(0)}h`} />
+        <KPICard label="Utilization" value={utilizationPct !== null ? utilizationPct.toFixed(1) : '—'} unit={utilizationPct !== null ? '%' : undefined} status={utilizationPct ?? undefined} subtitle={buffer ? `${buffer.assignedAtStart} / ${buffer.theoreticalMandays} MD assigned` : undefined} />
+        <KPICard label="Buffer" value={buffer ? buffer.buffer.toFixed(1) : '—'} unit="MD" subtitle={buffer ? buffer.verdict : undefined} />
+        <KPICard label="Added Mid-Sprint" value={buffer ? buffer.addedDuringSprint.toFixed(1) : '—'} unit="MD" subtitle={buffer && buffer.overloadSP > 0 ? `${buffer.overloadSP.toFixed(1)} MD over buffer` : undefined} />
+        <KPICard label="Task Accuracy" value={accuracy?.team.ratio !== null && accuracy?.team.ratio !== undefined ? accuracy.team.ratio.toFixed(2) : '—'} unit={accuracy?.team.ratio !== null && accuracy?.team.ratio !== undefined ? 'x' : undefined} subtitle={accuracy ? `${accuracy.team.totalLoggedHours.toFixed(1)}h logged / ${accuracy.team.totalExpectedHours.toFixed(1)}h expected` : undefined} />
         <KPICard label="Completion Rate" value={kpis.completionRate.toFixed(1)} unit="%" status={kpis.completionRate} />
-        <KPICard label="SP per Hour" value={kpis.spPerHour.toFixed(2)} subtitle={`${velocity.committedPoints} SP committed`} />
         <KPICard label="Velocity" value={String(velocity.actualPoints)} unit="SP" subtitle={`${velocity.committedPoints} committed, ${velocity.commitmentAccuracy}% accuracy`} />
         <KPICard label="Avg Cycle Time" value={kpis.avgCycleTime?.toFixed(1) ?? '—'} unit="days" />
         <KPICard label="Median Cycle Time" value={kpis.medianCycleTime?.toFixed(1) ?? '—'} unit="days" />
@@ -330,7 +340,7 @@ function ReportTab({ data, loading, error, selectedBoardId, selectedSprintId }: 
           <Stat label="Added Mid-Sprint" value={`${velocity.addedMidSprintPoints} SP (${velocity.addedMidSprintCount} issues)`} />
           <Stat label="Total SP" value={velocity.totalPoints} />
           <Stat label="Commitment Accuracy" value={`${velocity.commitmentAccuracy}%`} />
-          {capacity && <Stat label="Effective Mandays" value={capacity.totalEffectiveMandays.toFixed(1)} />}
+          {capacityDays && <Stat label="Theoretical Mandays" value={capacityDays.teamTheoreticalMandays.toFixed(1)} />}
         </div>
       </CollapsibleSection>
 
@@ -387,11 +397,8 @@ function ReportTab({ data, loading, error, selectedBoardId, selectedSprintId }: 
               <tr className="text-left text-muted-foreground border-b border-border">
                 <th className="pb-2 pr-3">Engineer</th>
                 <th className="pb-2 pr-3 text-right">SP</th>
-                <th className="pb-2 pr-3 text-right">Alloc Hrs</th>
-                <th className="pb-2 pr-3 text-right">Logged Hrs</th>
-                <th className="pb-2 pr-3 text-right">Cap %</th>
-                <th className="pb-2 pr-3 text-right">Plan Util</th>
-                <th className="pb-2 pr-3 text-right">Exec Util</th>
+                <th className="pb-2 pr-3 text-right">Theoretical MD</th>
+                <th className="pb-2 pr-3 text-right">Assigned At Start</th>
                 <th className="pb-2 pr-3 text-right">Completion</th>
                 <th className="pb-2 pr-3 text-right">Cycle</th>
                 <th className="pb-2 text-right">Lead</th>
@@ -414,11 +421,8 @@ function ReportTab({ data, loading, error, selectedBoardId, selectedSprintId }: 
                     </div>
                   </td>
                   <td className="py-2.5 pr-3 text-right font-medium">{e.storyPoints}</td>
-                  <td className="py-2.5 pr-3 text-right">{e.allocatedHours.toFixed(1)}</td>
-                  <td className="py-2.5 pr-3 text-right">{e.loggedHours.toFixed(1)}</td>
-                  <td className="py-2.5 pr-3 text-right">{e.capacityPercent}%</td>
-                  <td className="py-2.5 pr-3 text-right"><KPIStatusBadge value={e.plannedUtilisation} /></td>
-                  <td className="py-2.5 pr-3 text-right"><KPIStatusBadge value={e.executionUtilisation} /></td>
+                  <td className="py-2.5 pr-3 text-right">{e.theoreticalMandays.toFixed(1)}</td>
+                  <td className="py-2.5 pr-3 text-right">{e.assignedAtStart.toFixed(1)}</td>
                   <td className="py-2.5 pr-3 text-right"><KPIStatusBadge value={e.completionRate} /></td>
                   <td className="py-2.5 pr-3 text-right text-muted-foreground">{e.cycleTimeAvg?.toFixed(1) ?? '—'}</td>
                   <td className="py-2.5 text-right text-muted-foreground">{e.leadTimeAvg?.toFixed(1) ?? '—'}</td>

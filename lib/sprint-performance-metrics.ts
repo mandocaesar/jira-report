@@ -1,28 +1,13 @@
-import { JiraIssue, Sprint, SprintVelocityEntry, SprintCommitmentCategory, WorklogReportData } from '@/types';
-import { SprintCapacity } from './capacity-pipeline';
+import { JiraIssue, Sprint, SprintVelocityEntry, SprintCommitmentCategory } from '@/types';
 import { getStoryPoints, isStoryPointField, sprintFieldContainsId, calculateIssueTimes } from './issue-helpers';
+import { MemberCapacityDays } from './capacity-engine';
+import { AssignmentResult } from './sprint-assignment';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
 export interface SprintPerformanceKPIs {
-  /** Committed SP × team standard hours ÷ SP per day → or simply committedPoints */
-  committedHours: number;
-  /** Logged hours from worklogs */
-  loggedHours: number;
-  /** Total capacity hours from allocation pipeline */
-  capacityHours: number;
-  /** Committed Hours / Capacity Hours */
-  plannedUtilisation: number;
-  /** Logged Hours / Capacity Hours */
-  executionUtilisation: number;
-  /** Logged Hours / Committed Hours */
-  execVsCommitment: number;
   /** Completed Tasks / Committed Tasks */
   completionRate: number;
-  /** Committed SP / Committed Hours (or capacity) */
-  spPerHour: number;
-  /** Total SP / Active Sprint Count (for multi-sprint views) */
-  avgVelocity: number;
   /** Average business days In Progress → Done */
   avgCycleTime: number | null;
   /** Median business days In Progress → Done */
@@ -46,26 +31,13 @@ export interface EngineerSprintMetrics {
   title: string;
   avatarUrl: string;
   storyPoints: number;
-  availableHours: number;
-  allocatedHours: number;
-  loggedHours: number;
-  capacityPercent: number;
-  effectiveMandays: number;
-  plannedUtilisation: number;
-  executionUtilisation: number;
+  theoreticalMandays: number;
+  assignedAtStart: number;
   completedIssues: number;
   committedIssues: number;
   completionRate: number;
   cycleTimeAvg: number | null;
   leadTimeAvg: number | null;
-}
-
-export interface SprintPerformanceData {
-  sprint: Sprint;
-  kpis: SprintPerformanceKPIs;
-  velocity: SprintVelocityEntry;
-  engineerMetrics: EngineerSprintMetrics[];
-  capacity: SprintCapacity | null;
 }
 
 // ─── Velocity ──────────────────────────────────────────────────────────────────
@@ -169,42 +141,11 @@ export function computeVelocity(sprint: Sprint, issues: JiraIssue[]): SprintVelo
 
 // ─── KPI Calculator ────────────────────────────────────────────────────────────
 
-export function calculateSprintKPIs(
-  sprint: Sprint,
-  issues: JiraIssue[],
-  capacity: SprintCapacity | null,
-  worklogData: WorklogReportData | null,
-  velocity: SprintVelocityEntry,
-): SprintPerformanceKPIs {
-  const capacityHours = capacity?.totalCapacityHours ?? 0;
-  const committedPoints = velocity.committedPoints;
-  const totalPoints = velocity.totalPoints;
-
-  // Committed hours: committedPoints × teamStandardHours (1 SP = 1 manday = standardHours hours)
-  const teamStdHours = capacity?.teamStandardHours ?? 8;
-  const committedHours = committedPoints * teamStdHours;
-
-  // Logged hours from worklogs
-  const loggedHours = worklogData
-    ? worklogData.memberWorklogs.reduce((sum, m) => sum + m.totalHours, 0)
-    : 0;
-
-  // Planned utilisation: committedHours / capacityHours
-  const plannedUtilisation = capacityHours > 0 ? (committedHours / capacityHours) * 100 : 0;
-
-  // Execution utilisation: loggedHours / capacityHours
-  const executionUtilisation = capacityHours > 0 ? (loggedHours / capacityHours) * 100 : 0;
-
-  // Exec vs commitment: loggedHours / committedHours
-  const execVsCommitment = committedHours > 0 ? (loggedHours / committedHours) * 100 : 0;
-
+export function calculateSprintKPIs(issues: JiraIssue[]): SprintPerformanceKPIs {
   // Completion rate: completed issues / total committed issues
   const committedIssues = issues.length;
   const completedIssues = issues.filter(i => i.fields.status?.statusCategory?.name === 'Done').length;
   const completionRate = committedIssues > 0 ? (completedIssues / committedIssues) * 100 : 0;
-
-  // SP per hour: committedPoints / committedHours
-  const spPerHour = committedHours > 0 ? committedPoints / committedHours : 0;
 
   // Cycle times
   const cycleTimes: number[] = [];
@@ -226,15 +167,7 @@ export function calculateSprintKPIs(
     : null;
 
   return {
-    committedHours,
-    loggedHours,
-    capacityHours,
-    plannedUtilisation: Math.round(plannedUtilisation * 10) / 10,
-    executionUtilisation: Math.round(executionUtilisation * 10) / 10,
-    execVsCommitment: Math.round(execVsCommitment * 10) / 10,
     completionRate: Math.round(completionRate * 10) / 10,
-    spPerHour: Math.round(spPerHour * 100) / 100,
-    avgVelocity: velocity.actualPoints,
     avgCycleTime,
     medianCycleTime,
   };
@@ -244,12 +177,10 @@ export function calculateSprintKPIs(
 
 export function calculateEngineerMetrics(
   issues: JiraIssue[],
-  capacity: SprintCapacity | null,
-  worklogData: WorklogReportData | null,
+  capacityByAccount: Map<string, MemberCapacityDays>,
+  assignment: AssignmentResult,
   teamMemberIds: Set<string>,
 ): EngineerSprintMetrics[] {
-  const teamStdHours = capacity?.teamStandardHours ?? 8;
-
   // Build per-member issue aggregations
   const memberIssueMap = new Map<string, { sp: number; completed: number; total: number; cycleTimes: number[]; leadTimes: number[] }>();
   for (const issue of issues) {
@@ -271,45 +202,18 @@ export function calculateEngineerMetrics(
     }
   }
 
-  // Build worklog map (accountId → hours)
-  const worklogMap = new Map<string, number>();
-  if (worklogData) {
-    for (const mw of worklogData.memberWorklogs) {
-      worklogMap.set(mw.accountId, mw.totalHours);
-    }
-  }
-
-  // Build capacity map (accountId → MemberCapacity)
-  const capacityMap = new Map<string, { availableHours: number; allocatedHours: number; capacityPercent: number; effectiveMandays: number }>();
-  if (capacity) {
-    for (const mc of capacity.members) {
-      capacityMap.set(mc.accountId, {
-        availableHours: mc.availableHours,
-        allocatedHours: mc.allocatedHours,
-        capacityPercent: mc.capacityPercent,
-        effectiveMandays: mc.effectiveMandays,
-      });
-    }
-  }
-
   const results: EngineerSprintMetrics[] = [];
 
   for (const accountId of teamMemberIds) {
     const issueData = memberIssueMap.get(accountId);
-    const cap = capacityMap.get(accountId);
-    const loggedHours = worklogMap.get(accountId) ?? 0;
+    const cap = capacityByAccount.get(accountId);
+    const memberAssign = assignment.perMember.get(accountId);
 
     const sp = issueData?.sp ?? 0;
     const completed = issueData?.completed ?? 0;
     const total = issueData?.total ?? 0;
-    const availableHours = cap?.availableHours ?? 0;
-    const allocatedHours = cap?.allocatedHours ?? 0;
-    const capacityPercent = cap?.capacityPercent ?? 100;
-    const effectiveMandays = cap?.effectiveMandays ?? 0;
-
-    const committedHours = sp * teamStdHours;
-    const plannedUtilisation = allocatedHours > 0 ? (committedHours / allocatedHours) * 100 : 0;
-    const executionUtilisation = allocatedHours > 0 ? (loggedHours / allocatedHours) * 100 : 0;
+    const theoreticalMandays = cap?.theoreticalMandays ?? 0;
+    const assignedAtStart = memberAssign?.assignedAtStart ?? 0;
     const completionRate = total > 0 ? (completed / total) * 100 : 0;
 
     const avgCycle = issueData && issueData.cycleTimes.length > 0
@@ -319,23 +223,15 @@ export function calculateEngineerMetrics(
       ? Math.round((issueData.leadTimes.reduce((a, b) => a + b, 0) / issueData.leadTimes.length) * 10) / 10
       : null;
 
-    // We need member info from capacity or we'll fill in later
-    const capMember = capacity?.members.find(m => m.accountId === accountId);
-
     results.push({
       accountId,
-      name: capMember?.name ?? accountId,
-      role: (capMember?.role ?? 'engineer') as 'qa' | 'engineer',
-      title: capMember?.title ?? '',
+      name: cap?.name ?? accountId,
+      role: (cap?.role ?? 'engineer') as 'qa' | 'engineer',
+      title: cap?.title ?? '',
       avatarUrl: '',
       storyPoints: sp,
-      availableHours,
-      allocatedHours,
-      loggedHours,
-      capacityPercent,
-      effectiveMandays,
-      plannedUtilisation: Math.round(plannedUtilisation * 10) / 10,
-      executionUtilisation: Math.round(executionUtilisation * 10) / 10,
+      theoreticalMandays,
+      assignedAtStart,
       completedIssues: completed,
       committedIssues: total,
       completionRate: Math.round(completionRate * 10) / 10,

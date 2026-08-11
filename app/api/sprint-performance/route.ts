@@ -2,87 +2,17 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
 import { apiSuccess, apiError } from '@/lib/api-helpers';
 import { createJiraClient } from '@/lib/jira-client';
-import { calculateSprintCapacity } from '@/lib/capacity-pipeline';
+import { loadSprintCapacity } from '@/lib/capacity-engine';
+import { computeAssignment, computeBufferReport } from '@/lib/sprint-assignment';
+import { computeTaskAccuracy } from '@/lib/task-accuracy';
 import {
   computeVelocity,
   calculateSprintKPIs,
   calculateEngineerMetrics,
 } from '@/lib/sprint-performance-metrics';
-import { WorklogReportData, MemberWorklog, DailyWorklog } from '@/types';
-import { generateDateRange } from '@/lib/date-utils';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
-
-// ─── Inline worklog aggregation (same logic as /api/worklogs) ──────────────────
-
-async function getWorklogData(
-  sprintId: number,
-  boardId: number,
-  teamMembers: Array<{ accountId: string; name: string; role: string; title: string }>,
-  existingSprint: { startDate: string; endDate: string },
-  existingIssues: Array<{ fields: Record<string, unknown> }>,
-): Promise<WorklogReportData | null> {
-  try {
-    if (!existingSprint.startDate || !existingSprint.endDate) return null;
-    const dates = generateDateRange(existingSprint.startDate, existingSprint.endDate);
-
-    const memberWorklogsMap = new Map<string, MemberWorklog>();
-    const memberDailyLogIndex = new Map<string, Map<string, DailyWorklog>>();
-    for (const member of teamMembers) {
-      const dailyLogs: DailyWorklog[] = dates.map(date => ({ date, hours: 0 }));
-      const logIndex = new Map<string, DailyWorklog>();
-      for (const dl of dailyLogs) logIndex.set(dl.date, dl);
-      memberDailyLogIndex.set(member.accountId, logIndex);
-      memberWorklogsMap.set(member.accountId, {
-        accountId: member.accountId,
-        displayName: member.name,
-        avatarUrl: '',
-        role: member.role as 'qa' | 'engineer',
-        title: member.title,
-        dailyLogs,
-        totalHours: 0,
-      });
-    }
-
-    for (const issue of existingIssues as Array<{ fields: { assignee?: { accountId: string; avatarUrls?: Record<string, string> }; worklog?: { worklogs?: Array<{ author: { accountId: string }; started: string; timeSpentSeconds: number }> } } }>) {
-      if (issue.fields.assignee && memberWorklogsMap.has(issue.fields.assignee.accountId)) {
-        const m = memberWorklogsMap.get(issue.fields.assignee.accountId)!;
-        if (!m.avatarUrl && issue.fields.assignee.avatarUrls?.['48x48']) {
-          m.avatarUrl = issue.fields.assignee.avatarUrls['48x48'];
-        }
-      }
-      const worklogData = issue.fields.worklog;
-      if (!worklogData?.worklogs?.length) continue;
-      for (const log of worklogData.worklogs) {
-        const authorId = log.author.accountId;
-        if (!memberWorklogsMap.has(authorId)) continue;
-        const member = memberWorklogsMap.get(authorId)!;
-        const startedDate = new Date(log.started);
-        const year = startedDate.getFullYear();
-        const month = String(startedDate.getMonth() + 1).padStart(2, '0');
-        const day = String(startedDate.getDate()).padStart(2, '0');
-        const dateKey = `${year}-${month}-${day}`;
-        if (dates.includes(dateKey)) {
-          const hours = log.timeSpentSeconds / 3600;
-          const dailyLog = memberDailyLogIndex.get(authorId)?.get(dateKey);
-          if (dailyLog) {
-            dailyLog.hours += hours;
-            member.totalHours += hours;
-          }
-        }
-      }
-    }
-
-    return {
-      sprintId,
-      dates,
-      memberWorklogs: Array.from(memberWorklogsMap.values()),
-    };
-  } catch {
-    return null;
-  }
-}
 
 // ─── Route Handler ─────────────────────────────────────────────────────────────
 
@@ -124,21 +54,33 @@ export async function GET(request: NextRequest) {
       jiraClient.getSprintIssuesWithChangelog(sprintId, boardId),
     ]);
 
-    // Run capacity pipeline + worklogs in parallel
+    // Days-only capacity engine: theoretical mandays per member + SP assignment split
     const teamMemberIds = new Set(teamMembers.map(m => m.accountId));
-    const [capacity, worklogData] = await Promise.all([
-      teamId ? calculateSprintCapacity(sprint, teamId) : Promise.resolve(null),
-      getWorklogData(sprintId, boardId, teamMembers, sprint, issues),
+    const [loaded, assignment] = await Promise.all([
+      loadSprintCapacity(sprint, { boardId }),
+      Promise.resolve(computeAssignment(sprint, issues)),
     ]);
+    const capacityDays = loaded?.capacity ?? null;
+    const capacityByAccount = new Map(capacityDays?.members.map(m => [m.accountId, m]) ?? []);
+
+    // Buffer report (assigned vs theoretical mandays)
+    const buffer = capacityDays ? computeBufferReport(capacityDays, assignment) : null;
+
+    // Task accuracy (hours-vs-SP lens, display only)
+    const accuracyResult = computeTaskAccuracy(issues);
+    const accuracy = {
+      team: accuracyResult.team,
+      worstIssues: accuracyResult.issues.filter(i => i.ratio !== null).slice(0, 10),
+    };
 
     // Velocity
     const velocity = computeVelocity(sprint, issues);
 
     // KPIs
-    const kpis = calculateSprintKPIs(sprint, issues, capacity, worklogData, velocity);
+    const kpis = calculateSprintKPIs(issues);
 
     // Engineer metrics
-    const engineerMetrics = calculateEngineerMetrics(issues, capacity, worklogData, teamMemberIds);
+    const engineerMetrics = calculateEngineerMetrics(issues, capacityByAccount, assignment, teamMemberIds);
 
     // Non-dev days
     let nonDevDays: Array<{ date: string; reason: string | null }> = [];
@@ -180,13 +122,9 @@ export async function GET(request: NextRequest) {
         sprint,
         kpis,
         velocity,
-        capacity: capacity ? {
-          sprintWorkingDays: capacity.sprintWorkingDays,
-          totalCapacityHours: capacity.totalCapacityHours,
-          totalAvailableHours: capacity.totalAvailableHours,
-          totalEffectiveMandays: capacity.totalEffectiveMandays,
-          teamStandardHours: capacity.teamStandardHours,
-        } : null,
+        capacityDays,
+        buffer,
+        accuracy,
         engineerMetrics,
         nonDevDays,
         allocations,

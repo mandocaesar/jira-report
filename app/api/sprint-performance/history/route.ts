@@ -102,7 +102,22 @@ export async function GET(request: NextRequest) {
 
           const worklogData = await getWorklogDataForSprint(sprint, boardId, teamMembers, issues);
 
-          const kpis = calculateSprintKPIs(sprint, issues, capacity, worklogData, velocity);
+          // NOTE: calculateSprintKPIs was slimmed in Task 9 (days-only model) to
+          // just completionRate/avgCycleTime/medianCycleTime. This route still
+          // reports the old hour-based fields (capacityHours, committedHours,
+          // loggedHours, plannedUtilisation, executionUtilisation), computed
+          // inline here from the still-unmigrated capacity-pipeline output —
+          // unchanged behavior, kept only to compile against the new signature.
+          // Full rewire of this route belongs to a later task.
+          const kpis = calculateSprintKPIs(issues);
+          const capacityHours = capacity?.totalCapacityHours ?? 0;
+          const teamStdHours = capacity?.teamStandardHours ?? 8;
+          const committedHours = velocity.committedPoints * teamStdHours;
+          const loggedHours = worklogData
+            ? worklogData.memberWorklogs.reduce((sum, m) => sum + m.totalHours, 0)
+            : 0;
+          const plannedUtilisation = capacityHours > 0 ? Math.round((committedHours / capacityHours) * 1000) / 10 : 0;
+          const executionUtilisation = capacityHours > 0 ? Math.round((loggedHours / capacityHours) * 1000) / 10 : 0;
           const completedIssues = issues.filter(i => i.fields.status?.statusCategory?.name === 'Done').length;
 
           return {
@@ -116,11 +131,11 @@ export async function GET(request: NextRequest) {
             actualPoints: velocity.actualPoints,
             addedMidSprint: velocity.addedMidSprintPoints,
             commitmentAccuracy: velocity.commitmentAccuracy,
-            capacityHours: kpis.capacityHours,
-            committedHours: kpis.committedHours,
-            loggedHours: kpis.loggedHours,
-            plannedUtilisation: kpis.plannedUtilisation,
-            executionUtilisation: kpis.executionUtilisation,
+            capacityHours,
+            committedHours,
+            loggedHours,
+            plannedUtilisation,
+            executionUtilisation,
             completionRate: kpis.completionRate,
             avgCycleTime: kpis.avgCycleTime,
             totalIssues: issues.length,
