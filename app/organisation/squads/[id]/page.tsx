@@ -96,7 +96,7 @@ interface PerformanceData {
             sprintName: string;
             storyPoints: number;
             availableDays: number;
-            effectiveMandays: number;
+            theoreticalMandays: number;
             utilizationPercent: number;
             completedIssues: number;
             cycleTimeAvg: number | null;

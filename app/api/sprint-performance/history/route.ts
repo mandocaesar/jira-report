@@ -2,54 +2,12 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
 import { apiSuccess, apiError } from '@/lib/api-helpers';
 import { createJiraClient } from '@/lib/jira-client';
-import { calculateSprintCapacity, calculateSprintCapacityBatch } from '@/lib/capacity-pipeline';
+import { loadSprintCapacity } from '@/lib/capacity-engine';
+import { computeAssignment, computeBufferReport } from '@/lib/sprint-assignment';
 import { computeVelocity, calculateSprintKPIs } from '@/lib/sprint-performance-metrics';
-import { WorklogReportData, MemberWorklog, DailyWorklog, Sprint } from '@/types';
-import { generateDateRange } from '@/lib/date-utils';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
-
-async function getWorklogDataForSprint(
-  sprint: Sprint,
-  boardId: number,
-  teamMembers: Array<{ accountId: string; name: string; role: string; title: string }>,
-  existingIssues: Array<{ fields: Record<string, unknown> }>,
-): Promise<WorklogReportData | null> {
-  try {
-    if (!sprint.startDate || !sprint.endDate) return null;
-    const dates = generateDateRange(sprint.startDate, sprint.endDate);
-    const map = new Map<string, MemberWorklog>();
-    const logIndex = new Map<string, Map<string, DailyWorklog>>();
-    for (const m of teamMembers) {
-      const dailyLogs = dates.map(d => ({ date: d, hours: 0 }));
-      const idx = new Map<string, DailyWorklog>();
-      for (const dl of dailyLogs) idx.set(dl.date, dl);
-      logIndex.set(m.accountId, idx);
-      map.set(m.accountId, {
-        accountId: m.accountId, displayName: m.name, avatarUrl: '',
-        role: m.role as 'qa' | 'engineer', title: m.title,
-        dailyLogs, totalHours: 0,
-      });
-    }
-    for (const issue of existingIssues as Array<{ fields: { worklog?: { worklogs?: Array<{ author: { accountId: string }; started: string; timeSpentSeconds: number }> } } }>) {
-      const wl = issue.fields.worklog;
-      if (!wl?.worklogs?.length) continue;
-      for (const log of wl.worklogs) {
-        const aid = log.author.accountId;
-        if (!map.has(aid)) continue;
-        const member = map.get(aid)!;
-        const d = new Date(log.started);
-        const dk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        if (dates.includes(dk)) {
-          const dl = logIndex.get(aid)?.get(dk);
-          if (dl) { const h = log.timeSpentSeconds / 3600; dl.hours += h; member.totalHours += h; }
-        }
-      }
-    }
-    return { sprintId: sprint.id, dates, memberWorklogs: Array.from(map.values()) };
-  } catch { return null; }
-}
 
 export async function GET(request: NextRequest) {
   try {
@@ -61,16 +19,13 @@ export async function GET(request: NextRequest) {
       return apiError('boardId is required', 400);
     }
 
-    let teamId: string | null = null;
     let teamMembers: Array<{ accountId: string; name: string; role: string; title: string }> = [];
-    let team: { id: string; boardId: number; members: Array<{ accountId: string; name: string; role: string; title: string }> } | null = null;
     if (prisma) {
-      team = await prisma.team.findUnique({
+      const team = await prisma.team.findUnique({
         where: { boardId },
         include: { members: true },
       });
       if (team) {
-        teamId = team.id;
         teamMembers = team.members.map(m => ({ accountId: m.accountId, name: m.name, role: m.role, title: m.title }));
       }
     }
@@ -84,12 +39,9 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
       .slice(0, maxSprints);
 
-    // Pre-compute capacity for all sprints in one batch (avoids N+1 DB queries)
-    const capacityMap = teamId
-      ? await calculateSprintCapacityBatch(closedSprints, teamId)
-      : new Map<number, null>();
-
-    // Process sprints in parallel (chunked to avoid API rate limits)
+    // Process sprints in parallel (chunked to avoid API rate limits). No batch fn on the
+    // days-only engine (unlike the old hour pipeline) — loadSprintCapacity runs per sprint
+    // inside the same chunked Promise.all that already fetches issues.
     const chunkSize = 3;
     const history = [];
     for (let i = 0; i < closedSprints.length; i += chunkSize) {
@@ -98,26 +50,20 @@ export async function GET(request: NextRequest) {
         try {
           const issues = await jiraClient.getSprintIssuesWithChangelog(sprint.id, boardId);
           const velocity = computeVelocity(sprint, issues);
-          const capacity = capacityMap.get(sprint.id) ?? null;
-
-          const worklogData = await getWorklogDataForSprint(sprint, boardId, teamMembers, issues);
-
-          // NOTE: calculateSprintKPIs was slimmed in Task 9 (days-only model) to
-          // just completionRate/avgCycleTime/medianCycleTime. This route still
-          // reports the old hour-based fields (capacityHours, committedHours,
-          // loggedHours, plannedUtilisation, executionUtilisation), computed
-          // inline here from the still-unmigrated capacity-pipeline output —
-          // unchanged behavior, kept only to compile against the new signature.
-          // Full rewire of this route belongs to a later task.
           const kpis = calculateSprintKPIs(issues);
-          const capacityHours = capacity?.totalCapacityHours ?? 0;
-          const teamStdHours = capacity?.teamStandardHours ?? 8;
-          const committedHours = velocity.committedPoints * teamStdHours;
-          const loggedHours = worklogData
-            ? worklogData.memberWorklogs.reduce((sum, m) => sum + m.totalHours, 0)
+
+          const [loaded, assignment] = await Promise.all([
+            loadSprintCapacity(sprint, { boardId }),
+            Promise.resolve(computeAssignment(sprint, issues)),
+          ]);
+          const capacityDays = loaded?.capacity ?? null;
+          const buffer = capacityDays ? computeBufferReport(capacityDays, assignment) : null;
+          const theoreticalMandays = buffer?.theoreticalMandays ?? 0;
+          const assignedAtStart = buffer?.assignedAtStart ?? 0;
+          const utilization = theoreticalMandays > 0
+            ? Math.round((assignedAtStart / theoreticalMandays) * 1000) / 10
             : 0;
-          const plannedUtilisation = capacityHours > 0 ? Math.round((committedHours / capacityHours) * 1000) / 10 : 0;
-          const executionUtilisation = capacityHours > 0 ? Math.round((loggedHours / capacityHours) * 1000) / 10 : 0;
+
           const completedIssues = issues.filter(i => i.fields.status?.statusCategory?.name === 'Done').length;
 
           return {
@@ -126,21 +72,19 @@ export async function GET(request: NextRequest) {
             state: sprint.state,
             startDate: sprint.startDate,
             endDate: sprint.endDate,
-            workingDays: capacity?.sprintWorkingDays ?? 0,
+            workingDays: capacityDays?.sprintWorkingDays ?? 0,
             committedPoints: velocity.committedPoints,
             actualPoints: velocity.actualPoints,
             addedMidSprint: velocity.addedMidSprintPoints,
             commitmentAccuracy: velocity.commitmentAccuracy,
-            capacityHours,
-            committedHours,
-            loggedHours,
-            plannedUtilisation,
-            executionUtilisation,
+            theoreticalMandays: Math.round(theoreticalMandays * 10) / 10,
+            assignedAtStart: Math.round(assignedAtStart * 10) / 10,
+            utilization,
             completionRate: kpis.completionRate,
             avgCycleTime: kpis.avgCycleTime,
             totalIssues: issues.length,
             completedIssues,
-            memberCount: capacity?.members.length ?? teamMembers.length,
+            memberCount: capacityDays?.members.length ?? teamMembers.length,
           };
         } catch (err) {
           console.warn(`Failed to process sprint ${sprint.id} for history:`, err);

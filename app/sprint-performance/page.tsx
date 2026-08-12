@@ -103,11 +103,9 @@ interface HistoryRow {
   actualPoints: number;
   addedMidSprint: number;
   commitmentAccuracy: number;
-  capacityHours: number;
-  committedHours: number;
-  loggedHours: number;
-  plannedUtilisation: number;
-  executionUtilisation: number;
+  theoreticalMandays: number;
+  assignedAtStart: number;
+  utilization: number;
   completionRate: number;
   avgCycleTime: number | null;
   totalIssues: number;
@@ -169,12 +167,11 @@ export default function SprintPerformancePage() {
   // ─── Export ────────────────────────────────────────────────────────────
   const exportCSV = () => {
     if (activeTab === 'history' && historyData.length > 0) {
-      const headers = ['Sprint', 'Start', 'End', 'Working Days', 'Committed SP', 'Actual SP', 'Accuracy %', 'Capacity Hrs', 'Committed Hrs', 'Logged Hrs', 'Planned Util %', 'Exec Util %', 'Completion %', 'Avg Cycle Time', 'Issues', 'Completed', 'Members'];
+      const headers = ['Sprint', 'Start', 'End', 'Working Days', 'Committed SP', 'Actual SP', 'Accuracy %', 'Theoretical Mandays', 'Assigned At Start', 'Utilization %', 'Completion %', 'Avg Cycle Time', 'Issues', 'Completed', 'Members'];
       const rows = historyData.map(r => [
         r.name, r.startDate.split('T')[0], r.endDate.split('T')[0], r.workingDays,
-        r.committedPoints, r.actualPoints, r.commitmentAccuracy, r.capacityHours.toFixed(1),
-        r.committedHours.toFixed(1), r.loggedHours.toFixed(1), r.plannedUtilisation.toFixed(1),
-        r.executionUtilisation.toFixed(1), r.completionRate.toFixed(1),
+        r.committedPoints, r.actualPoints, r.commitmentAccuracy, r.theoreticalMandays.toFixed(1),
+        r.assignedAtStart.toFixed(1), r.utilization.toFixed(1), r.completionRate.toFixed(1),
         r.avgCycleTime?.toFixed(1) ?? '', r.totalIssues, r.completedIssues, r.memberCount,
       ]);
       downloadCSV('sprint-history.csv', headers, rows);
@@ -505,8 +502,9 @@ function HistoryTab({ data, loading, boardId }: { data: HistoryRow[]; loading: b
             <SortHeader field="committedPoints" label="Commit" />
             <SortHeader field="actualPoints" label="Actual" />
             <SortHeader field="commitmentAccuracy" label="Accuracy" />
-            <SortHeader field="plannedUtilisation" label="Plan Util" />
-            <SortHeader field="executionUtilisation" label="Exec Util" />
+            <SortHeader field="theoreticalMandays" label="Theo. MD" />
+            <SortHeader field="assignedAtStart" label="Assigned MD" />
+            <SortHeader field="utilization" label="Util" />
             <SortHeader field="completionRate" label="Compl" />
             <SortHeader field="avgCycleTime" label="Cycle" />
             <SortHeader field="memberCount" label="Team" />
@@ -523,8 +521,9 @@ function HistoryTab({ data, loading, boardId }: { data: HistoryRow[]; loading: b
               <td className="py-2.5 pr-3 text-right">{row.committedPoints}</td>
               <td className="py-2.5 pr-3 text-right font-medium">{row.actualPoints}</td>
               <td className="py-2.5 pr-3 text-right"><KPIStatusBadge value={row.commitmentAccuracy} /></td>
-              <td className="py-2.5 pr-3 text-right"><KPIStatusBadge value={row.plannedUtilisation} /></td>
-              <td className="py-2.5 pr-3 text-right"><KPIStatusBadge value={row.executionUtilisation} /></td>
+              <td className="py-2.5 pr-3 text-right">{row.theoreticalMandays.toFixed(1)}</td>
+              <td className="py-2.5 pr-3 text-right">{row.assignedAtStart.toFixed(1)}</td>
+              <td className="py-2.5 pr-3 text-right"><KPIStatusBadge value={row.utilization} /></td>
               <td className="py-2.5 pr-3 text-right"><KPIStatusBadge value={row.completionRate} /></td>
               <td className="py-2.5 pr-3 text-right text-muted-foreground">{row.avgCycleTime?.toFixed(1) ?? '—'}</td>
               <td className="py-2.5 text-right">{row.memberCount}</td>

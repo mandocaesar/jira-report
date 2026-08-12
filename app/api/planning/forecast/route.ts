@@ -1,9 +1,9 @@
 import { NextRequest } from 'next/server';
-import { prisma } from '@/lib/db';
 import { apiSuccess, apiError } from '@/lib/api-helpers';
 import { getTeamByBoardIdFromDb } from '@/lib/team-roster';
 import { getHolidaysInRange, isWeekend, toLocalDateString } from '@/lib/holiday-service';
 import { createJiraClient } from '@/lib/jira-client';
+import { loadSprintCapacity } from '@/lib/capacity-engine';
 
 interface SprintForecast {
     sprintId: number;
@@ -21,10 +21,6 @@ interface SprintForecast {
         totalLeaveDays: number;
         adjustmentLoss: number;
         holidayCount: number;
-        // Hours-based fields
-        teamStandardHours: number;
-        totalAvailableHours: number;
-        totalEffectiveMandays: number;
     };
     engineers: Array<{
         accountId: string;
@@ -33,7 +29,6 @@ interface SprintForecast {
         reason?: string;
         leaveDays?: number;
         excluded?: boolean;
-        workingHoursPerDay?: number;
     }>;
     holidays?: Array<{
         date: string;
@@ -101,7 +96,7 @@ export async function GET(request: NextRequest) {
         const jiraClient = createJiraClient();
         const storyPointsFields = ['customfield_10036', 'customfield_10052'];
         const issuesBySprintId = new Map<number, any[]>();
-        
+
         await Promise.all(
             relevantSprints.map(async (sprint: any) => {
                 try {
@@ -115,36 +110,22 @@ export async function GET(request: NextRequest) {
             })
         );
 
-        // ── Batch all data upfront instead of per-sprint ──
-
-        // 1. Compute the overall date range across all sprints
+        // ── Batch holiday lookups upfront (display only — the engine below owns the math) ──
         const earliestStart = new Date(Math.min(...relevantSprints.map((s: any) => new Date(s.startDate).getTime())));
         const latestEnd = new Date(Math.max(...relevantSprints.map((s: any) => new Date(s.endDate).getTime())));
-        const allSprintIds = relevantSprints.map((s: any) => s.id as number);
+        const allHolidays = await getHolidaysInRange(earliestStart, latestEnd);
 
-        // 2. Batch DB queries + holiday fetch in parallel
-        const [allCapacityAdjustments, allLeaveData, allHolidays] = await Promise.all([
-            // Single query for all capacity adjustments covering any sprint in range
-            prisma ? prisma.engineerCapacity.findMany({
-                where: { startDate: { lte: latestEnd }, endDate: { gte: earliestStart } },
-            }).catch(() => []) : Promise.resolve([]),
-            // Single query for all leave data across all sprint IDs
-            prisma ? prisma.sprintLeave.findMany({
-                where: { sprintId: { in: allSprintIds } },
-            }).catch(() => []) : Promise.resolve([]),
-            // Single holiday fetch for entire range (cache will handle dedup)
-            getHolidaysInRange(earliestStart, latestEnd),
-        ]);
+        // Days-only capacity engine: theoretical mandays per member, per sprint.
+        // No batch fn on the engine (unlike the old pipeline) — a Promise.all loop is fine
+        // since the forecast horizon is a handful of active/future sprints.
+        const capacityBySprintId = new Map<number, Awaited<ReturnType<typeof loadSprintCapacity>>>();
+        await Promise.all(
+            relevantSprints.map(async (sprint: any) => {
+                capacityBySprintId.set(sprint.id, await loadSprintCapacity(sprint, { boardId }));
+            })
+        );
 
-        // Index leave data by sprintId for O(1) lookup
-        const leaveBySprintId = new Map<number, typeof allLeaveData>();
-        for (const leave of allLeaveData) {
-            const arr = leaveBySprintId.get(leave.sprintId) || [];
-            arr.push(leave);
-            leaveBySprintId.set(leave.sprintId, arr);
-        }
-
-        // ── Process all sprints (no more async per-sprint) ──
+        // ── Process all sprints ──
         const forecasts: SprintForecast[] = relevantSprints.map((sprint: any) => {
             const sprintId = sprint.id;
             const sprintName = sprint.name;
@@ -153,89 +134,58 @@ export async function GET(request: NextRequest) {
             const startStr = toLocalDateString(startDate);
             const endStr = toLocalDateString(endDate);
 
-            // Filter pre-fetched capacity adjustments for this sprint's date range
-            const capacityAdjustments = allCapacityAdjustments.filter(
-                (adj: any) => new Date(adj.startDate) <= endDate && new Date(adj.endDate) >= startDate
-            );
-
-            // Get leave data for this sprint from indexed map
-            const leaveData = leaveBySprintId.get(sprintId) || [];
-
-            // Filter pre-fetched holidays for this sprint's range
+            // Filter pre-fetched holidays for this sprint's range (display only)
             const sprintHolidays = allHolidays.filter(
                 h => h.holiday_date >= startStr && h.holiday_date <= endStr
             );
 
-            // Count working days from pre-fetched holidays (no async needed)
-            let workingDays = 0;
+            // Weekday count, holiday-agnostic — used only for the "total possible" breakdown display
             let weekdaysInSprint = 0;
             const current = new Date(startDate);
             while (current <= endDate) {
-                const dateStr = toLocalDateString(current);
-                if (!isWeekend(current)) {
-                    weekdaysInSprint++;
-                    if (!sprintHolidays.some(h => h.holiday_date === dateStr)) {
-                        workingDays++;
-                    }
-                }
+                if (!isWeekend(current)) weekdaysInSprint++;
                 current.setDate(current.getDate() + 1);
             }
 
-            let totalManDays = 0;
-            let totalLeaveDays = 0;
-            let adjustmentLoss = 0;
-            let totalAvailableHours = 0;
-            let totalEffectiveMandays = 0;
-            const teamStandardHours = team.workingHoursPerDay ?? 8;
-            const engineerDetails: any[] = [];
+            const loaded = capacityBySprintId.get(sprintId) ?? null;
+            const capacityDays = loaded?.capacity ?? null;
+            const members = capacityDays?.members ?? [];
+
+            const workingDays = capacityDays?.sprintWorkingDays ?? 0;
+            const engineerDetails: SprintForecast['engineers'] = [];
             const leavesList: Array<{ name: string; leaveDays: number }> = [];
             const excludedList: Array<{ name: string }> = [];
-            let activeEngineers = 0;
+            let totalLeaveDays = 0;
+            let adjustmentLoss = 0;
 
-            for (const member of team.members) {
-                const accountId = member.accountId;
-                const leave = leaveData.find((l) => l.accountId === accountId);
-                const leaveDays = leave?.leaveDays || 0;
-                const memberHours = member.workingHoursPerDay ?? teamStandardHours;
-
-                if (leaveDays === -1) {
-                    engineerDetails.push({ accountId, name: member.name, capacity: 0, excluded: true, leaveDays: -1, workingHoursPerDay: memberHours });
-                    excludedList.push({ name: member.name });
+            for (const m of members) {
+                if (m.excluded) {
+                    engineerDetails.push({ accountId: m.accountId, name: m.name, capacity: 0, excluded: true });
+                    excludedList.push({ name: m.name });
                     continue;
                 }
 
-                activeEngineers++;
-                const adjustment = capacityAdjustments.find((adj: any) => adj.accountId === accountId);
-                const capacityPercent = adjustment?.capacity || 100;
-                const availableDays = workingDays - leaveDays;
-                const effectiveDays = (availableDays * capacityPercent) / 100;
-                totalManDays += effectiveDays;
-                totalLeaveDays += leaveDays;
-                if (capacityPercent < 100) {
-                    adjustmentLoss += availableDays * (1 - capacityPercent / 100);
+                const capacityPercent = Math.round(m.allocationFactor * 100);
+                engineerDetails.push({ accountId: m.accountId, name: m.name, capacity: capacityPercent, leaveDays: m.leaveDays });
+                totalLeaveDays += m.leaveDays;
+                if (m.allocationFactor < 1) {
+                    const fullDaysAfterLeave = Math.max(0, m.sprintWorkingDays - m.leaveDays);
+                    adjustmentLoss += fullDaysAfterLeave * (1 - m.allocationFactor);
                 }
-
-                // Hours-based calculation
-                const memberAvailableHours = availableDays * memberHours * (capacityPercent / 100);
-                const memberEffectiveMandays = teamStandardHours > 0
-                    ? memberAvailableHours / teamStandardHours
-                    : effectiveDays;
-                totalAvailableHours += memberAvailableHours;
-                totalEffectiveMandays += memberEffectiveMandays;
-
-                engineerDetails.push({ accountId, name: member.name, capacity: capacityPercent, reason: adjustment?.reason, leaveDays, workingHoursPerDay: memberHours });
-                if (leaveDays > 0) leavesList.push({ name: member.name, leaveDays });
+                if (m.leaveDays > 0) leavesList.push({ name: m.name, leaveDays: m.leaveDays });
             }
 
-            const effectiveEngineers = workingDays > 0 ? totalEffectiveMandays / workingDays : 0;
+            const totalManDays = capacityDays?.teamTheoreticalMandays ?? 0;
+            const totalEngineers = members.filter(m => !m.excluded).length;
+            const effectiveEngineers = workingDays > 0 ? totalManDays / workingDays : 0;
             const pointsPerManDay = 1.8;
-            const forecastedPoints = Math.floor(totalEffectiveMandays * pointsPerManDay);
+            const forecastedPoints = Math.floor(totalManDays * pointsPerManDay);
 
             const formattedHolidays = sprintHolidays
                 .filter(h => !isWeekend(h.holiday_date))
                 .map(h => ({ date: h.holiday_date, name: h.holiday_name }));
 
-            const totalPossibleManDays = weekdaysInSprint * activeEngineers;
+            const totalPossibleManDays = weekdaysInSprint * totalEngineers;
             const holidayCount = formattedHolidays.length;
 
             return {
@@ -244,7 +194,7 @@ export async function GET(request: NextRequest) {
                 startDate: startDate.toISOString(),
                 endDate: endDate.toISOString(),
                 capacity: {
-                    totalEngineers: activeEngineers,
+                    totalEngineers,
                     effectiveEngineers: Math.round(effectiveEngineers * 10) / 10,
                     totalManDays: Math.round(totalManDays * 10) / 10,
                     forecastedPoints,
@@ -254,9 +204,6 @@ export async function GET(request: NextRequest) {
                     totalLeaveDays,
                     adjustmentLoss: Math.round(adjustmentLoss * 10) / 10,
                     holidayCount,
-                    teamStandardHours,
-                    totalAvailableHours: Math.round(totalAvailableHours * 10) / 10,
-                    totalEffectiveMandays: Math.round(totalEffectiveMandays * 10) / 10,
                 },
                 engineers: engineerDetails,
                 holidays: formattedHolidays.length > 0 ? formattedHolidays : undefined,

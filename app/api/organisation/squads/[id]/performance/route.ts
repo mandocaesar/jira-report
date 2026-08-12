@@ -189,7 +189,7 @@ export async function GET(
             accountId: string; name: string; role: string; title: string; avatarUrl: string;
             sprintMetrics: Array<{
                 sprintId: number; sprintName: string; storyPoints: number;
-                availableDays: number; effectiveMandays: number; utilizationPercent: number;
+                availableDays: number; theoreticalMandays: number; utilizationPercent: number;
                 completedIssues: number; cycleTimeAvg: number | null; leadTimeAvg: number | null;
             }>;
         }>();
@@ -242,7 +242,7 @@ export async function GET(
                         sprintName: sprint.name,
                         storyPoints: Number(userUtil.storyPoints.toFixed(2)),
                         availableDays: Number(userUtil.availableDays.toFixed(2)),
-                        effectiveMandays: Number((userUtil.effectiveMandays ?? userUtil.availableDays).toFixed(2)),
+                        theoreticalMandays: Number((userUtil.effectiveMandays ?? userUtil.availableDays).toFixed(2)),
                         utilizationPercent: Number(userUtil.utilizationPercent.toFixed(2)),
                         completedIssues: timing?.throughput ?? 0,
                         cycleTimeAvg: avgCycle,
