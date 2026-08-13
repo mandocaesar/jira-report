@@ -23,6 +23,7 @@ interface SprintForecast {
         totalLeaveDays: number;
         adjustmentLoss: number;
         holidayCount: number;
+        nonDevDayLoss: number;
     };
     engineers: Array<{
         accountId: string;
@@ -419,10 +420,11 @@ export default function CapacityPlanningPage() {
                             </h3>
                             {forecastData.sprints.map((sprint, index) => {
                                 const cap = sprint.capacity;
-                                const capacityPct = Math.round((cap.effectiveEngineers / cap.totalEngineers) * 100);
+                                const capacityPct = cap.totalEngineers > 0 ? Math.round((cap.effectiveEngineers / cap.totalEngineers) * 100) : 0;
                                 const leaveMdLoss = cap.totalLeaveDays;
                                 const adjMdLoss = cap.adjustmentLoss;
                                 const holidayMdLoss = cap.holidayCount * cap.totalEngineers;
+                                const nonDevMdLoss = cap.nonDevDayLoss;
                                 const usedPct = cap.totalPossibleManDays > 0 ? (cap.totalManDays / cap.totalPossibleManDays) * 100 : 0;
 
                                 return (
@@ -521,6 +523,12 @@ export default function CapacityPlanningPage() {
                                                         </div>
                                                     )}
                                                     </>
+                                                )}
+                                                {nonDevMdLoss > 0 && (
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-amber-500">Non-dev days ({nonDevMdLoss / cap.totalEngineers}d &times; {cap.totalEngineers} eng)</span>
+                                                        <span className="font-semibold text-amber-500 tabular-nums">&minus;{nonDevMdLoss} md</span>
+                                                    </div>
                                                 )}
                                                 {leaveMdLoss > 0 && (
                                                     <>

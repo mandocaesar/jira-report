@@ -1,9 +1,9 @@
 import { NextRequest } from 'next/server';
 import { apiSuccess, apiError } from '@/lib/api-helpers';
 import { getTeamByBoardIdFromDb } from '@/lib/team-roster';
-import { getHolidaysInRange, isWeekend, toLocalDateString } from '@/lib/holiday-service';
+import { getHolidaysInRange, calculateWorkingDays, isWeekend, toLocalDateString } from '@/lib/holiday-service';
 import { createJiraClient } from '@/lib/jira-client';
-import { loadSprintCapacity } from '@/lib/capacity-engine';
+import { loadSprintCapacity, MemberCapacityDays } from '@/lib/capacity-engine';
 
 interface SprintForecast {
     sprintId: number;
@@ -21,6 +21,7 @@ interface SprintForecast {
         totalLeaveDays: number;
         adjustmentLoss: number;
         holidayCount: number;
+        nonDevDayLoss: number;
     };
     engineers: Array<{
         accountId: string;
@@ -118,10 +119,23 @@ export async function GET(request: NextRequest) {
         // Days-only capacity engine: theoretical mandays per member, per sprint.
         // No batch fn on the engine (unlike the old pipeline) — a Promise.all loop is fine
         // since the forecast horizon is a handful of active/future sprints.
+        //
+        // loadSprintCapacity returns null when the DB is unavailable OR the board's team
+        // isn't in the DB `Team` table (JSON-roster-only teams). getTeamByBoardIdFromDb above
+        // already fell back to the JSON roster in that case, so we still owe those teams a
+        // forecast — fall back to a plain working-days count (same fallback Home uses in
+        // lib/utilization-calculator.ts) with no leave/allocation data (none exists outside
+        // the DB) rather than collapsing every sprint to zero.
         const capacityBySprintId = new Map<number, Awaited<ReturnType<typeof loadSprintCapacity>>>();
+        const fallbackWorkingDaysBySprintId = new Map<number, number>();
         await Promise.all(
             relevantSprints.map(async (sprint: any) => {
-                capacityBySprintId.set(sprint.id, await loadSprintCapacity(sprint, { boardId }));
+                const loaded = await loadSprintCapacity(sprint, { boardId });
+                capacityBySprintId.set(sprint.id, loaded);
+                if (!loaded) {
+                    const fallbackDays = await calculateWorkingDays(new Date(sprint.startDate), new Date(sprint.endDate));
+                    fallbackWorkingDaysBySprintId.set(sprint.id, fallbackDays);
+                }
             })
         );
 
@@ -149,9 +163,24 @@ export async function GET(request: NextRequest) {
 
             const loaded = capacityBySprintId.get(sprintId) ?? null;
             const capacityDays = loaded?.capacity ?? null;
-            const members = capacityDays?.members ?? [];
 
-            const workingDays = capacityDays?.sprintWorkingDays ?? 0;
+            const workingDays = capacityDays?.sprintWorkingDays ?? fallbackWorkingDaysBySprintId.get(sprintId) ?? 0;
+
+            // members always carries the shape the loop below needs — sourced from the
+            // engine when available, or synthesized from the roster (no leave/allocation
+            // data outside the DB, so full working days at 100% for every member) when not.
+            const members: MemberCapacityDays[] = capacityDays?.members ?? team.members.map((m) => ({
+                accountId: m.accountId,
+                name: m.name,
+                role: m.role,
+                title: m.title,
+                excluded: false,
+                sprintWorkingDays: workingDays,
+                leaveDays: 0,
+                allocationFactor: 1,
+                theoreticalMandays: workingDays,
+            }));
+
             const engineerDetails: SprintForecast['engineers'] = [];
             const leavesList: Array<{ name: string; leaveDays: number }> = [];
             const excludedList: Array<{ name: string }> = [];
@@ -169,13 +198,15 @@ export async function GET(request: NextRequest) {
                 engineerDetails.push({ accountId: m.accountId, name: m.name, capacity: capacityPercent, leaveDays: m.leaveDays });
                 totalLeaveDays += m.leaveDays;
                 if (m.allocationFactor < 1) {
-                    const fullDaysAfterLeave = Math.max(0, m.sprintWorkingDays - m.leaveDays);
-                    adjustmentLoss += fullDaysAfterLeave * (1 - m.allocationFactor);
+                    // Matches the engine's formula exactly: theoretical = max(0, sprintWorkingDays * f - leaveDays),
+                    // i.e. leave is subtracted AFTER allocation is applied, at full weight — so the days lost
+                    // purely to partial allocation is sprintWorkingDays * (1 - f), not (sprintWorkingDays - leave) * (1 - f).
+                    adjustmentLoss += m.sprintWorkingDays * (1 - m.allocationFactor);
                 }
                 if (m.leaveDays > 0) leavesList.push({ name: m.name, leaveDays: m.leaveDays });
             }
 
-            const totalManDays = capacityDays?.teamTheoreticalMandays ?? 0;
+            const totalManDays = members.reduce((s, m) => s + m.theoreticalMandays, 0);
             const totalEngineers = members.filter(m => !m.excluded).length;
             const effectiveEngineers = workingDays > 0 ? totalManDays / workingDays : 0;
             const pointsPerManDay = 1.8;
@@ -187,6 +218,19 @@ export async function GET(request: NextRequest) {
 
             const totalPossibleManDays = weekdaysInSprint * totalEngineers;
             const holidayCount = formattedHolidays.length;
+
+            // Non-dev days are deducted inside sprintWorkingDays by the engine (weekday,
+            // non-holiday dates only — a non-dev day that lands on a weekend or holiday is
+            // already excluded by those checks and must not be double-counted here), but
+            // weren't previously itemized in the breakdown, leaving an unexplained gap
+            // between totalPossibleManDays and totalManDays. Surface it explicitly.
+            const nonDevDates = loaded?.input.nonDevDates ?? new Set<string>();
+            const engineHolidayDates = loaded?.input.holidayDates ?? new Set<string>();
+            let nonDevDayCount = 0;
+            for (const d of nonDevDates) {
+                if (!isWeekend(d) && !engineHolidayDates.has(d)) nonDevDayCount++;
+            }
+            const nonDevDayLoss = nonDevDayCount * totalEngineers;
 
             return {
                 sprintId,
@@ -202,8 +246,9 @@ export async function GET(request: NextRequest) {
                     weekdaysInSprint,
                     totalPossibleManDays,
                     totalLeaveDays,
-                    adjustmentLoss: Math.round(adjustmentLoss * 10) / 10,
+                    adjustmentLoss: Math.round(adjustmentLoss * 100) / 100,
                     holidayCount,
+                    nonDevDayLoss,
                 },
                 engineers: engineerDetails,
                 holidays: formattedHolidays.length > 0 ? formattedHolidays : undefined,
