@@ -1,6 +1,7 @@
 import { JiraIssue, Sprint, User, SprintReportData, StatusGroup, MemberBreakdown, ReportIssue, ScopeChange, SpAccuracy, SpAccuracyEntry } from '@/types';
 import { getMemberByAccountId, getTeamByBoardIdFromDb } from './team-roster';
 import { getStoryPoints, extractUser, isStoryPointField, getStatusCategory, getStatusName, sprintFieldContainsId } from './issue-helpers';
+import { HOURS_PER_MANDAY } from './constants';
 
 /**
  * Calculates scope changes (added to sprint, points changed)
@@ -301,7 +302,7 @@ export async function calculateSprintReport(
         : 0;
 
     // ─── SP Estimation Accuracy (worklog hours vs expected) ─────────
-    const EXPECTED_HOURS_PER_SP = 7;
+    const EXPECTED_HOURS_PER_SP = HOURS_PER_MANDAY;
 
     // Aggregate worklog hours per member for completed sub-tasks
     const memberWorklogMap = new Map<string, { name: string; role: 'qa' | 'engineer'; completedPoints: number; worklogHours: number }>();

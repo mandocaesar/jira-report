@@ -164,8 +164,6 @@ export async function calculateSprintUtilization(
     let engineerStoryPoints = 0;
     let qaLeaveDays = 0;
     let engineerLeaveDays = 0;
-    let qaTotalHours = 0;
-    let engineerTotalHours = 0;
     let qaEffectiveMandays = 0;
     let engineerEffectiveMandays = 0;
     let totalStoryPoints = 0;
@@ -329,7 +327,6 @@ export async function calculateSprintUtilization(
 
     // Team-level calculation
     const totalMandays = qaMandays + engineerMandays;
-    const totalHours = qaTotalHours + engineerTotalHours;
 
     // Days-only capacity engine buffer readout (null when capacity engine unavailable, e.g. no DB/team)
     const buffer = capacity ? computeBufferReport(capacity, assignment) : null;
@@ -352,7 +349,6 @@ export async function calculateSprintUtilization(
             storyPoints: qaStoryPoints,
             leaveDays: qaLeaveDays,
             workTypeStats: qaWorkTypeStats,
-            totalHours: qaTotalHours,
             effectiveMandays: qaEffectiveMandays,
         },
         engineerStats: {
@@ -361,13 +357,11 @@ export async function calculateSprintUtilization(
             storyPoints: engineerStoryPoints,
             leaveDays: engineerLeaveDays,
             workTypeStats: engineerWorkTypeStats,
-            totalHours: engineerTotalHours,
             effectiveMandays: engineerEffectiveMandays,
         },
         workTypeStats: totalWorkTypeStats,
         holidays,
         teamStandardHours: 0,
-        totalAvailableHours: totalHours,
         totalEffectiveMandays,
         buffer,
     };
@@ -380,13 +374,12 @@ export async function calculateSprintUtilization(
 export function computeRoleStats(userUtilizations: UserUtilization[], role: 'qa' | 'engineer') {
     const members = userUtilizations.filter(u => u.role === role);
     const workTypeStats: Record<string, number> = {};
-    let mandays = 0, storyPoints = 0, leaveDays = 0, totalHours = 0, effectiveMandays = 0;
+    let mandays = 0, storyPoints = 0, leaveDays = 0, effectiveMandays = 0;
 
     for (const m of members) {
         mandays += m.availableDays;
         storyPoints += m.storyPoints;
         leaveDays += m.leaveDays;
-        totalHours += m.availableHours;
         effectiveMandays += m.effectiveMandays;
         if (m.workTypeStats) {
             for (const [type, pts] of Object.entries(m.workTypeStats)) {
@@ -395,7 +388,7 @@ export function computeRoleStats(userUtilizations: UserUtilization[], role: 'qa'
         }
     }
 
-    return { count: members.length, mandays, storyPoints, leaveDays, workTypeStats, totalHours, effectiveMandays };
+    return { count: members.length, mandays, storyPoints, leaveDays, workTypeStats, effectiveMandays };
 }
 
 /**

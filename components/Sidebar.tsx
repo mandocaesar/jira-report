@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { ThemeToggle } from './ThemeToggle';
 import {
     IconSprintOverview, IconCapacity, IconTeam, IconOrgStructure, IconEngineer,
-    IconLeaveNav, IconLeave, IconTitleDays, IconMetrics,
+    IconLeave, IconMetrics,
     IconTeamReport, IconSquad, IconJira, IconHoliday, IconWorkType,
 } from './icons/NavIcons';
 
@@ -66,23 +66,11 @@ const navigation: NavSection[] = [
                 icon: <IconEngineer />,
                 description: 'View and manage engineers',
             },
-            {
-                name: 'Leaves',
-                href: '/organisation/leaves',
-                icon: <IconLeaveNav />,
-                description: 'Manage engineer leaves',
-            },
         ],
     },
     {
         title: 'Settings',
         items: [
-            {
-                name: 'Title Days',
-                href: '/settings/title-days',
-                icon: <IconTitleDays />,
-                description: 'Available days per title',
-            },
             {
                 name: 'Jira Integration',
                 href: '/settings/jira',

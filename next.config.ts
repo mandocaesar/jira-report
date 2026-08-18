@@ -23,6 +23,8 @@ const nextConfig: NextConfig = {
       { source: '/sprint-performance', destination: '/analytics', permanent: true },
       { source: '/planning/velocity', destination: '/analytics', permanent: true },
       { source: '/metrics', destination: '/analytics', permanent: true },
+      { source: '/settings/title-days', destination: '/settings/holidays', permanent: true },
+      { source: '/organisation/leaves', destination: '/planning/capacity', permanent: true },
     ];
   },
 };

@@ -42,7 +42,7 @@ export default function SprintTimeline({ sprint, totalWorkingDays, holidays }: S
     const daysRemaining = Math.max(totalWorkingDays - daysElapsed, 0);
 
     return (
-        <div className="col-span-2 md:col-span-3 py-2 px-3 bg-muted/50 rounded-lg border border-border" title="Working days = weekdays in the sprint period, excluding national holidays. Progress bar shows calendar position through the sprint.">
+        <div className="col-span-2 md:col-span-3 py-2 px-3 bg-muted/50 rounded-lg border border-border" title="Working days = weekdays in the sprint period, excluding national holidays and non-dev days. Progress bar shows calendar position through the sprint.">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                 <div className="flex items-center gap-2">
                     <span className="text-3xl font-bold text-foreground leading-tight">

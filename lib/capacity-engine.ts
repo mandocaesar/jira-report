@@ -95,7 +95,7 @@ export function computeSprintCapacity(input: CapacityInput): SprintCapacityDays 
     if (m.excluded) {
       return { ...m, sprintWorkingDays, leaveDays: 0, allocationFactor: 0, theoreticalMandays: 0 };
     }
-    const leaveDays = input.leaveDayCounts.get(m.accountId) ?? 0;
+    const leaveDays = Math.max(0, input.leaveDayCounts.get(m.accountId) ?? 0);
     const allocationFactor = round2(allocationFactorFor(m.accountId, input.allocations, workingDays));
     const theoreticalMandays = round2(Math.max(0, sprintWorkingDays * allocationFactor - leaveDays));
     return { ...m, sprintWorkingDays, leaveDays, allocationFactor, theoreticalMandays };

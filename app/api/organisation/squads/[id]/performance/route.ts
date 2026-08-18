@@ -4,6 +4,7 @@ import { apiSuccess, apiError, requireDatabase } from '@/lib/api-helpers';
 import { createJiraClient } from '@/lib/jira-client';
 import { calculateSprintUtilization } from '@/lib/utilization-calculator';
 import { getStoryPoints, isStoryPointField, sprintFieldContainsId } from '@/lib/issue-helpers';
+import { HOURS_PER_MANDAY } from '@/lib/constants';
 import { JiraIssue, Sprint, SprintVelocityEntry, SprintCommitmentCategory } from '@/types';
 
 export const dynamic = 'force-dynamic';
@@ -374,7 +375,7 @@ export async function GET(
         }
 
         // ─── SP Estimation Accuracy (across period) ─────────────────────
-        const EXPECTED_HOURS_PER_SP = 7;
+        const EXPECTED_HOURS_PER_SP = HOURS_PER_MANDAY;
         const memberWorklogMap = new Map<string, { name: string; role: string; completedPoints: number; worklogHours: number }>();
 
         // Pre-populate with ALL registered squad members

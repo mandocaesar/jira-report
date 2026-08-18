@@ -42,7 +42,6 @@ A Next.js dashboard for tracking Jira sprint utilization and team metrics.
 | `JIRA_API_TOKEN` | Jira API token ([Generate here](https://id.atlassian.com/manage-profile/security/api-tokens)) |
 | `JIRA_PROJECT_KEY` | Your Jira project key |
 | `JIRA_BOARD_TEAM_MAP` | Board to Team ID mapping |
-| `ADHOC_DAYS_PER_SPRINT` | Days reserved for adhoc work |
 | `AUTH_PASSWORD` | Dashboard login password |
 | `AUTH_SECRET` | JWT signing secret (use a random 32+ char string) |
 

@@ -378,12 +378,6 @@ export default function EngineerDetailPage() {
             <h2 className="text-lg font-semibold text-foreground">
               Leaves <span className="text-sm font-normal text-muted-foreground">({engineer.leaves.length})</span>
             </h2>
-            <Link
-              href={`/organisation/leaves?engineerId=${engineer.id}`}
-              className="text-xs text-blue-400 hover:underline"
-            >
-              Manage Leaves →
-            </Link>
           </div>
           {engineer.leaves.length === 0 ? (
             <p className="text-sm text-muted-foreground">No leave records</p>

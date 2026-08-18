@@ -122,20 +122,46 @@ Each member has: `accountId` (Jira), `name`, `email`, `role` (engineer/qa), `tit
 
 ## Key Business Logic
 
-### Utilization Calculation (`lib/utilization-calculator.ts`)
+The capacity model is **days-only** — mandays are computed purely from calendar days, leave-day
+counts, and allocation percentages. Hours never feed capacity math anywhere; hours exist only as a
+separate, display-only accuracy lens (see below).
 
-- Working days = sprint days − weekends − Indonesian holidays
-- Available days = working days − leave days
-- Utilization % = story points / available days × 100
-- Story points = mandays (1:1 ratio)
-- Story point fields: `customfield_10036` (primary), `customfield_10052` (QA), with fallbacks
+### Capacity Engine (`lib/capacity-engine.ts`)
+
+- Sprint working days = weekdays in the sprint − Indonesian holidays − non-dev days (team-specific
+  non-working dates, e.g. offsites)
+- Theoretical mandays per roster member = sprint working days × allocation factor − leave days
+  (clamped to ≥ 0; a negative leave-day count also clamps to 0)
+- Leave days come from `SprintLeave` (day counts per engineer per sprint, entered via
+  Capacity Planning), not date ranges
+- Allocation factor comes from `CapacityAllocation` (% of the sprint a member is allocated to this
+  team); defaults to 1 (fully allocated) when no allocation record exists
+- Excluded roster members (e.g. EMs) always contribute 0 theoretical mandays
+
+### SP Assignment & Buffer (`lib/sprint-assignment.ts`)
+
+- Assigned-at-start mandays = story points assigned to a member as of sprint start (1 SP = 1
+  manday)
+- Buffer = theoretical mandays − assigned-at-start mandays (positive = spare capacity, negative =
+  already overloaded at sprint start)
+- Added-during-sprint = points added mid-sprint (scope creep); overload SP = the portion of that
+  addition that didn't fit inside the buffer
+- Verdict = `fit` or `overload`, computed per member and for the team
+- Utilization % = team assigned-at-start mandays ÷ team theoretical mandays × 100
+
+### Task Accuracy — hours lens (`lib/task-accuracy.ts`)
+
+- `HOURS_PER_MANDAY` (`lib/constants.ts`) = **6** — the only SP↔hours conversion anywhere in the app
+- Expected hours per issue = story points × `HOURS_PER_MANDAY`
+- Accuracy ratio = logged worklog hours ÷ expected hours, per issue/member/team
+- Display-only: this ratio is a calibration/coaching signal and never adjusts capacity or
+  utilization numbers
 
 ### Capacity Planning (`app/planning/capacity/page.tsx`)
 
-- Forecasts upcoming sprint capacity per engineer
-- Accounts for capacity adjustments (training, leave, part-time, etc.)
-- **Available Mandays** = effective working days after adjustments = available story points
-- Shows: Available Mandays, Effective Engineers, Team Capacity %
+- Forecasts upcoming sprint capacity per engineer using the days-only capacity engine
+- Accounts for leave days, non-dev days, holidays, and allocation records
+- Shows: theoretical mandays, buffer, and team capacity per sprint
 
 ### Issue Categorization
 
@@ -159,10 +185,6 @@ JIRA_EMAIL=your-email@company.com
 JIRA_API_TOKEN=your-jira-api-token
 JIRA_PROJECT_KEY=YOUR_PROJECT
 JIRA_BOARD_TEAM_MAP=boardId1:teamId1,boardId2:teamId2
-
-# Sprint Config
-ADHOC_DAYS_PER_SPRINT=3
-NEXT_PUBLIC_ADHOC_DAYS=3
 
 # Auth
 AUTH_PASSWORD=changeme123

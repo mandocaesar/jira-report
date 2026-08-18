@@ -235,7 +235,6 @@ export interface SprintSummary {
     storyPoints: number;
     leaveDays: number;
     workTypeStats: WorkTypeStats;
-    totalHours: number;
     effectiveMandays: number;
   };
   engineerStats?: {
@@ -244,7 +243,6 @@ export interface SprintSummary {
     storyPoints: number;
     leaveDays: number;
     workTypeStats: WorkTypeStats;
-    totalHours: number;
     effectiveMandays: number;
   };
   // Overall sprint work distribution
@@ -253,7 +251,6 @@ export interface SprintSummary {
   holidays: Holiday[];
   // Hours-based capacity totals
   teamStandardHours: number;
-  totalAvailableHours: number;
   totalEffectiveMandays: number;
   // Days-only capacity engine buffer readout (null when capacity engine unavailable, e.g. no DB)
   buffer?: BufferReport | null;

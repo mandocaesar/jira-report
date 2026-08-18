@@ -81,4 +81,10 @@ describe('computeSprintCapacity', () => {
     // 10 × 0.5 − 2 = 3
     expect(computeSprintCapacity(input).members[0].theoreticalMandays).toBe(3);
   });
+
+  it('negative leave day counts clamp to 0 (legacy -1 sentinel)', () => {
+    const input = base();
+    input.leaveDayCounts.set('a', -1);
+    expect(computeSprintCapacity(input).members[0].theoreticalMandays).toBe(10);
+  });
 });
