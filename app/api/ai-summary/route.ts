@@ -139,7 +139,7 @@ ${JSON.stringify(
                 role: u.role,
                 utilization: u.utilizationPercent.toFixed(0) + '%',
                 points: u.storyPoints,
-                days: u.workingDays - u.leaveDays
+                days: u.availableDays
             }))
         )}
 

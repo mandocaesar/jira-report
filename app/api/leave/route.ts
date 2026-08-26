@@ -49,6 +49,17 @@ export async function PUT(request: Request) {
         }
 
         // leaveData is a map: { accountId: leaveDays, ... }
+        // leaveDays >= -1 only: -1 is the legacy "exclude this member from the
+        // sprint" sentinel (see lib/capacity-engine.ts loadSprintCapacity); anything
+        // more negative than that has no defined meaning and would silently corrupt
+        // capacity math downstream.
+        for (const [accountId, leaveDays] of Object.entries(leaveData as Record<string, number>)) {
+            const parsed = parseInt(leaveDays as any);
+            if (Number.isNaN(parsed) || parsed < -1) {
+                return apiError(`Invalid leaveDays for ${accountId}: must be an integer >= -1`, 400);
+            }
+        }
+
         const updates = Object.entries(leaveData as Record<string, number>).map(
             ([accountId, leaveDays]) => ({
                 sprintId: parseInt(sprintId),

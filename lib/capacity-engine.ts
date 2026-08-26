@@ -1,5 +1,5 @@
 // Days-only capacity engine. NO hours anywhere — hours live in task-accuracy only.
-import { isWeekend, toLocalDateString } from './holiday-service';
+import { isWeekend, toLocalDateString, getHolidaysInRange } from './holiday-service';
 import { prisma, isDatabaseAvailable } from './db';
 import { Sprint } from '@/types';
 
@@ -137,14 +137,13 @@ export async function loadSprintCapacity(
   const sprintStart = toLocalDateString(new Date(sprint.startDate));
   const sprintEnd = toLocalDateString(new Date(sprint.endDate));
 
+  // Resolve holidays via the same DB-first/external-fallback source the display
+  // paths use (getHolidaysForYear/getHolidaysInRange), instead of querying
+  // prisma.holiday directly — a direct query silently returns [] for any year
+  // with no DB rows, while getHolidaysInRange falls back to the Google ICS/
+  // guangrei external sources so the engine and the UI never disagree.
   const [holidays, nonDev, leaves, allocations] = await Promise.all([
-    prisma.holiday.findMany({
-      where: {
-        isActive: true,
-        date: { gte: new Date(sprintStart + 'T00:00:00Z'), lte: new Date(sprintEnd + 'T00:00:00Z') },
-      },
-      select: { date: true },
-    }),
+    getHolidaysInRange(new Date(sprint.startDate), new Date(sprint.endDate)),
     prisma.nonDevDay.findMany({
       where: { teamId: team.id, sprintId: sprint.id },
       select: { date: true },
@@ -161,17 +160,24 @@ export async function loadSprintCapacity(
     }),
   ]);
 
+  // Legacy semantics: a SprintLeave row with leaveDays < 0 (the old "-1 sentinel")
+  // means the member is EXCLUDED from that sprint's capacity entirely, not merely
+  // "leave clamps to 0". Map that here so computeSprintCapacity never has to see
+  // a negative value with excluded=false — the pure core's own Math.max(0, ...)
+  // clamp only exists as a defensive safety net for callers that bypass this loader.
+  const legacyExcludedIds = new Set(leaves.filter(l => l.leaveDays < 0).map(l => l.accountId));
+
   const input: CapacityInput = {
     sprintStart,
     sprintEnd,
-    holidayDates: new Set(holidays.map(h => toLocalDateString(h.date))),
+    holidayDates: new Set(holidays.map(h => h.holiday_date)),
     nonDevDates: new Set(nonDev.map(n => toLocalDateString(n.date))),
     members: team.members.map(m => ({
       accountId: m.accountId,
       name: m.name,
       role: (m.role === 'qa' ? 'qa' : 'engineer') as 'engineer' | 'qa',
       title: m.title,
-      excluded: m.excludeFromUtilization === true,
+      excluded: m.excludeFromUtilization === true || legacyExcludedIds.has(m.accountId),
     })),
     leaveDayCounts: new Map(leaves.map(l => [l.accountId, l.leaveDays])),
     allocations: allocations.map(a => ({

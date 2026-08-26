@@ -115,22 +115,33 @@ interface HistoryRow {
 
 // ─── Helper Components ─────────────────────────────────────────────────────────
 
-function KPIStatusBadge({ value }: { value: number }) {
+function KPIStatusBadge({ value, variant }: { value: number; variant?: 'default' | 'utilization' }) {
   let color = 'bg-red-500/20 text-red-400';
-  if (value >= 90) color = 'bg-emerald-500/20 text-emerald-400';
-  else if (value >= 75) color = 'bg-yellow-500/20 text-yellow-400';
-  else if (value >= 50) color = 'bg-orange-500/20 text-orange-400';
+  if (variant === 'utilization') {
+    // Utilization isn't a "higher is always better" KPI like completion rate or
+    // accuracy — 150% utilization means the team was over-assigned, not that it
+    // performed well. Mirror Home's semantics (lib/utilization-calculator.ts
+    // getUtilizationStatus): under 70% is spare capacity (blue), 70-110% is the
+    // healthy band (green), over 110% is overloaded (red) — never green.
+    if (value > 110) color = 'bg-red-500/20 text-red-400';
+    else if (value < 70) color = 'bg-blue-500/20 text-blue-400';
+    else color = 'bg-emerald-500/20 text-emerald-400';
+  } else {
+    if (value >= 90) color = 'bg-emerald-500/20 text-emerald-400';
+    else if (value >= 75) color = 'bg-yellow-500/20 text-yellow-400';
+    else if (value >= 50) color = 'bg-orange-500/20 text-orange-400';
+  }
   return <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${color}`}>{value.toFixed(1)}%</span>;
 }
 
-function KPICard({ label, value, unit, subtitle, status }: { label: string; value: string; unit?: string; subtitle?: string; status?: number }) {
+function KPICard({ label, value, unit, subtitle, status, statusVariant }: { label: string; value: string; unit?: string; subtitle?: string; status?: number; statusVariant?: 'default' | 'utilization' }) {
   return (
     <div className="bg-muted/30 border border-border rounded-xl p-4 space-y-1">
       <p className="text-xs text-muted-foreground uppercase tracking-wider">{label}</p>
       <div className="flex items-baseline gap-1">
         <span className="text-2xl font-bold text-foreground">{value}</span>
         {unit && <span className="text-sm text-muted-foreground">{unit}</span>}
-        {status !== undefined && <KPIStatusBadge value={status} />}
+        {status !== undefined && <KPIStatusBadge value={status} variant={statusVariant} />}
       </div>
       {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
     </div>
@@ -319,7 +330,7 @@ function ReportTab({ data, loading, error, selectedBoardId, selectedSprintId }: 
 
       {/* 8 KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <KPICard label="Utilization" value={utilizationPct !== null ? utilizationPct.toFixed(1) : '—'} unit={utilizationPct !== null ? '%' : undefined} status={utilizationPct ?? undefined} subtitle={buffer ? `${buffer.assignedAtStart} / ${buffer.theoreticalMandays} MD assigned` : undefined} />
+        <KPICard label="Utilization" value={utilizationPct !== null ? utilizationPct.toFixed(1) : '—'} unit={utilizationPct !== null ? '%' : undefined} status={utilizationPct ?? undefined} statusVariant="utilization" subtitle={buffer ? `${buffer.assignedAtStart} / ${buffer.theoreticalMandays} MD assigned` : undefined} />
         <KPICard label="Buffer" value={buffer ? buffer.buffer.toFixed(1) : '—'} unit="MD" subtitle={buffer ? buffer.verdict : undefined} />
         <KPICard label="Added Mid-Sprint" value={buffer ? buffer.addedDuringSprint.toFixed(1) : '—'} unit="MD" subtitle={buffer && buffer.overloadSP > 0 ? `${buffer.overloadSP.toFixed(1)} MD over buffer` : undefined} />
         <KPICard label="Task Accuracy" value={accuracy?.team.ratio !== null && accuracy?.team.ratio !== undefined ? accuracy.team.ratio.toFixed(2) : '—'} unit={accuracy?.team.ratio !== null && accuracy?.team.ratio !== undefined ? 'x' : undefined} subtitle={accuracy ? `${accuracy.team.totalLoggedHours.toFixed(1)}h logged / ${accuracy.team.totalExpectedHours.toFixed(1)}h expected` : undefined} />
@@ -523,7 +534,7 @@ function HistoryTab({ data, loading, boardId }: { data: HistoryRow[]; loading: b
               <td className="py-2.5 pr-3 text-right"><KPIStatusBadge value={row.commitmentAccuracy} /></td>
               <td className="py-2.5 pr-3 text-right">{row.theoreticalMandays.toFixed(1)}</td>
               <td className="py-2.5 pr-3 text-right">{row.assignedAtStart.toFixed(1)}</td>
-              <td className="py-2.5 pr-3 text-right"><KPIStatusBadge value={row.utilization} /></td>
+              <td className="py-2.5 pr-3 text-right"><KPIStatusBadge value={row.utilization} variant="utilization" /></td>
               <td className="py-2.5 pr-3 text-right"><KPIStatusBadge value={row.completionRate} /></td>
               <td className="py-2.5 pr-3 text-right text-muted-foreground">{row.avgCycleTime?.toFixed(1) ?? '—'}</td>
               <td className="py-2.5 text-right">{row.memberCount}</td>

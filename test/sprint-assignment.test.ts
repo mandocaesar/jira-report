@@ -97,4 +97,44 @@ describe('computeBufferReport', () => {
     expect(row.buffer).toBe(1);          // 10 − 9
     expect(row.overloadSP).toBe(2);      // 3 − 1
   });
+
+  it('team buffer excludes UNASSIGNED and non-roster SP', () => {
+    // Roster-only capacity: single member 'a' with theoretical 10.
+    const soloCapacity: SprintCapacityDays = {
+      sprintWorkingDays: 10,
+      teamTheoreticalMandays: 10,
+      members: [
+        { accountId: 'a', name: 'A', role: 'engineer', title: 't', excluded: false, sprintWorkingDays: 10, leaveDays: 0, allocationFactor: 1, theoreticalMandays: 10 },
+      ],
+    };
+    const assignment = computeAssignment(sprint, [
+      makeIssue({ assigneeId: 'a', sp: 5 }),
+      makeIssue({ assigneeId: null, sp: 3 }),      // UNASSIGNED
+      makeIssue({ assigneeId: 'z', sp: 2 }),       // stranger, not on the roster
+    ]);
+    // assignment.team.assignedAtStart would be 10 (5 + 3 + 2) if it leaked in —
+    // computeBufferReport must sum only roster memberRows instead.
+    expect(assignment.team.assignedAtStart).toBe(10);
+    const b = computeBufferReport(soloCapacity, assignment);
+    expect(b.assignedAtStart).toBe(5);
+    expect(b.buffer).toBe(5); // 10 − 5
+  });
+
+  it('overload when buffer is already negative at sprint start', () => {
+    const soloCapacity: SprintCapacityDays = {
+      sprintWorkingDays: 8,
+      teamTheoreticalMandays: 8,
+      members: [
+        { accountId: 'a', name: 'A', role: 'engineer', title: 't', excluded: false, sprintWorkingDays: 8, leaveDays: 0, allocationFactor: 1, theoreticalMandays: 8 },
+      ],
+    };
+    const assignment = computeAssignment(sprint, [
+      makeIssue({ assigneeId: 'a', sp: 10 }),
+      makeIssue({ assigneeId: 'a', sp: 2, created: '2026-06-18T04:00:00.000Z' }),
+    ]);
+    const b = computeBufferReport(soloCapacity, assignment);
+    expect(b.buffer).toBe(-2);       // 8 − 10, already overloaded before anything was added
+    expect(b.overloadSP).toBe(2);    // 2 added − max(0, −2) = 2 − 0 = 2
+    expect(b.verdict).toBe('overload');
+  });
 });

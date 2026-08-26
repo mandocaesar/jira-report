@@ -82,6 +82,14 @@ describe('computeSprintCapacity', () => {
     expect(computeSprintCapacity(input).members[0].theoreticalMandays).toBe(3);
   });
 
+  // This exercises the pure core directly, bypassing loadSprintCapacity's loader.
+  // In production, the loader (lib/capacity-engine.ts) now maps any SprintLeave
+  // row with leaveDays < 0 to excluded:true BEFORE calling computeSprintCapacity
+  // — legacy semantics were "-1 = excluded", not "-1 leave days". The pure core
+  // never sees that mapping; it only ever gets non-excluded members with a raw
+  // leaveDayCounts value, so this Math.max(0, ...) clamp stays as a defensive
+  // safety net for any caller that constructs CapacityInput directly (e.g. tests,
+  // or a future caller that skips the loader) without pre-excluding negatives.
   it('negative leave day counts clamp to 0 (legacy -1 sentinel)', () => {
     const input = base();
     input.leaveDayCounts.set('a', -1);

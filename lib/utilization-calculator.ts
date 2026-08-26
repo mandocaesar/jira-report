@@ -1,9 +1,38 @@
 import { JiraIssue, User, UserUtilization, Sprint, SprintSummary, UserIssue } from '@/types';
 import { calculateWorkingDays, getHolidaysInRange } from './holiday-service';
-import { getMemberByAccountId, getTeamByBoardIdFromDb } from './team-roster';
+import { getMemberByAccountId, getTeamByBoardIdFromDb, TeamConfig } from './team-roster';
 import { getStoryPoints, extractUser, categorizeIssueType, sprintFieldContainsId } from './issue-helpers';
-import { loadSprintCapacity } from './capacity-engine';
+import { loadSprintCapacity, SprintCapacityDays } from './capacity-engine';
 import { computeAssignment, computeBufferReport } from './sprint-assignment';
+
+/**
+ * Fallback capacity when the days-only engine is unavailable (no DB, or the
+ * board's team isn't in the DB `Team` table). Mirrors the forecast route's
+ * fallback (app/api/planning/forecast/route.ts) so Home doesn't show
+ * misleading zeros (Mandays 0 / Avg Util 0.0%) next to real story points
+ * just because the engine couldn't run — synthesize theoretical mandays from
+ * the roster at full working days / 100% allocation / 0 leave (none of that
+ * data exists outside the DB anyway). The JSON roster fallback carries no
+ * exclusion flag, so every member is treated as included.
+ */
+function synthesizeFallbackCapacity(team: TeamConfig, fallbackWorkingDays: number): SprintCapacityDays {
+    const members = team.members.map(m => ({
+        accountId: m.accountId,
+        name: m.name,
+        role: m.role,
+        title: m.title,
+        excluded: false,
+        sprintWorkingDays: fallbackWorkingDays,
+        leaveDays: 0,
+        allocationFactor: 1,
+        theoreticalMandays: fallbackWorkingDays,
+    }));
+    return {
+        sprintWorkingDays: fallbackWorkingDays,
+        members,
+        teamTheoreticalMandays: members.reduce((s, m) => s + m.theoreticalMandays, 0),
+    };
+}
 
 /**
  * Group issues by assignee and sum their story points and collect work type stats.
@@ -145,7 +174,12 @@ export async function calculateSprintUtilization(
         boardId ? loadSprintCapacity(sprint, { boardId }) : Promise.resolve(null),
         Promise.resolve(computeAssignment(sprint, issues)),
     ]);
-    const capacity = loaded?.capacity ?? null;
+    // When the days-only engine can't run (no DB, or team not in the DB `Team`
+    // table), synthesize a fallback capacity from the roster rather than leaving
+    // capacity null — a null capacity collapses Mandays/Avg Util to 0 next to
+    // real story points, which reads as "nobody has any capacity" instead of
+    // "capacity data unavailable, here's our best estimate".
+    const capacity = loaded?.capacity ?? (teamInfo ? synthesizeFallbackCapacity(teamInfo.config, fallbackTotalWorkingDays) : null);
     const capacityByAccount = new Map(capacity?.members.map(m => [m.accountId, m]) ?? []);
     const totalWorkingDays = capacity?.sprintWorkingDays ?? fallbackTotalWorkingDays;
 
