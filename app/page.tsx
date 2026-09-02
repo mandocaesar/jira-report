@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import BoardSelector from '@/components/BoardSelector';
-import SprintSelector from '@/components/SprintSelector';
+import { useState, useCallback, useEffect, useRef, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import ContextBar from '@/components/ContextBar';
+import type { Sprint } from '@/types';
 import UserUtilizationCard from '@/components/UserUtilizationCard';
 import EngineerDetailModal from '@/components/EngineerDetailModal';
 import SprintSummaryComponent from '@/components/SprintSummary';
@@ -12,11 +13,17 @@ import { EpicBreakdownComponent } from '@/components/EpicBreakdown';
 import SprintReport from '@/components/SprintReport';
 import WorklogReport from '@/components/WorklogReport';
 import CollapsibleSection from '@/components/CollapsibleSection';
+import DeliveryAccuracy from '@/components/sprint/DeliveryAccuracy';
 import { SprintReportData } from '@/types';
 
-export default function Home() {
+function HomeInner() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [selectedBoardId, setSelectedBoardId] = useState<number | null>(null);
   const [selectedSprintId, setSelectedSprintId] = useState<number | null>(null);
+  // Sprint to apply once the board's sprint list arrives: an explicit id (from
+  // the URL) or 'auto' (pick the active sprint, else the latest closed one).
+  const pendingSprintRef = useRef<number | 'auto'>('auto');
   const [sprintData, setSprintData] = useState<SprintSummary | null>(null);
   const [reportData, setReportData] = useState<SprintReportData | null>(null);
   const [jiraDomain, setJiraDomain] = useState<string>('');
@@ -83,12 +90,57 @@ export default function Home() {
     }
   };
 
+  // ── Context restore: URL params win, then last-used squad from localStorage ──
+  useEffect(() => {
+    const urlBoard = parseInt(searchParams.get('board') || '');
+    const urlSprint = parseInt(searchParams.get('sprint') || '');
+    if (!isNaN(urlBoard)) {
+      pendingSprintRef.current = !isNaN(urlSprint) ? urlSprint : 'auto';
+      setSelectedBoardId(urlBoard);
+      return;
+    }
+    try {
+      const saved = JSON.parse(localStorage.getItem('lastContext') || 'null');
+      if (saved?.boardId) {
+        pendingSprintRef.current = 'auto';
+        setSelectedBoardId(saved.boardId);
+      }
+    } catch { /* corrupted localStorage — start blank */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Keep URL + localStorage in sync with the selection ──
+  useEffect(() => {
+    if (selectedBoardId === null) return;
+    const qs = new URLSearchParams();
+    qs.set('board', String(selectedBoardId));
+    if (selectedSprintId !== null) qs.set('sprint', String(selectedSprintId));
+    router.replace(`/?${qs.toString()}`, { scroll: false });
+    try { localStorage.setItem('lastContext', JSON.stringify({ boardId: selectedBoardId, sprintId: selectedSprintId })); } catch { /* private mode */ }
+  }, [selectedBoardId, selectedSprintId, router]);
+
   const handleBoardChange = (boardId: number | null) => {
     setSelectedBoardId(boardId);
     setSelectedSprintId(null); // Reset sprint when board changes
     setSprintData(null);
     setReportData(null);
     setPdfAiSummary(null);
+    pendingSprintRef.current = 'auto'; // board switch lands on its active sprint
+  };
+
+  // Called by ContextBar when a board's sprint list arrives
+  const handleSprintsLoaded = (sorted: Sprint[]) => {
+    const pending = pendingSprintRef.current;
+    pendingSprintRef.current = 'auto';
+    let target: number | null = null;
+    if (typeof pending === 'number' && sorted.some(s => s.id === pending)) {
+      target = pending;
+    } else {
+      const active = sorted.find(s => s.state === 'active');
+      const closed = [...sorted].reverse().find(s => s.state === 'closed');
+      target = active?.id ?? closed?.id ?? null;
+    }
+    if (target !== null && target !== selectedSprintId) handleSprintChange(target);
   };
 
   const handleSprintChange = async (sprintId: number | null, options?: { refresh?: boolean }) => {
@@ -227,27 +279,15 @@ export default function Home() {
 
       {/* Main Content */}
       <div className="px-3 sm:px-4 md:px-6 py-4 md:py-8 max-w-full">
-        {/* Selectors */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 print:hidden">
-          <div>
-            <label className="block text-sm font-semibold text-muted-foreground mb-3">
-              Select Board
-            </label>
-            <BoardSelector
-              onBoardChange={handleBoardChange}
-              selectedBoardId={selectedBoardId}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-muted-foreground mb-3">
-              Select Sprint
-            </label>
-            <SprintSelector
-              onSprintChange={handleSprintChange}
-              selectedSprintId={selectedSprintId}
-              boardId={selectedBoardId}
-            />
-          </div>
+        {/* Context bar: squad + sprint, chosen once */}
+        <div className="mb-8">
+          <ContextBar
+            boardId={selectedBoardId}
+            sprintId={selectedSprintId}
+            onBoardChange={handleBoardChange}
+            onSprintChange={handleSprintChange}
+            onSprintsLoaded={handleSprintsLoaded}
+          />
         </div>
 
         {/* Loading State */}
@@ -286,6 +326,12 @@ export default function Home() {
             <CollapsibleSection title="Sprint Summary" defaultOpen={true}>
               <SprintSummaryComponent summary={sprintData} reportData={reportData} onAiSummaryGenerate={setPdfAiSummary} />
             </CollapsibleSection>
+
+            {selectedBoardId && selectedSprintId && (
+              <CollapsibleSection title="Delivery & Accuracy" defaultOpen={false}>
+                <DeliveryAccuracy boardId={selectedBoardId} sprintId={selectedSprintId} />
+              </CollapsibleSection>
+            )}
 
             {/* User Utilizations */}
             <div className="space-y-12">
@@ -415,5 +461,13 @@ export default function Home() {
         />
       )}
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={null}>
+      <HomeInner />
+    </Suspense>
   );
 }
