@@ -1,5 +1,7 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
+import { getSessionUser, can } from '@/lib/authz';
+import { writeAudit } from '@/lib/audit';
 import { apiSuccess, apiError } from '@/lib/api-helpers';
 import { createJiraClient } from '@/lib/jira-client';
 import { getTeamByBoardId } from '@/lib/team-roster';
@@ -116,6 +118,8 @@ export async function GET(request: NextRequest) {
             pic: n.pic,
             highlights: n.highlights,
             carryOverReason: n.carryOverReason,
+            updatedByName: n.updatedByName,
+            updatedAt: n.updatedAt,
         }]));
 
         return apiSuccess({
@@ -145,9 +149,22 @@ export async function POST(request: NextRequest) {
             return apiError('boardId, sprintId and role (engineer|qa) are required', 400);
         }
 
+        // ── ACL: report edits need edit_report on the squad (or admin) ──
+        const user = await getSessionUser(request);
+        if (!user) return apiError('Not authenticated', 401);
+        const team = await prisma.team.findUnique({ where: { boardId }, select: { id: true } });
+        if (!can(user, 'edit_report', team?.id)) {
+            return apiError('You do not have permission to edit this squad\'s report', 403);
+        }
+
+        const before = await prisma.sprintEmNote.findUnique({
+            where: { boardId_sprintId_role: { boardId, sprintId, role } },
+            select: { pic: true, highlights: true, carryOverReason: true },
+        });
+
         const note = await prisma.sprintEmNote.upsert({
             where: { boardId_sprintId_role: { boardId, sprintId, role } },
-            update: { pic: pic ?? null, highlights: highlights ?? null, carryOverReason: carryOverReason ?? null },
+            update: { pic: pic ?? null, highlights: highlights ?? null, carryOverReason: carryOverReason ?? null, updatedByName: user.name },
             create: {
                 boardId,
                 sprintId,
@@ -155,8 +172,19 @@ export async function POST(request: NextRequest) {
                 pic: pic ?? null,
                 highlights: highlights ?? null,
                 carryOverReason: carryOverReason ?? null,
+                updatedByName: user.name,
             },
         });
+
+        await writeAudit(prisma, user, {
+            action: 'report.edit',
+            entity: 'SprintEmNote',
+            entityId: note.id,
+            teamId: team?.id ?? null,
+            before: before ?? undefined,
+            after: { pic: note.pic, highlights: note.highlights, carryOverReason: note.carryOverReason },
+        });
+
         return apiSuccess({ note });
     } catch (error) {
         console.error('Error saving EM report note:', error);
