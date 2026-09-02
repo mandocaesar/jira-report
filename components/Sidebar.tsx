@@ -147,7 +147,7 @@ export default function Sidebar({ children }: SidebarProps) {
                                 </svg>
                             </div>
                             <div>
-                                <h1 className="text-sm font-bold text-foreground">Jira Sprint</h1>
+                                <p className="text-sm font-bold text-foreground">Jira Sprint</p>
                                 <p className="text-xs text-muted-foreground">Report Dashboard</p>
                             </div>
                         </div>
@@ -259,7 +259,7 @@ export default function Sidebar({ children }: SidebarProps) {
             </aside>
 
             {/* Main Content */}
-            <main className={`flex-1 min-w-0 flex flex-col overflow-x-hidden ${collapsed ? 'ml-20' : 'ml-64'} transition-all duration-300`}>
+            <main id="main-content" className={`flex-1 min-w-0 flex flex-col overflow-x-hidden ${collapsed ? 'ml-20' : 'ml-64'} transition-all duration-300`}>
                 {children}
             </main>
         </div>

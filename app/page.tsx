@@ -226,7 +226,7 @@ export default function Home() {
       </header>
 
       {/* Main Content */}
-      <main className="px-3 sm:px-4 md:px-6 py-4 md:py-8 max-w-full">
+      <div className="px-3 sm:px-4 md:px-6 py-4 md:py-8 max-w-full">
         {/* Selectors */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 print:hidden">
           <div>
@@ -397,7 +397,7 @@ export default function Home() {
             </p>
           </div>
         )}
-      </main>
+      </div>
 
       {/* Footer */}
       <footer className="border-t border-border bg-background/50 backdrop-blur-xl mt-20">
