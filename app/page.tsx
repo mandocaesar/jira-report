@@ -14,6 +14,8 @@ import SprintReport from '@/components/SprintReport';
 import WorklogReport from '@/components/WorklogReport';
 import CollapsibleSection from '@/components/CollapsibleSection';
 import DeliveryAccuracy from '@/components/sprint/DeliveryAccuracy';
+import ReportView from '@/components/report/ReportView';
+import PlanView from '@/components/plan/PlanView';
 import { SprintReportData } from '@/types';
 
 function HomeInner() {
@@ -24,6 +26,7 @@ function HomeInner() {
   // Sprint to apply once the board's sprint list arrives: an explicit id (from
   // the URL) or 'auto' (pick the active sprint, else the latest closed one).
   const pendingSprintRef = useRef<number | 'auto'>('auto');
+  const [view, setView] = useState<'check' | 'report' | 'plan'>('check');
   const [sprintData, setSprintData] = useState<SprintSummary | null>(null);
   const [reportData, setReportData] = useState<SprintReportData | null>(null);
   const [jiraDomain, setJiraDomain] = useState<string>('');
@@ -94,6 +97,8 @@ function HomeInner() {
   useEffect(() => {
     const urlBoard = parseInt(searchParams.get('board') || '');
     const urlSprint = parseInt(searchParams.get('sprint') || '');
+    const urlView = searchParams.get('view');
+    if (urlView === 'report' || urlView === 'plan') setView(urlView);
     if (!isNaN(urlBoard)) {
       pendingSprintRef.current = !isNaN(urlSprint) ? urlSprint : 'auto';
       setSelectedBoardId(urlBoard);
@@ -115,9 +120,10 @@ function HomeInner() {
     const qs = new URLSearchParams();
     qs.set('board', String(selectedBoardId));
     if (selectedSprintId !== null) qs.set('sprint', String(selectedSprintId));
+    if (view !== 'check') qs.set('view', view);
     router.replace(`/?${qs.toString()}`, { scroll: false });
     try { localStorage.setItem('lastContext', JSON.stringify({ boardId: selectedBoardId, sprintId: selectedSprintId })); } catch { /* private mode */ }
-  }, [selectedBoardId, selectedSprintId, router]);
+  }, [selectedBoardId, selectedSprintId, view, router]);
 
   const handleBoardChange = (boardId: number | null) => {
     setSelectedBoardId(boardId);
@@ -288,10 +294,27 @@ function HomeInner() {
             onSprintChange={handleSprintChange}
             onSprintsLoaded={handleSprintsLoaded}
           />
+          {selectedBoardId && selectedSprintId && (
+            <div role="tablist" aria-label="Sprint views" className="flex gap-1 mt-3 border-b border-border">
+              {(['check', 'report', 'plan'] as const).map(v => (
+                <button
+                  key={v}
+                  role="tab"
+                  aria-selected={view === v}
+                  onClick={() => setView(v)}
+                  className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${view === v
+                    ? 'border-purple-500 text-purple-400'
+                    : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                >
+                  {v === 'check' ? 'Check' : v === 'report' ? 'Report' : 'Plan'}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Loading State */}
-        {loading && (
+        {view === 'check' && loading && (
           <div className="flex items-center justify-center py-20">
             <div className="relative">
               <div className="w-16 h-16 border-4 border-muted border-t-foreground rounded-full animate-spin"></div>
@@ -320,7 +343,15 @@ function HomeInner() {
         )}
 
         {/* Sprint Data Display */}
-        {sprintData && !loading && (
+        {view === 'report' && selectedBoardId && selectedSprintId && (
+          <ReportView boardId={selectedBoardId} sprintId={selectedSprintId} />
+        )}
+
+        {view === 'plan' && selectedBoardId && selectedSprintId && (
+          <PlanView boardId={selectedBoardId} sprintId={selectedSprintId} />
+        )}
+
+        {view === 'check' && sprintData && !loading && (
           <div className="space-y-4 md:space-y-8 animate-fadeIn">
             {/* Sprint Summary */}
             <CollapsibleSection title="Sprint Summary" defaultOpen={true}>
