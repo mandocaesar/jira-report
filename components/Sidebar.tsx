@@ -89,6 +89,12 @@ const navigation: NavSection[] = [
                 icon: <IconWorkType />,
                 description: 'Jira label → category mapping',
             },
+            {
+                name: 'Audit Trail',
+                href: '/admin/audit',
+                icon: <IconWorkType />,
+                description: 'Who changed what, when',
+            },
         ],
     },
     {
