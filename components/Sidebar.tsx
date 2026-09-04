@@ -90,6 +90,12 @@ const navigation: NavSection[] = [
                 description: 'Jira label → category mapping',
             },
             {
+                name: 'Users',
+                href: '/admin/users',
+                icon: <IconEngineer />,
+                description: 'Accounts, roles & memberships',
+            },
+            {
                 name: 'Audit Trail',
                 href: '/admin/audit',
                 icon: <IconWorkType />,
