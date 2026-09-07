@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
     const [password, setPassword] = useState('');
+    const [email, setEmail] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const router = useRouter();
@@ -18,7 +19,7 @@ export default function LoginPage() {
             const response = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password }),
+                body: JSON.stringify(email.trim() ? { email: email.trim(), password } : { password }),
             });
 
             const data = await response.json();
@@ -58,6 +59,18 @@ export default function LoginPage() {
 
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div>
+                            <label htmlFor="email" className="block text-sm font-medium text-muted-foreground mb-2">
+                                Email <span className="text-muted-foreground/60 font-normal">(leave blank for legacy password login)</span>
+                            </label>
+                            <input
+                                type="email"
+                                id="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                placeholder="you@banksinarmas.com"
+                                autoComplete="username"
+                                className="w-full px-4 py-3 bg-muted/40 border border-border rounded-lg text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-purple-500 mb-4"
+                            />
                             <label htmlFor="password" className="block text-sm font-medium text-muted-foreground mb-2">
                                 Password
                             </label>

@@ -26,6 +26,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} antialiased bg-background text-foreground min-h-screen overflow-x-hidden`}>
+        <a href="#main-content" className="skip-link">Skip to content</a>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <ErrorBoundary>
             <Sidebar>

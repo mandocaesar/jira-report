@@ -1,5 +1,8 @@
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
 import { apiSuccess, apiError, requireDatabase } from '@/lib/api-helpers';
+import { getSessionUser, can } from '@/lib/authz';
+import { writeAudit } from '@/lib/audit';
 
 // GET /api/settings/holidays — list holidays, optionally by year
 export async function GET(request: Request) {
@@ -25,10 +28,14 @@ export async function GET(request: Request) {
 }
 
 // POST /api/settings/holidays — create a holiday
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
     try {
         const dbErr = requireDatabase();
         if (dbErr) return dbErr;
+
+        const user = await getSessionUser(request);
+        if (!user) return apiError('Not authenticated', 401);
+        if (!can(user, 'admin_settings')) return apiError('Holiday management is admin-only', 403);
 
         const body = await request.json();
         const { date, name, isActive } = body;
@@ -50,6 +57,7 @@ export async function POST(request: Request) {
             },
         });
 
+        await writeAudit(prisma!, user, { action: 'holiday.create', entity: 'Holiday', entityId: holiday.id, after: { date, name: holiday.name } });
         return apiSuccess(holiday);
     } catch (error) {
         console.error('Error creating holiday:', error);
@@ -59,10 +67,14 @@ export async function POST(request: Request) {
 }
 
 // PUT /api/settings/holidays — update a holiday
-export async function PUT(request: Request) {
+export async function PUT(request: NextRequest) {
     try {
         const dbErr = requireDatabase();
         if (dbErr) return dbErr;
+
+        const user = await getSessionUser(request);
+        if (!user) return apiError('Not authenticated', 401);
+        if (!can(user, 'admin_settings')) return apiError('Holiday management is admin-only', 403);
 
         const body = await request.json();
         const { id, date, name, isActive } = body;
@@ -85,6 +97,7 @@ export async function PUT(request: Request) {
             data,
         });
 
+        await writeAudit(prisma!, user, { action: 'holiday.update', entity: 'Holiday', entityId: holiday.id, after: data });
         return apiSuccess(holiday);
     } catch (error) {
         console.error('Error updating holiday:', error);
@@ -93,10 +106,14 @@ export async function PUT(request: Request) {
 }
 
 // DELETE /api/settings/holidays — delete a holiday
-export async function DELETE(request: Request) {
+export async function DELETE(request: NextRequest) {
     try {
         const dbErr = requireDatabase();
         if (dbErr) return dbErr;
+
+        const user = await getSessionUser(request);
+        if (!user) return apiError('Not authenticated', 401);
+        if (!can(user, 'admin_settings')) return apiError('Holiday management is admin-only', 403);
 
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
@@ -105,7 +122,8 @@ export async function DELETE(request: Request) {
             return apiError('id is required', 400);
         }
 
-        await prisma!.holiday.delete({ where: { id } });
+        const removed = await prisma!.holiday.delete({ where: { id } });
+        await writeAudit(prisma!, user, { action: 'holiday.delete', entity: 'Holiday', entityId: id, before: { date: removed.date, name: removed.name } });
 
         return apiSuccess({ message: 'Holiday deleted' });
     } catch (error) {

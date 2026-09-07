@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { apiSuccess, apiError } from '@/lib/api-helpers';
 import { createJiraClient } from '@/lib/jira-client';
@@ -10,6 +10,8 @@ import {
   calculateSprintKPIs,
   calculateEngineerMetrics,
 } from '@/lib/sprint-performance-metrics';
+
+import { getSnapshot, saveSnapshot } from '@/lib/snapshot';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -24,6 +26,12 @@ export async function GET(request: NextRequest) {
 
     if (isNaN(sprintId) || isNaN(boardId)) {
       return apiError('sprintId and boardId are required', 400);
+    }
+
+    const refresh = url.searchParams.get('refresh') === 'true';
+    if (!refresh) {
+      const snap = await getSnapshot<Record<string, unknown>>(boardId, sprintId, 'performance');
+      if (snap) return NextResponse.json({ ...snap.payload, snapshotAt: snap.computedAt });
     }
 
     // Resolve team from DB
@@ -118,18 +126,23 @@ export async function GET(request: NextRequest) {
       }));
     }
 
-    return apiSuccess({
-        sprint,
-        kpis,
-        velocity,
-        capacityDays,
-        buffer,
-        accuracy,
-        engineerMetrics,
-        nonDevDays,
-        allocations,
-        jiraDomain: process.env.JIRA_DOMAIN || '',
-    });
+    const responseBody = {
+        success: true,
+        data: {
+            sprint,
+            kpis,
+            velocity,
+            capacityDays,
+            buffer,
+            accuracy,
+            engineerMetrics,
+            nonDevDays,
+            allocations,
+            jiraDomain: process.env.JIRA_DOMAIN || '',
+        },
+    };
+    if (sprint.state === 'closed') await saveSnapshot(boardId, sprintId, 'performance', responseBody);
+    return NextResponse.json(responseBody);
   } catch (error) {
     console.error('Error in sprint performance API:', error);
     return apiError(error instanceof Error ? error.message : 'Failed to fetch sprint performance', 500);

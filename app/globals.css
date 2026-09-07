@@ -388,3 +388,23 @@ body {
     width: 100% !important;
   }
 }
+/* ── Accessibility foundation (Phase 1) ───────────────────────────── */
+*:focus-visible {
+  outline: 2px solid hsl(263 70% 66%);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  background: hsl(263 70% 40%);
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: 0 0 8px 0;
+  font-weight: 600;
+}
+.skip-link:focus {
+  left: 0;
+}

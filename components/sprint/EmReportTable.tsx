@@ -18,6 +18,8 @@ interface EmNote {
     pic: string | null;
     highlights: string | null;
     carryOverReason: string | null;
+    updatedByName?: string | null;
+    updatedAt?: string | null;
 }
 
 export interface EmReportRow {
@@ -149,6 +151,12 @@ export default function EmReportTable({ data, boardId, sprintId }: EmReportTable
                                             {ROLE_LABELS[row.role]}
                                         </span>
                                         <p className="text-[10px] text-muted-foreground mt-1">{row.memberCount} members</p>
+                                        {row.note?.updatedByName && (
+                                            <p className="text-[10px] text-muted-foreground mt-1" title={row.note.updatedAt ?? undefined}>
+                                                ✎ {row.note.updatedByName}
+                                                {row.note.updatedAt ? ` · ${new Date(row.note.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}
+                                            </p>
+                                        )}
                                     </td>
 
                                     {/* PIC */}

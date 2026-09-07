@@ -17,6 +17,9 @@ importers:
       '@react-pdf/renderer':
         specifier: ^4.3.2
         version: 4.3.2(react@19.2.3)
+      '@types/bcryptjs':
+        specifier: ^3.0.0
+        version: 3.0.0
       '@vercel/analytics':
         specifier: ^1.6.1
         version: 1.6.1(next@16.1.6(@babel/core@7.29.0)(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)
@@ -26,6 +29,9 @@ importers:
       ai:
         specifier: ^6.0.116
         version: 6.0.116(zod@4.3.6)
+      bcryptjs:
+        specifier: ^3.0.3
+        version: 3.0.3
       cron:
         specifier: ^4.4.0
         version: 4.4.0
@@ -955,6 +961,10 @@ packages:
   '@tybys/wasm-util@0.10.1':
     resolution: {integrity: sha512-9tTaPJLSiejZKx+Bmog4uSubteqTvFrVrURwkmHixBo0G4seD0zUxp98E1DzUBJxLQ3NPwXrGKDiVjwx/DpPsg==}
 
+  '@types/bcryptjs@3.0.0':
+    resolution: {integrity: sha512-WRZOuCuaz8UcZZE4R5HXTco2goQSI2XxjGY3hbM/xDvwmqFWd4ivooImsMx65OKM6CtNKbnZ5YL+YwAwK7c1dg==}
+    deprecated: This is a stub types definition. bcryptjs provides its own type definitions, so you do not need this installed.
+
   '@types/d3-array@3.2.2':
     resolution: {integrity: sha512-hOLWVbm7uRza0BYXpIIW5pxfrKe0W+D5lrFiAEYR+pb6w3N2SwSMaJbXdUfSEv+dT4MfHBLtn5js0LAWaO6otw==}
 
@@ -1378,6 +1388,10 @@ packages:
 
   baseline-browser-mapping@2.9.19:
     resolution: {integrity: sha512-ipDqC8FrAl/76p2SSWKSI+H9tFwm7vYqXQrItCuiVPt26Km0jS+NzSsBWAaBusvSbQcfJG+JitdMm+wZAgTYqg==}
+    hasBin: true
+
+  bcryptjs@3.0.3:
+    resolution: {integrity: sha512-GlF5wPWnSa/X5LKM1o0wz0suXIINz1iHRLvTS+sLyi7XPbe5ycmYI3DlZqVGZZtDgl4DmasFg7gOB3JYbphV5g==}
     hasBin: true
 
   bidi-js@1.0.3:
@@ -3802,6 +3816,10 @@ snapshots:
       tslib: 2.8.1
     optional: true
 
+  '@types/bcryptjs@3.0.0':
+    dependencies:
+      bcryptjs: 3.0.3
+
   '@types/d3-array@3.2.2': {}
 
   '@types/d3-color@3.1.3': {}
@@ -4203,6 +4221,8 @@ snapshots:
   base64-js@1.5.1: {}
 
   baseline-browser-mapping@2.9.19: {}
+
+  bcryptjs@3.0.3: {}
 
   bidi-js@1.0.3:
     dependencies:

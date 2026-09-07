@@ -1,6 +1,8 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
 import { apiSuccess, apiError, requireDatabase } from '@/lib/api-helpers';
+import { getSessionUser, can } from '@/lib/authz';
+import { writeAudit } from '@/lib/audit';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,6 +28,10 @@ export async function POST(request: NextRequest) {
             return apiError('boardId, teamName, and members are required', 400);
         }
 
+        // ── ACL: sync needs manage_roster on the squad (or admin) ──
+        const user = await getSessionUser(request);
+        if (!user) return apiError('Not authenticated', 401);
+
         // Check if team already exists for this board
         const existingTeam = await prisma!.team.findUnique({
             where: { boardId },
@@ -35,6 +41,9 @@ export async function POST(request: NextRequest) {
         let team;
 
         if (existingTeam) {
+            if (!can(user, 'manage_roster', existingTeam.id)) {
+                return apiError('You do not have permission to sync this squad', 403);
+            }
             // Update existing team
             // Remove members not in the new list
             const newAccountIds = new Set(members.map(m => m.accountId));
@@ -55,11 +64,12 @@ export async function POST(request: NextRequest) {
                             accountId: member.accountId,
                         },
                     },
+                    // Existing members keep their DB role/title/exclusion —
+                    // discovery only guesses roles, and manual QA/EM corrections
+                    // must survive a re-sync. Sync refreshes identity fields only.
                     update: {
                         name: member.displayName,
                         email: member.emailAddress,
-                        role: member.role,
-                        title: member.title,
                     },
                     create: {
                         accountId: member.accountId,
@@ -82,6 +92,9 @@ export async function POST(request: NextRequest) {
                 include: { members: true },
             });
         } else {
+            if (!can(user, 'admin_settings')) {
+                return apiError('Creating a new squad is admin-only', 403);
+            }
             // Create new team
             team = await prisma!.team.create({
                 data: {
@@ -102,6 +115,14 @@ export async function POST(request: NextRequest) {
                 include: { members: true },
             });
         }
+
+        await writeAudit(prisma!, user, {
+            action: 'squad.sync',
+            entity: 'Team',
+            entityId: team.id,
+            teamId: team.id,
+            after: { memberCount: team.members.length },
+        });
 
         return apiSuccess({
                 id: team.id,
