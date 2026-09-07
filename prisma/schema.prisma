@@ -403,3 +403,19 @@ model AuditLog {
   @@index([entity, entityId])
   @@index([teamId])
 }
+
+// ============================================================
+// SPRINT SNAPSHOT — cached API payloads for closed sprints (Phase 3)
+// ============================================================
+
+model SprintSnapshot {
+  id         String   @id @default(cuid())
+  boardId    Int
+  sprintId   Int
+  kind       String // "check" | "performance" | "em-report"
+  payload    Json
+  computedAt DateTime @default(now())
+
+  @@unique([boardId, sprintId, kind])
+  @@index([boardId, sprintId])
+}

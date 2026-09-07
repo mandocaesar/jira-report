@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getSessionUser, can } from '@/lib/authz';
 import { writeAudit } from '@/lib/audit';
@@ -11,6 +11,8 @@ import {
     computeCarryOverByRole,
     EmReportRole,
 } from '@/lib/em-report';
+
+import { getSnapshot, saveSnapshot } from '@/lib/snapshot';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -97,6 +99,23 @@ export async function GET(request: NextRequest) {
             return apiError('sprintId and boardId are required', 400);
         }
 
+        // Snapshot serves the heavy computed part; notes re-read live so a fresh
+        // edit shows without recompute.
+        const refresh = url.searchParams.get('refresh') === 'true';
+        if (!refresh && prisma) {
+            const snap = await getSnapshot<{ data: { rows: Array<Record<string, unknown> & { role: string }> } & Record<string, unknown> }>(boardId, sprintId, 'em-report');
+            if (snap) {
+                const notes = await prisma.sprintEmNote.findMany({ where: { boardId, sprintId } });
+                const liveNoteMap = Object.fromEntries(notes.map(n => [n.role, {
+                    pic: n.pic, highlights: n.highlights, carryOverReason: n.carryOverReason,
+                    updatedByName: n.updatedByName, updatedAt: n.updatedAt,
+                }]));
+                const body = snap.payload;
+                body.data.rows = body.data.rows.map(r => ({ ...r, note: liveNoteMap[r.role] ?? null }));
+                return NextResponse.json({ ...body, snapshotAt: snap.computedAt });
+            }
+        }
+
         const jiraClient = createJiraClient();
         const [{ roleMap, memberCounts }, sprint] = await Promise.all([
             getRoleData(boardId),
@@ -122,7 +141,9 @@ export async function GET(request: NextRequest) {
             updatedAt: n.updatedAt,
         }]));
 
-        return apiSuccess({
+        const responseBody = {
+            success: true,
+            data: {
             sprint: { id: sprint.id, name: sprint.name, state: sprint.state, startDate: sprint.startDate, endDate: sprint.endDate },
             rows: report.rows.map(row => ({
                 ...row,
@@ -132,7 +153,10 @@ export async function GET(request: NextRequest) {
             })),
             notesEditable: Boolean(prisma),
             jiraDomain: process.env.JIRA_DOMAIN || '',
-        });
+            },
+        };
+        if (sprint.state === 'closed') await saveSnapshot(boardId, sprintId, 'em-report', responseBody);
+        return NextResponse.json(responseBody);
     } catch (error) {
         console.error('Error in EM report API:', error);
         return apiError(error instanceof Error ? error.message : 'Failed to build EM report', 500);

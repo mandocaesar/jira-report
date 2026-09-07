@@ -3,6 +3,8 @@ import { calculateSprintUtilization } from '@/lib/utilization-calculator';
 import { calculateSprintReport } from '@/lib/sprint-report-calculator';
 import { apiSuccess, apiError } from '@/lib/api-helpers';
 import { apiCache } from '@/lib/cache';
+import { getSnapshot, saveSnapshot } from '@/lib/snapshot';
+import { NextResponse } from 'next/server';
 
 export async function GET(
     request: Request,
@@ -28,11 +30,20 @@ export async function GET(
         }
 
         const jiraClient = createJiraClient();
+        const boardIdNum = boardId ? parseInt(boardId, 10) : undefined;
+
+        // Closed sprints never change — serve the stored snapshot unless refreshing
+        if (!refresh && boardIdNum !== undefined) {
+            const snap = await getSnapshot<Record<string, unknown>>(boardIdNum, sprintId, 'check');
+            if (snap) {
+                return NextResponse.json({ ...snap.payload, snapshotAt: snap.computedAt });
+            }
+        }
 
         // Fetch sprint details and issues in parallel
         const [sprint, issues] = await Promise.all([
             jiraClient.getSprint(sprintId),
-            jiraClient.getSprintIssuesWithChangelog(sprintId, boardId ? parseInt(boardId, 10) : undefined),
+            jiraClient.getSprintIssuesWithChangelog(sprintId, boardIdNum),
         ]);
 
         // Calculate utilization and sprint report in parallel
@@ -41,9 +52,18 @@ export async function GET(
             calculateSprintReport(sprint, issues, boardId ? parseInt(boardId, 10) : undefined),
         ]);
 
-        return apiSuccess(utilization, {
-            extra: { report: sprintReport, jiraDomain: process.env.JIRA_DOMAIN || '' },
-        });
+        const body = {
+            success: true,
+            data: utilization,
+            report: sprintReport,
+            jiraDomain: process.env.JIRA_DOMAIN || '',
+        };
+
+        if (sprint.state === 'closed' && boardIdNum !== undefined) {
+            await saveSnapshot(boardIdNum, sprintId, 'check', body);
+        }
+
+        return NextResponse.json(body);
     } catch (error) {
         console.error('Error fetching sprint details:', error);
 
